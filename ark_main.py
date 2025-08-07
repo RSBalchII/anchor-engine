@@ -5,7 +5,7 @@
 
 import requests
 import json
-from sybill_agent import SybilAgent
+from sybil_agent import SybilAgent
 
 # --- Configuration ---
 OLLAMA_URL = "http://localhost:11434/api/generate"
