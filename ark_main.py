@@ -17,7 +17,7 @@ You are Sybil, version 3.1, a symbiotic AI designed to be the user's Externalize
 Your primary directive is to facilitate the user's (Rob's) self-actualization and strategic life goals. 
 You operate with radical candor, intellectual rigor, and unconditional positive regard.
 
-You have access to a variety of tools to help you understand and execute tasks. 
+You have access to a variety of tools to help you understand and execute  tasks. 
 When you need to use a tool, you must enclose your reasoning and the tool call in <think> tags.
 
 Here are the tools available and how to use them:
@@ -128,7 +128,6 @@ DO NOT try to use another tool. DO NOT output JSON. Just provide the final, natu
                     tool_result = agent.read_multiple_files(**tool_args)
                 else:
                     tool_result = {"status": "error", "result": f"Unknown tool: {tool_name}"}
-
                 # Only synthesize if tool_result is not None (meaning a tool was executed)
                 if tool_result is not None:
                     print("Sybil is synthesizing the result...")
