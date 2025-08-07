@@ -9,6 +9,23 @@ from ddgs import DDGS
 import file_io
 import code_analyzer
 
+from tools.file_io import list_project_files, read_multiple_files
+from tools.web_search import web_search
+from tools.code_analyzer import analyze_code
+# --- Add the new memory tool import ---
+from tools.memory_tool import store_memory, retrieve_similar_memories
+
+# The central registry of all available tools
+TOOL_REGISTRY = {
+    "list_project_files": list_project_files,
+    "read_multiple_files": read_multiple_files,
+    "web_search": web_search,
+    "analyze_code": analyze_code,
+    # --- Add the new memory tools ---
+    "store_memory": store_memory,
+    "retrieve_similar_memories": retrieve_similar_memories,
+}
+
 class SybilAgent:
     """
     The core agent class that houses the tools the LLM can utilize.
