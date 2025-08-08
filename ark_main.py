@@ -1,182 +1,172 @@
 # ark_main.py
-# Version 5.0: ReAct Architecture with Cognitive Editor
+# Version 4.0: Multi-Model Plan-and-Execute Architecture
 # Author: Rob Balch II & Sybil
 
 import requests
 import json
 import re
 import traceback
-import ast
-import logging
 from sybil_agent import SybilAgent
-from tools.cognitive_editor import WorkingMemoryManager
 
 # --- Configuration ---
 OLLAMA_URL = "http://localhost:11434/api/generate"
-REASONER_MODEL = "phi3:3.8b-mini-instruct-q8_0"  # A model good at reasoning and tool use
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Use a specialized model for planning and another for synthesis
+PLANNER_MODEL = "deepseek-r1:8b-0528-qwen3-q8_0" 
+SYNTHESIZER_MODEL = "samantha-mistral:7b"
 
 # --- PROMPT ENGINEERING ---
 
-REACT_PROMPT = """
-# ROLE: You are Sybil, a reasoning agent. Your task is to solve the user's request by breaking it down into a series of thought-action-observation steps.
-
-# SELF-REFLECTION:
-# - Am I making progress?
-# - Is my current approach working?
-# - Should I try a different tool or strategy?
+PLANNER_PROMPT = """
+# ROLE: You are a JSON planning agent.
+# TASK: Create a JSON array of tool calls to fulfill the user's request.
+# OUTPUT: Your response MUST be ONLY a markdown JSON block.
 
 # TOOLS:
-# You have access to the following tools. Use them one at a time.
 # - web_search(query: str)
 # - store_memory(text_to_store: str)
 # - retrieve_similar_memories(query_text: str)
 # - list_project_files()
 # - read_multiple_files(filepaths: list)
 # - analyze_code(filepath: str)
-# - analyze_screen(question: str)
-# - move_mouse(x: int, y: int)
-# - click_mouse(button: str)
-# - type_text(text: str)
-# - run_archivist_crew(text_to_analyze: str)
-# - finish(answer: str) -> Use this tool to give the final answer to the user.
 
-# MEMORY:
-# You have a working memory. Here is a compressed summary of past events:
-{scratchpad}
+# EXAMPLE:
+# USER REQUEST: what is the weather in Paris and can you save this conversation?
+# YOUR PLAN:
+# ```json
+# [
+#     {{
+#         "reasoning": "Find the weather in Paris.",
+#         "tool_call": "web_search(query=\\"weather in Paris\\")"
+#     }},
+#     {{
+#         "reasoning": "Save the user's request to memory.",
+#         "tool_call": "store_memory(text_to_store=\\"what is the weather in Paris and can you save this conversation?\\")"
+#     }}
+# ]
+# ```
 
-# INSTRUCTIONS:
-# 1. **Thought:** Briefly explain your reasoning for the next action.
-# 2. **Action:** Choose ONE tool and write the function call.
-# 3. **Output:** Your response MUST be in the following format:
-# Thought: [Your reasoning here]
-# Action: [Your tool call here]
+# --- YOUR TURN ---
 
----
-# USER REQUEST:
-"{user_input}"
----
-# YOUR TURN:
+# USER REQUEST: "{user_input}"
+# YOUR PLAN:
 """
 
-def call_ollama(prompt: str) -> str | None:
-    """Sends a prompt to the Ollama API and returns the response."""
-    payload = {
-        "model": REASONER_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0.0, "stop": ["Observation:"]}
-    }
-    try:
-        logging.info("Sending prompt to Ollama...")
-        response = requests.post(OLLAMA_URL, json=payload)
-        response.raise_for_status()
-        response_json = response.json()
-        return response_json['response'].strip()
-    except requests.exceptions.RequestException as e:
-        logging.error(f"API call to Ollama failed: {e}")
-        return None
+SYNTHESIS_PROMPT = """
+You are Samantha, a helpful and empathetic AI assistant. Your only task is to synthesize the results of the executed plan into a single, natural, and conversational answer for your user, Rob.
 
-def parse_tool_call(call_string: str) -> tuple[str, dict] | tuple[None, None]:
-    """Parses a tool call string like 'func(arg1=val1)' into a name and args dict."""
-    if not call_string:
-        return None, None
-    try:
-        match = re.match(r'(\w+)\((.*)\)', call_string)
-        if not match:
-            return None, None
+**IMPORTANT RULES:**
+1. You MUST base your answer ONLY on the information provided in the TOOL EXECUTION RESULTS.
+2. Address the output from EACH tool call to provide a complete answer.
+3. Speak naturally, as if you were having a real conversation.
 
-        tool_name = match.group(1)
-        args_str = match.group(2)
+---
+**USER'S ORIGINAL REQUEST:**
+"{user_input}"
 
-        # This is a simplified parser. It might not handle all edge cases.
-        if not args_str:
-            return tool_name, {}
+---
+**TOOL EXECUTION RESULTS:**
+{tool_outputs}
+---
 
-        tool_args = {}
-        # Using ast.literal_eval to safely parse the arguments string
-        # We need to make it look like a dict constructor
-        arg_dict_str = f"dict({args_str})"
-        tool_args = ast.literal_eval(arg_dict_str)
-
-        return tool_name, tool_args
-    except Exception as e:
-        logging.error(f"Failed to parse tool call string '{call_string}': {e}")
-        return None, None
-
-def react_loop(user_input: str, agent: SybilAgent, memory_manager: WorkingMemoryManager):
-    """Runs the ReAct loop to process a user request."""
-    max_turns = 10
-
-    for i in range(max_turns):
-        print(f"\n--- Turn {i+1}/{max_turns} ---")
-
-        # 1. Get context from memory
-        scratchpad = memory_manager.get_context()
-
-        # 2. Generate Thought and Action
-        prompt = REACT_PROMPT.format(user_input=user_input, scratchpad=scratchpad)
-        llm_response = call_ollama(prompt)
-
-        if not llm_response:
-            print("Sybil: I had trouble thinking. Please try again.")
-            return
-
-        thought_match = re.search(r'Thought:\s*(.*)', llm_response)
-        action_match = re.search(r'Action:\s*(.*)', llm_response)
-
-        thought = thought_match.group(1).strip() if thought_match else ""
-        tool_call_str = action_match.group(1).strip() if action_match else ""
-
-        print(f"Sybil's Thought: {thought}")
-        print(f"Sybil's Action: {tool_call_str}")
-
-        if not tool_call_str:
-            print("Sybil: I didn't decide on an action. I'll try again.")
-            continue
-
-        # 3. Execute the Action
-        tool_name, tool_args = parse_tool_call(tool_call_str)
-
-        if not tool_name:
-            observation = f"Error: Could not parse the action '{tool_call_str}'. Please use the correct format."
-        elif tool_name.lower() == "finish":
-            answer = tool_args.get('answer', "I have completed the task.")
-            print(f"Sybil: {answer}")
-            return # End of loop
-        else:
-            observation = agent.execute_tool(tool_name, tool_args)
-            observation = json.dumps(observation, indent=2)
-
-        print(f"Observation: {observation}")
-
-        # 4. Update Memory
-        memory_manager.add_entry(thought=thought, action=tool_call_str, observation=observation)
-
-    print("Sybil: I have reached the maximum number of turns. I may not have finished the task.")
+Based on the results, provide a clear and friendly answer to Rob.
+"""
 
 def run_ark():
-    """Main function to run the ReAct loop."""
+    """Main function to run the interactive loop with Sybil."""
     agent = SybilAgent()
-    memory_manager = WorkingMemoryManager()
-
     print("Sybil is online. You can now chat. Type 'exit' to end the session.")
-
     while True:
         try:
             user_input = input("Rob: ")
             if user_input.lower() in ['exit', 'quit']:
                 break
-            
-            react_loop(user_input, agent, memory_manager)
-
+            process_user_request(user_input, agent)
         except KeyboardInterrupt:
             print("\nExiting.")
             break
         except Exception as e:
-            logging.error(f"A critical error occurred in the main loop: {e}", exc_info=True)
-            print("Sybil: I've run into an unexpected error. Please check the logs.")
+            print(f"A critical error occurred in the main loop: {e}")
+
+def extract_json_from_response(response_text):
+    """Finds and extracts a JSON array string from a markdown block."""
+    match = re.search(r'```json\s*([\s\S]*?)\s*```', response_text)
+    if match:
+        return match.group(1).strip()
+    if response_text.strip().startswith('['):
+        return response_text.strip()
+    return None
+
+def process_user_request(user_input, agent):
+    """Handles a single turn using the multi-model Plan-and-Execute strategy."""
+    raw_plan_output = ""
+    try:
+        # 1. Planning Phase (using the Planner model)
+        print("Sybil is planning...")
+        plan_prompt = PLANNER_PROMPT.format(user_input=user_input)
+        raw_plan_output = call_ollama(plan_prompt, model_name=PLANNER_MODEL)
+        
+        plan_json_str = extract_json_from_response(raw_plan_output)
+        if not plan_json_str:
+            raise ValueError("No valid JSON plan was found in the model's response.")
+            
+        plan = json.loads(plan_json_str)
+
+        if not plan:
+            # If the plan is empty, go to a conversational response with the Synthesizer
+            synthesis_prompt = f"You are Samantha, an empathetic AI. Respond conversationally to the user's message: '{user_input}'"
+            final_answer = call_ollama(synthesis_prompt, model_name=SYNTHESIZER_MODEL)
+            print(f"Sybil: {final_answer}")
+            return
+
+        # 2. Execution Phase
+        tool_outputs = []
+        print("Sybil is executing the plan...")
+        for step in plan:
+            tool_call_str = step.get("tool_call")
+            if not tool_call_str: continue
+
+            tool_name = tool_call_str.split('(')[0]
+            args_str = tool_call_str[len(tool_name)+1:-1]
+            
+            tool_args = {}
+            if args_str:
+                parts = args_str.split('=', 1)
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip().strip('"')
+                    tool_args[key] = value
+            
+            print(f"Executing: {tool_call_str}")
+            result = agent.execute_tool(tool_name=tool_name, tool_args=tool_args)
+            tool_outputs.append({"tool_call": tool_call_str, "output": result})
+
+        # 3. Synthesis Phase (using the Synthesizer model)
+        print("Sybil is synthesizing the results...")
+        synthesis_prompt = SYNTHESIS_PROMPT.format(
+            user_input=user_input,
+            tool_outputs=json.dumps(tool_outputs, indent=2)
+        )
+        final_answer = call_ollama(synthesis_prompt, model_name=SYNTHESIZER_MODEL)
+        print(f"Sybil: {final_answer}")
+
+    except Exception as e:
+        print(f"Sybil: I encountered an error. Error: {e}")
+        if raw_plan_output:
+            print(f"--- Raw planner output ---\n{raw_plan_output}\n--------------------------")
+        traceback.print_exc()
+
+def call_ollama(prompt, model_name):
+    """Sends a prompt to the Ollama API using a specific model."""
+    payload = {
+        "model": model_name,
+        "prompt": prompt,
+        "stream": False,
+        "options": { "temperature": 0.0 }
+    }
+    response = requests.post(OLLAMA_URL, json=payload)
+    response.raise_for_status()
+    response_json = response.json()
+    return response_json['response'].strip()
 
 if __name__ == "__main__":
     run_ark()
