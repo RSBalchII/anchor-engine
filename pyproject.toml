@@ -13,6 +13,9 @@ dependencies = [
     "ddgs (>=9.5.2,<10.0.0)",
     "sentence-transformers (>=5.1.0,<6.0.0)",
     "chromadb-client (>=1.0.15,<2.0.0)",
+    "duckduckgo-search (>=8.1.1,<9.0.0)",
+    "onnx (>=1.18.0,<2.0.0)",
+    "onnxruntime (>=1.18.0,<2.0.0)",
 ]
 
 [build-system]

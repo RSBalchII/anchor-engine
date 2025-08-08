@@ -61,3 +61,54 @@ def append_to_file(filepath: str, content: str) -> dict:
         return {'status': 'success', 'result': f"Successfully appended to {filepath}"}
     except Exception as e:
         return {'status': 'error', 'result': str(e)}
+
+def list_project_files(base_path: str = os.getcwd()) -> dict:
+    """
+    Lists all files in the project directory, excluding common hidden directories and files.
+
+    Args:
+        base_path: The base directory to start listing files from. Defaults to current working directory.
+
+    Returns:
+        A dictionary with 'status' and 'result' keys. 'result' is a list of file paths.
+    """
+    file_list = []
+    exclude_dirs = ['.git', '__pycache__', 'chroma_data', 'venv', 'node_modules', '.vscode', '.idea']
+    exclude_files = ['.DS_Store', 'Thumbs.db']
+
+    try:
+        for root, dirs, files in os.walk(base_path):
+            # Modify dirs in-place to skip excluded directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+            for file in files:
+                if file not in exclude_files:
+                    full_path = os.path.join(root, file)
+                    # Make paths relative to the base_path for cleaner output
+                    relative_path = os.path.relpath(full_path, base_path)
+                    file_list.append(relative_path)
+        return {'status': 'success', 'result': file_list}
+    except Exception as e:
+        return {'status': 'error', 'result': str(e)}
+
+def read_multiple_files(filepaths: list) -> dict:
+    """
+    Reads the content of multiple files at the given paths.
+
+    Args:
+        filepaths: A list of paths to the files.
+
+    Returns:
+        A dictionary with 'status' and 'result' keys. 'result' is a dictionary mapping file paths to their content.
+    """
+    results = {}
+    for filepath in filepaths:
+        read_result = read_file(filepath)
+        results[filepath] = read_result
+    
+    # Check if all files were read successfully
+    if all(res.get('status') == 'success' for res in results.values()):
+        return {'status': 'success', 'result': results}
+    else:
+        # If any file failed to read, return an error status with all results
+        return {'status': 'error', 'result': results, 'message': 'One or more files could not be read.'}
