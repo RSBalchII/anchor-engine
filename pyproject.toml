@@ -11,6 +11,8 @@ dependencies = [
     "requests (>=2.32.4,<3.0.0)",
     "beautifulsoup4 (>=4.13.4,<5.0.0)",
     "ddgs (>=9.5.2,<10.0.0)",
+    "ollama (>=0.2.1,<1.0.0)",
+    "pyautogui (>=0.9.54,<1.0.0)",
 ]
 
 

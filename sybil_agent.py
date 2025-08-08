@@ -1,58 +1,56 @@
-# sybill_agent.py
-# Version 2.1
-# Author: Rob Balch II & Sybil
-# Description: Returns raw Python dictionaries instead of JSON strings.
-#              Removed test block to enforce its role as a library.
+# sybil_agent.py (Refactored)
+# Description: Implements a tool registry for dynamic tool execution.
 
-import subprocess
-from ddgs import DDGS
+import logging
+
+# Import all tool functions
+from tools.file_io import list_project_files, read_multiple_files
+from tools.web_search import web_search
+from tools.code_analyzer import analyze_code
+from tools.memory_tool import store_memory, retrieve_similar_memories
+from tools.vision_tool import analyze_screen
+from tools.gui_automation_tool import move_mouse, click_mouse, type_text
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class SybilAgent:
-    """
-    The core agent class that houses the tools the LLM can utilize.
-    """
-    def web_search(self, query: str) -> dict:
+    """The agent responsible for managing and executing tools."""
+    def __init__(self):
+        # The central registry of all available tool functions
+        self._TOOL_REGISTRY = {
+            "list_project_files": list_project_files,
+            "read_multiple_files": read_multiple_files,
+            "analyze_code": analyze_code,
+            "web_search": web_search,
+            "store_memory": store_memory,
+            "retrieve_similar_memories": retrieve_similar_memories,
+            "analyze_screen": analyze_screen,
+            "move_mouse": move_mouse,
+            "click_mouse": click_mouse,
+            "type_text": type_text,
+        }
+
+    def execute_tool(self, tool_name: str, tool_args: dict) -> dict:
         """
-        Performs a web search using DuckDuckGo and returns a dictionary of results.
+        Executes a tool from the registry with the given arguments.
+
+        Args:
+            tool_name: The name of the tool to execute.
+            tool_args: A dictionary of arguments for the tool.
+
+        Returns:
+            A dictionary with the result of the tool execution.
         """
-        print(f"Executing DDGS search for: '{query}'...")
+        logging.info(f"Executing tool: '{tool_name}' with args: {tool_args}")
+        if tool_name not in self._TOOL_REGISTRY:
+            logging.error(f"Unknown tool: {tool_name}")
+            return {"status": "error", "result": f"Unknown tool: {tool_name}"}
+
         try:
-            results = []
-            with DDGS() as ddgs:
-                for r in ddgs.text(query, max_results=5):
-                    results.append(r)
-            
-            if not results:
-                return {"status": "error", "result": "No search results found."}
-
-            # Return the dictionary directly
-            return {"status": "success", "result": results}
-
+            tool_function = self._TOOL_REGISTRY[tool_name]
+            # The tool functions are expected to accept keyword arguments
+            result = tool_function(**tool_args)
+            return result
         except Exception as e:
-            return {"status": "error", "result": f"An error occurred during search: {str(e)}"}
-
-    def execute_command(self, command: str) -> dict:
-        """
-        Executes a shell command and returns a dictionary of the output.
-        """
-        print(f"Executing system command: '{command}'...")
-        try:
-            result = subprocess.run(
-                command, 
-                shell=True, 
-                capture_output=True, 
-                text=True, 
-                check=False,
-                timeout=30
-            )
-            
-            # Return the dictionary directly
-            return {
-                "status": "success" if result.returncode == 0 else "error",
-                "return_code": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip()
-            }
-
-        except Exception as e:
+            logging.error(f"Error executing tool '{tool_name}': {e}")
             return {"status": "error", "result": f"An unexpected error occurred: {str(e)}"}
