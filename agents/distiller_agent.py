@@ -6,16 +6,17 @@ import os
 from datetime import datetime
 from tools.file_io import read_last_n_chars, write_and_truncate
 from tools.blackboard import Blackboard
+from config import TIER_2_WORKER_MODEL
 
 # --- Configuration ---
 OLLAMA_URL = "http://localhost:11434/api/generate"
-TIER_3_MODEL = "deepseek-v2-code-lite"
+TIER_2_MODEL = TIER_2_WORKER_MODEL
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def run_distiller_worker(task_prompt: str) -> str:
     """
-    Sends a task prompt to the TIER_3_MODEL via the Ollama API.
+    Sends a task prompt to the TIER_2_MODEL via the Ollama API.
 
     Args:
         task_prompt: The prompt to send to the model.
@@ -25,7 +26,7 @@ def run_distiller_worker(task_prompt: str) -> str:
     """
     try:
         payload = {
-            "model": TIER_3_MODEL,
+            "model": TIER_2_MODEL,
             "prompt": task_prompt,
             "stream": False
         }

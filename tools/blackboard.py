@@ -39,6 +39,17 @@ class Blackboard:
         except Exception as e:
             logging.error(f"Error posting message to Blackboard: {e}")
 
+    def post_task(self, queue_name: str, task_data: dict):
+        if not self.redis_client:
+            logging.error("Cannot post task: Redis client not initialized.")
+            return
+        try:
+            json_task = json.dumps(task_data)
+            self.redis_client.rpush(queue_name, json_task)
+            logging.info(f"Task posted to {queue_name}: {task_data.get('type', 'unknown')}")
+        except Exception as e:
+            logging.error(f"Error posting task to Redis queue {queue_name}: {e}")
+
     def read_latest_messages(self, n: int) -> list:
         if not self.redis_client:
             logging.error("Cannot read messages: Redis client not initialized.")

@@ -13,19 +13,18 @@ from tools.cognitive_editor import WorkingMemoryManager
 from tools.file_io import append_to_file
 from agents.distiller_agent import DistillerAgent
 from tools.blackboard import Blackboard
+from agents.orchestrator import AgentOrchestrator
+import threading
+from config import STRATEGIST_MODEL, LOCUS_MODEL, MAIN_CONTEXT_FILE
 
 # --- Configuration ---
 OLLAMA_URL = "http://localhost:11434/api/generate"
 # Stage 1: The fast Locus for planning and easy tasks
-PLANNER_MODEL_FAST = "deepseek-v2-code-lite"
+PLANNER_MODEL_FAST = LOCUS_MODEL
 # Stage 2: The heavy-lifter for complex tasks, used on escalation
-PLANNER_MODEL_APEX = "deepseek-v2-code-lite"
+PLANNER_MODEL_APEX = STRATEGIST_MODEL
 # The fast model for conversational synthesis
-SYNTHESIZER_MODEL = "deepseek-v2-code-lite"
-# The file where raw conversation is stored
-MAIN_CONTEXT_FILE = "main_context.md"
-
-STRATEGIST_MODEL = 'granite3.1'
+SYNTHESIZER_MODEL = LOCUS_MODEL
 blackboard = Blackboard()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -316,4 +315,7 @@ def call_ollama(prompt, model_name):
     return response_json['response'].strip()
 
 if __name__ == "__main__":
+    orchestrator = AgentOrchestrator()
+    orchestrator_thread = threading.Thread(target=orchestrator.start, daemon=True)
+    orchestrator_thread.start()
     run_ark()

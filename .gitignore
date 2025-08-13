@@ -6,3 +6,7 @@ archivist_blackboard.md
 
 # Python cache
 __pycache__/
+
+# Docker
+docker-compose.override.yml
+**/Dockerfile
