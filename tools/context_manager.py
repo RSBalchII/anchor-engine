@@ -17,20 +17,20 @@ def save_context(filepath: str, conversation_history: list):
     with open(filepath, 'w') as f:
         json.dump(conversation_history, f, indent=2)
 
-def add_turn_to_context(conversation_history: list, user_input: str, sybil_response: str) -> list:
+def add_turn_to_context(conversation_history: list, user_input: str, Coda_response: str) -> list:
     """
     Adds a new turn to the conversation history.
 
     Args:
         conversation_history: The current conversation history.
         user_input: The user's input for the current turn.
-        sybil_response: Sybil's response for the current turn.
+        Coda_response: Coda's response for the current turn.
 
     Returns:
         The updated conversation history.
     """
     conversation_history.append({
         "user": user_input,
-        "sybil": sybil_response
+        "Coda": Coda_response
     })
     return conversation_history

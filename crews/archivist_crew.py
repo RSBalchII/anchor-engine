@@ -57,5 +57,5 @@ def run_archivist_crew(text_to_analyze: str) -> str:
 
 if __name__ == '__main__':
     # This is an example of how to use the tool in a script.
-    example_text = "Rob: I have a bug in the code. Sybil: I see. Did you try reverting the commit? Rob: No, I didn't think of that. I will try it now. Sybil: Good plan. Let me know when you're done. Rob: Ok, it's fixed now! What's next? Sybil: Great job. Now we can test the new feature."
+    example_text = "Rob: I have a bug in the code. Coda: I see. Did you try reverting the commit? Rob: No, I didn't think of that. I will try it now. Coda: Good plan. Let me know when you're done. Rob: Ok, it's fixed now! What's next? Coda: Great job. Now we can test the new feature."
     print(run_archivist_crew(example_text))

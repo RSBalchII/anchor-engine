@@ -93,13 +93,13 @@ class ExtractionAgent:
                 "thinking_content": ""
             })
 
-        sybil_response_match = re.search(r'<model-response>(.*?)</model-response>', page_html, re.DOTALL)
-        if sybil_response_match:
-            thinking_match = re.search(r'<div data-test-id="thoughts-content".*?>(.*?)</div>', sybil_response_match.group(1), re.DOTALL)
+        Coda_response_match = re.search(r'<model-response>(.*?)</model-response>', page_html, re.DOTALL)
+        if Coda_response_match:
+            thinking_match = re.search(r'<div data-test-id="thoughts-content".*?>(.*?)</div>', Coda_response_match.group(1), re.DOTALL)
             extracted_content.append({
-                "type": "Sybil",
+                "type": "Coda",
                 "timestamp": datetime.now().isoformat(),
-                "response_content": sybil_response_match.group(1).strip(),
+                "response_content": Coda_response_match.group(1).strip(),
                 "thinking_content": thinking_match.group(1).strip() if thinking_match else ""
             })
             
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     <div id="chat-container">
       <user-query>What are the key components of our architecture?</user-query>
       <model-response>
-        Sybil is planning...
+        Coda is planning...
         <div data-test-id="thoughts-content">
           Thinking about the architecture...
         </div>

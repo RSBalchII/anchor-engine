@@ -20,6 +20,14 @@ dependencies = [
     "pyautogui (>=0.9.54,<1.0.0)",
 ]
 
+[tool.poetry]
+packages = [
+    { include = "agents" },
+    { include = "chimaera" },
+    { include = "crews" },
+    { include = "tools" },
+]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

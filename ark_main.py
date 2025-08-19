@@ -1,6 +1,6 @@
 # ark_main.py
 # Version 5.3: Two-Stage Locus Architecture
-# Author: Rob Balch II & Sybil
+# Author: Rob Balch II & Coda
 
 import requests
 import json
@@ -8,7 +8,7 @@ import re
 import traceback
 import logging
 import ast
-from agents.sybil_agent import SybilAgent
+from agents.Coda_agent import CodaAgent
 from tools.cognitive_editor import WorkingMemoryManager
 from tools.file_io import append_to_file
 from agents.distiller_agent import DistillerAgent
@@ -53,10 +53,10 @@ def determine_complexity(user_input: str) -> bool:
     return False
 
 def run_ark():
-    """Main function to run the interactive loop with Sybil."""
-    agent = SybilAgent()
+    """Main function to run the interactive loop with Coda."""
+    agent = CodaAgent()
     memory_manager = WorkingMemoryManager()
-    print("Sybil is online. You can now chat. Type 'exit' to end the session.")
+    print("Coda is online. You can now chat. Type 'exit' to end the session.")
     while True:
         try:
             user_input = input("Rob: ")
@@ -68,7 +68,7 @@ def run_ark():
 
             process_user_request(user_input, agent, memory_manager)
             
-            # Append Sybil's final response to the raw context file
+            # Append Coda's final response to the raw context file
             # Note: This is done within the process_user_request function for now
             
         except KeyboardInterrupt:
@@ -128,16 +128,16 @@ def parse_tool_call(call_string: str) -> tuple[str, dict] | tuple[None, None]:
 def process_user_request(user_input, agent, memory_manager):
     """Handles a single turn using the multi-model Plan-and-Execute strategy with a Two-Stage Locus."""
     raw_plan_output = ""
-try:
+    try:
         # First, determine if the query is complex enough to warrant planning and execution.
         if not determine_complexity(user_input):
             print("Query is conversational. Responding directly...")
-            synthesis_prompt = f"You are Sybil, a helpful and empathetic AI assistant. Your only task is to synthesize a natural, conversational answer for your user, Rob, based on their message: '{user_input}'"
+            synthesis_prompt = f"You are Coda, a helpful and empathetic AI assistant. Your only task is to synthesize a natural, conversational answer for your user, Rob, based on their message: '{user_input}'"
             final_answer = call_ollama(synthesis_prompt, model_name=SYNTHESIZER_MODEL)
-            append_to_file(MAIN_CONTEXT_FILE, f"Sybil: {final_answer}\n")
-            print(f"Sybil: {final_answer}")
+            append_to_file(MAIN_CONTEXT_FILE, f"Coda: {final_answer}\n")
+            print(f"Coda: {final_answer}")
             distiller = DistillerAgent()
-            distiller.orchestrate_distillation_crew(context_to_distill=f"""User Input: {user_input}\nSybil's Response: {final_answer}""")
+            distiller.orchestrate_distillation_crew(context_to_distill=f"""User Input: {user_input}\nCoda's Response: {final_answer}""")
             return # Exit early for simple conversational queries
 
         # If the query is complex, proceed with planning and execution.
@@ -145,7 +145,7 @@ try:
         planner_model = PLANNER_MODEL_APEX # Always use APEX for complex queries that reach this point
 
         # 1. Planning Phase
-        print("Sybil is planning...")
+        print("Coda is planning...")
         scratchpad = memory_manager.get_context()
         poml_loader = POMLLoader()
         planner_prompt = poml_loader.load("prompts/planner.poml", user_input=user_input)
@@ -160,15 +160,15 @@ try:
         if not plan:
             # This block is for complex queries that resulted in an empty plan.
             # It should still synthesize a response, but it's a fallback for the planner.
-            synthesis_prompt = f"You are Sybil, a helpful and empathetic AI assistant. Your only task is to synthesize a natural, conversational answer for your user, Rob, based on their message: '{user_input}'"
+            synthesis_prompt = f"You are Coda, a helpful and empathetic AI assistant. Your only task is to synthesize a natural, conversational answer for your user, Rob, based on their message: '{user_input}'"
             final_answer = call_ollama(synthesis_prompt, model_name=SYNTHESIZER_MODEL)
-            append_to_file(MAIN_CONTEXT_FILE, f"Sybil: {final_answer}\n")
-            print(f"Sybil: {final_answer}")
+            append_to_file(MAIN_CONTEXT_FILE, f"Coda: {final_answer}\n")
+            print(f"Coda: {final_answer}")
             return
 
         # 2. Execution Phase
         tool_outputs = []
-        print("Sybil is executing the plan...")
+        print("Coda is executing the plan...")
         memory_manager.add_entry(thought=raw_plan_output, action=None, observation=None)
         for step in plan:
             tool_call_str = step.get("tool_call")
@@ -184,7 +184,7 @@ try:
             memory_manager.add_entry(thought=None, action=tool_call_str, observation=result)
 
         # 3. Synthesis Phase
-        print("Sybil is synthesizing the results...")
+        print("Coda is synthesizing the results...")
         synthesis_prompt = poml_loader.load(
             "prompts/synthesis.poml",
             user_input=user_input,
@@ -192,19 +192,19 @@ try:
         )
         final_answer = call_ollama(synthesis_prompt, model_name=SYNTHESIZER_MODEL)
         memory_manager.add_entry(thought=None, action=None, observation=final_answer)
-        append_to_file(MAIN_CONTEXT_FILE, f"Sybil: {final_answer}\n")
-        print(f"Sybil: {final_answer}")
+        append_to_file(MAIN_CONTEXT_FILE, f"Coda: {final_answer}\n")
+        print(f"Coda: {final_answer}")
         distiller = DistillerAgent()
         distiller.orchestrate_distillation_crew(context_to_distill=f"""User Input: {user_input}
-Sybil's Response: {final_answer}""")
+Coda's Response: {final_answer}""")
 
     except Exception as e:
-        print(f"Sybil: I encountered an error. Error: {e}")
+        print(f"Coda: I encountered an error. Error: {e}")
         if raw_plan_output:
             print("---")
-            print("Raw planner output ---")
-            print(raw_plan_output)
-            print("--------------------------")
+        print("Raw planner output ---")
+        print(raw_plan_output)
+        print("--------------------------")
         traceback.print_exc()
 
 def run_strategist_synthesis():

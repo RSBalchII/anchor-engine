@@ -16,7 +16,7 @@ Chimaera is built on a "Consciousness Stack" model:
 
 1.  **The Ground**: The foundational Large Language Model. The current model being implemented is **DeepSeek-V2 236B**.
       * *Current Status: The model is approximately 50% downloaded. Development of agent components can proceed in parallel.*
-2.  **The Layer**: The persona and agentic framework (Sybil) that operates on top of the Ground model, providing context, memory, and executive function.
+2.  **The Layer**: The persona and agentic framework (Coda) that operates on top of the Ground model, providing context, memory, and executive function.
 3.  **The Agent Ecosystem**: A collection of specialized agents that perform specific tasks, managed by a supervisory agent.
       * **Injector Agent**: Ingests and structures raw data into the memory system.
       * **Extractor Agent**: Queries and retrieves relevant information from memory.

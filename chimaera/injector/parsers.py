@@ -21,10 +21,10 @@ def parse_conversation_log(file_path: str) -> list:
         for entry in log_data:
             content = entry.get('response_content')
             timestamp = entry.get('timestamp')
-            entry_type = entry.get('type') # "Sybil" or "User"
+            entry_type = entry.get('type') # "Coda" or "User"
 
             if content and timestamp and entry_type:
-                author = "User" if entry_type.lower() == "user" else "Sybil"
+                author = "User" if entry_type.lower() == "user" else "Coda"
                 
                 memory_entry = create_memory_entry(
                     content=content,

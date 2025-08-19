@@ -1,4 +1,4 @@
-# sybil_agent.py (Refactored)
+# Coda_agent.py (Refactored)
 # Description: Implements a tool registry for dynamic tool execution.
 
 import logging
@@ -15,7 +15,7 @@ from tools.cognitive_editor import WorkingMemoryManager # New: Import the memory
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class SybilAgent:
+class CodaAgent:
     """The agent responsible for managing and executing tools."""
     def __init__(self):
         # The central registry of all available tool functions

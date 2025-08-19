@@ -6,11 +6,11 @@ import requests
 import json
 import logging
 import os
-import random # Used for simulation
+import random  # Used for simulation
 import graphr1
 import uuid
-from tools.file_io import read_last_n_chars
 from tools.blackboard import Blackboard
+from tools.file_io import read_last_n_chars, write_and_truncate
 from config import TIER_2_WORKER_MODEL
 
 # --- Configuration ---
@@ -61,27 +61,11 @@ class ArchivistAgent:
         self.blackboard = Blackboard()
         # self.memory_archive = self.chroma_client.get_or_create_collection(name="memory_archive") # TODO: Replace with GraphR1 equivalent
 
-    def _manage_blackboard(self, new_content: str):
+    def _manage_blackboard(self, new_content: str, max_size: int = 5000):
         """
         Appends new content to the blackboard and truncates it to a maximum size.
         """
-        max_size = 5000
-        
-        if os.path.exists(self.blackboard_path):
-            with open(self.blackboard_path, "r") as f:
-                existing_content = f.read()
-        else:
-            existing_content = ""
-
-        combined_content = existing_content + new_content
-
-        if len(combined_content) > max_size:
-            truncated_content = combined_content[-max_size:]
-        else:
-            truncated_content = combined_content
-        
-        with open(self.blackboard_path, "w") as f:
-            f.write(truncated_content)
+        write_and_truncate(self.blackboard_path, new_content, max_size)
 
     def orchestrate_context_management(self, context_chunk: str) -> str:
         """
