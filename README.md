@@ -9,7 +9,7 @@
 
 ### 🚀 Current Status & Achieved Architecture
 
-We have successfully built and tested the core of the Ark's memory system. This is no longer a theoretical design; it is a live, learning prototype. The current architecture represents the implemented foundation of the larger vision.
+We have successfully built and tested the core of the Chimaera memory system. This is no longer a theoretical design; it is a live, learning prototype. The current architecture represents the implemented foundation of the larger vision.
 
 #### **Current Functioning Data Pipeline & Knowledge Graph**
 
