@@ -17,6 +17,10 @@ class ArchiveInput(BaseModel):
     """Input schema for the ArchivistAgent tool."""
     structured_summary: str = Field(description="A structured summary (ideally in JSON format) containing insights and relationships to be saved to the knowledge graph.")
 
+class ExtractInput(BaseModel):
+    """Input schema for the ExtractorAgent tool."""
+    question: str = Field(description="A natural language question about a topic that may be in the knowledge graph.")
+
 # === Tool Implementations ===
 
 class DistillerAgent(Tool):
@@ -27,7 +31,7 @@ class DistillerAgent(Tool):
     """
     def __init__(self, llm):
         super().__init__()
-        self.llm = llm  # The tool is initialized with an LLM instance by the framework
+        self.llm = llm
         self.name = "DistillerAgent"
         self.description = (
             "Analyzes raw text (e.g., session logs) to identify and summarize key insights, "
@@ -36,13 +40,8 @@ class DistillerAgent(Tool):
         self.input_model = DistillInput
 
     def _run(self, tool_input: DistillInput) -> str:
-        """
-        The core logic for the DistillerAgent tool.
-        This function will be executed when the OrchestraAgent calls this tool.
-        """
+        """The core logic for the DistillerAgent tool."""
         print(f"🕵️  DistillerAgent activated. Analyzing text...")
-        
-        # We instruct the LLM to return a JSON string for easy parsing downstream.
         prompt = f"""
         You are an expert data distiller. Analyze the following text and extract the most
         critical insights, key decisions, and conceptual relationships.
@@ -57,7 +56,6 @@ class DistillerAgent(Tool):
         Respond with only the JSON object.
         Distilled JSON:
         """
-
         try:
             response = self.llm.invoke(prompt)
             print("✅ Distillation complete.")
@@ -65,7 +63,6 @@ class DistillerAgent(Tool):
         except Exception as e:
             print(f"❌ ERROR in DistillerAgent: {e}")
             return f"An error occurred during distillation: {e}"
-
 
 class ArchivistAgent(Tool):
     """
@@ -84,22 +81,13 @@ class ArchivistAgent(Tool):
         self.input_model = ArchiveInput
 
     def _run(self, tool_input: ArchiveInput) -> str:
-        """
-        The core logic for the ArchivistAgent tool.
-        """
+        """The core logic for the ArchivistAgent tool."""
         print(f"🗄️  ArchivistAgent activated. Preparing to write to knowledge graph...")
-
-        # In a real implementation, this is where you would connect to Neo4j.
-        # For now, we will simulate the process.
         print("   (Simulating Neo4j connection...)")
-
         try:
-            # For now, we'll just confirm that we received the data.
-            # Later, this will involve generating Cypher queries from the JSON.
             summary_data = json.loads(tool_input.structured_summary)
             nodes_created = len(summary_data.get("key_concepts", []))
             rels_created = len(summary_data.get("relationships", []))
-            
             success_message = f"✅ Archive complete. (Simulated) Persisted {nodes_created} nodes and {rels_created} relationships to the graph."
             print(success_message)
             return success_message
@@ -112,4 +100,38 @@ class ArchivistAgent(Tool):
             print(error_message)
             return error_message
 
-# We will add the ExtractorAgent and InjectorAgent classes here next.
+class ExtractorAgent(Tool):
+    """
+    A tool that embodies the ExtractorAgent. It takes a natural language question,
+    translates it into a Cypher query, executes it against the Neo4j knowledge
+    graph, and returns the result as a context string.
+    """
+    def __init__(self, llm):
+        super().__init__()
+        self.llm = llm
+        self.name = "ExtractorAgent"
+        self.description = (
+            "Answers a user's question by searching for relevant information in the "
+            "long-term Neo4j knowledge graph. Use this to retrieve persisted memories."
+        )
+        self.input_model = ExtractInput
+
+    def _run(self, tool_input: ExtractInput) -> str:
+        """The core logic for the ExtractorAgent tool."""
+        print(f"🔎 ExtractorAgent activated. Querying knowledge graph for: '{tool_input.question}'")
+
+        # Step 1: Use LLM to translate the natural language question into a Cypher query
+        print("   (Simulating NL to Cypher translation...)")
+        # In a real implementation, this would be an LLM call with a specific prompt.
+        simulated_cypher_query = f"MATCH (n) WHERE n.name CONTAINS '{tool_input.question}' RETURN n.summary"
+        print(f"   Simulated Cypher Query: {simulated_cypher_query}")
+
+        # Step 2: Connect to the database and execute the query
+        print("   (Simulating Neo4j connection and query execution...)")
+
+        # Step 3: Return the results as a formatted string
+        simulated_result = "Based on the knowledge graph, the refactor to the Youtu-agent framework was initiated to increase long-term velocity and adopt a more scalable foundation."
+        print("✅ Extraction complete.")
+        return simulated_result
+
+# We will add the InjectorAgent class here in the final step.
