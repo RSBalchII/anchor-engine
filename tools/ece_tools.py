@@ -2,9 +2,10 @@
 # This file contains the implementation of the core tools for the
 # External Context Engine (ECE), used by the OrchestraAgent.
 
+import json
 from youtu_agent.tool import Tool
 from pydantic import BaseModel, Field
-import json
+from utils.db_manager import db_manager # <-- IMPORT our new DB manager
 
 # === Input Schemas for Tools ===
 # Using Pydantic models to define clear, validated input schemas for each tool.
@@ -87,13 +88,21 @@ class ArchivistAgent(Tool):
 
     def _run(self, tool_input: ArchiveInput) -> str:
         """The core logic for the ArchivistAgent tool."""
-        print(f"🗄️  ArchivistAgent activated. Preparing to write to knowledge graph...")
-        print("   (Simulating Neo4j connection...)")
+        print(f"🗄️  ArchivistAgent activated. Writing to knowledge graph...")
+
         try:
             summary_data = json.loads(tool_input.structured_summary)
-            nodes_created = len(summary_data.get("key_concepts", []))
-            rels_created = len(summary_data.get("relationships", []))
-            success_message = f"✅ Archive complete. (Simulated) Persisted {nodes_created} nodes and {rels_created} relationships to the graph."
+            # This is a simplified example. A real implementation would generate
+            # more complex Cypher queries to create nodes and relationships.
+            concepts = summary_data.get("key_concepts", [])
+            for concept in concepts:
+                # MERGE is an idempotent operation: it creates if not exists, otherwise matches.
+                db_manager.execute_query(
+                    "MERGE (c:Concept {name: $name})",
+                    parameters={"name": concept}
+                )
+            
+            success_message = f"✅ Archive complete. Persisted {len(concepts)} concepts to the graph."
             print(success_message)
             return success_message
         except json.JSONDecodeError:
@@ -101,7 +110,7 @@ class ArchivistAgent(Tool):
             print(error_message)
             return error_message
         except Exception as e:
-            error_message = f"❌ ERROR in ArchivistAgent: {e}"
+            error_message = f"❌ ERROR in ArchivistAgent during DB operation: {e}"
             print(error_message)
             return error_message
 
@@ -124,13 +133,25 @@ class ExtractorAgent(Tool):
     def _run(self, tool_input: ExtractInput) -> str:
         """The core logic for the ExtractorAgent tool."""
         print(f"🔎 ExtractorAgent activated. Querying knowledge graph for: '{tool_input.question}'")
-        print("   (Simulating NL to Cypher translation...)")
-        simulated_cypher_query = f"MATCH (n) WHERE n.name CONTAINS '{tool_input.question}' RETURN n.summary"
-        print(f"   Simulated Cypher Query: {simulated_cypher_query}")
-        print("   (Simulating Neo4j connection and query execution...)")
-        simulated_result = "Based on the knowledge graph, the refactor to the Youtu-agent framework was initiated to increase long-term velocity and adopt a more scalable foundation."
-        print("✅ Extraction complete.")
-        return simulated_result
+
+        # For now, we use a simple query. Later, we'll use an LLM for NL->Cypher.
+        query = "MATCH (c:Concept) WHERE c.name CONTAINS $search_term RETURN c.name AS name"
+        parameters = {"search_term": tool_input.question}
+        
+        try:
+            results = db_manager.execute_query(query, parameters)
+            if not results:
+                return "No relevant concepts found in the knowledge graph."
+
+            # Format the results into a clean string
+            found_concepts = [record["name"] for record in results]
+            response = f"Found the following related concepts: {', '.join(found_concepts)}"
+            print(f"✅ Extraction complete. {response}")
+            return response
+        except Exception as e:
+            error_message = f"❌ ERROR in ExtractorAgent during DB operation: {e}"
+            print(error_message)
+            return error_message
 
 class InjectorAgent(Tool):
     """
@@ -151,9 +172,7 @@ class InjectorAgent(Tool):
     def _run(self, tool_input: InjectInput) -> str:
         """The core logic for the InjectorAgent tool."""
         print(f"🧠 InjectorAgent activated. Beginning graph optimization (Depth: {tool_input.analysis_depth})...")
-        # The actual Q-learning or graph analysis logic is highly complex and
-        # will be implemented here in the future.
-        # For now, we simulate the initiation of this process.
+        # Placeholder for the complex Q-learning logic.
         result = f"✅ (Simulated) Asynchronous graph optimization process initiated with depth '{tool_input.analysis_depth}'. The graph will be improved over time."
         print(result)
         return result
