@@ -1,8 +1,8 @@
 # requirements.txt
-# Dependencies for the Chimaera ECE (Youtu-agent refactor)
+# Dependencies for the Chimaera ECE
 
 # Core agent framework
-youtu-agent
+Elysia
 
 # For loading configuration from .env files (good practice for API keys)
 python-dotenv

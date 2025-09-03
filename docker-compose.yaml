@@ -1,17 +1,11 @@
 services:
   chimaera-dev:
-    # Build the image from the Dockerfile in the current directory
     build:
       context: .
-    # Keep the container running and allow for interactive sessions
     tty: true
     stdin_open: true
     volumes:
-      # Mount the entire local project directory to /app in the container
-      # This means changes you make on your host machine are instantly reflected in the container
       - .:/app
-      # Mount Ollama's model directory from the host to /models in the container
-      # Using Ollama's default model storage location on Linux
       - ~/.ollama/models:/models
     deploy:
       resources:
@@ -22,7 +16,10 @@ services:
               capabilities: [gpu]
     depends_on:
       - neo4j
-    command: tail -f /dev/null
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "uvicorn src.external_context_engine.main:app --host 0.0.0.0 --port 8000 --reload"
 
   neo4j:
     image: neo4j:latest
@@ -32,7 +29,7 @@ services:
     volumes:
       - neo4j_data:/data
     environment:
-      - NEO4J_AUTH=neo4j/password # Change this to a strong password in production
+      - NEO4J_AUTH=neo4j/password
 
 volumes:
   neo4j_data:
