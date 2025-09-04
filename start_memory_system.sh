@@ -49,7 +49,7 @@ if ! command_exists docker; then
     exit 1
 fi
 
-if ! command_exists docker-compose; then
+if ! command_exists docker && ! docker compose version >/dev/null 2>&1; then
     echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
     echo "Visit: https://docs.docker.com/compose/install/"
     exit 1
@@ -72,16 +72,16 @@ echo -e "${GREEN}✓ Directories created${NC}"
 echo -e "\n${YELLOW}Step 3: Starting Docker services (Neo4j and Redis)...${NC}"
 
 # Check if services are already running
-if docker-compose ps | grep -q "neo4j.*Up"; then
+if docker compose ps | grep -q "neo4j.*Up"; then
     echo -e "${YELLOW}Neo4j is already running${NC}"
 else
-    docker-compose up -d neo4j
+    docker compose up -d neo4j
 fi
 
-if docker-compose ps | grep -q "redis.*Up"; then
+if docker compose ps | grep -q "redis.*Up"; then
     echo -e "${YELLOW}Redis is already running${NC}"
 else
-    docker-compose up -d redis
+    docker compose up -d redis
 fi
 
 # Wait for services to be ready
