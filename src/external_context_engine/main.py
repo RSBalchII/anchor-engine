@@ -9,6 +9,7 @@ import os
 from .orchestrator import Orchestrator
 from fastapi import FastAPI
 from pydantic import BaseModel
+from .memory_management.api import memory_router
 
 # --- API Data Models ---
 class ChatRequest(BaseModel):
@@ -43,6 +44,10 @@ with open(config_path, 'r') as f:
 
 orchestrator = Orchestrator(config=config['OrchestraAgent'])
 print("✅ Orchestrator initialized and ready.")
+
+# Include memory management routes
+app.include_router(memory_router)
+print("✅ Memory Management System routes mounted.")
 
 
 # --- API Endpoints ---

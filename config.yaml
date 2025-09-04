@@ -80,3 +80,47 @@ InjectorAgent:
   goal: >
     Periodically analyze the knowledge graph to identify areas for optimization and
     use reinforcement learning to infer new connections.
+
+# --- Memory Management Configuration ---
+
+memory_management:
+  agents:
+    enhanced_archivist:
+      enabled: true
+      llm_model: "deepseek-r1:14b-qwen-distill-q4_K_M"
+      max_tokens: 4096
+      max_hops: 5
+      embedding_model: "all-MiniLM-L6-v2"
+      timeout_seconds: 10
+    
+    q_learning:
+      enabled: true
+      learning_rate: 0.1
+      discount_factor: 0.9
+      epsilon: 0.1
+      max_episodes: 1000
+      q_table_path: "./data/q_table.npy"
+    
+    context_builder:
+      enabled: true
+      summarization_strategy: "progressive"
+      max_context_tokens: 4096
+      preserve_technical_details: true
+  
+  cache:
+    redis_url: "redis://localhost:6379"
+    ttl_seconds: 3600
+    max_size_mb: 32768
+    warmup_on_start: true
+  
+  gpu:
+    device: "cuda:0"
+    batch_size: 32
+    mixed_precision: true
+    memory_fraction: 0.8
+  
+  performance:
+    max_concurrent_queries: 100
+    query_timeout_seconds: 5
+    connection_pool_size: 50
+    batch_processing_size: 1000

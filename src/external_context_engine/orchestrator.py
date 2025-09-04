@@ -21,16 +21,17 @@ class Orchestrator:
             raise ValueError("Configuration must contain a 'decision_tree'.")
         self.decision_tree = config['decision_tree']
 
-    def run(self, user_prompt):
+    async def run(self, user_prompt, execute_agents=True):
         """
         The primary decision-making loop of the ECE. It uses the decision tree
-        to determine the user's intent and the corresponding action plan.
+        to determine the user's intent and executes the corresponding agents.
 
         Args:
             user_prompt (str): The input from the user.
+            execute_agents (bool): Whether to execute agents or return plan only.
 
         Returns:
-            str: A formatted string containing the reasoning and action plan.
+            dict: Result containing executed action or action plan.
         """
         print(f"\n--- Orchestrator Loop Start ---")
         print(f"Received prompt: '{user_prompt}'")
@@ -56,18 +57,42 @@ class Orchestrator:
             description = matched_intent['description']
             action_plan = matched_intent['action_plan']
             
-            response = (
-                f"**Reasoning:**\n"
-                f"1. **Intent:** {intent}\n"
-                f"2. **Description:** {description}\n"
-                f"3. **Action Plan:**\n"
-            )
-            for i, step in enumerate(action_plan, 1):
-                response += f"   {i}. {step}\n"
+            result = {
+                "intent": intent,
+                "description": description,
+                "action_plan": action_plan,
+                "executed": False,
+                "result": None
+            }
+            
+            # Execute agents if enabled
+            if execute_agents and hasattr(self, '_agent_factory'):
+                try:
+                    agent_result = await self._execute_agent_plan(intent, user_prompt)
+                    result["executed"] = True
+                    result["result"] = agent_result
+                except Exception as e:
+                    print(f"Error executing agent: {str(e)}")
+                    result["error"] = str(e)
+            
+            # Fallback to text response if not executing
+            if not result["executed"]:
+                response = (
+                    f"**Reasoning:**\n"
+                    f"1. **Intent:** {intent}\n"
+                    f"2. **Description:** {description}\n"
+                    f"3. **Action Plan:**\n"
+                )
+                for i, step in enumerate(action_plan, 1):
+                    response += f"   {i}. {step}\n"
+                result["text_response"] = response
 
         else:
             # This case should ideally not be reached if a 'Default' is defined
-            response = "I'm not sure how to proceed. No matching intent found."
+            result = {
+                "intent": "unknown",
+                "error": "I'm not sure how to proceed. No matching intent found."
+            }
 
         print(f"--- Orchestrator Loop End ---")
-        return response
+        return result

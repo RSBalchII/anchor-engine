@@ -74,7 +74,7 @@ class ArchivistAgent(Tool):
     """
     A tool that embodies the ArchivistAgent. It takes a structured summary and
     persists it into the Neo4j knowledge graph by generating and executing
-    Cypher queries.
+    Cypher queries. Enhanced with LLM integration for intelligent memory management.
     """
     def __init__(self, llm):
         super().__init__()
@@ -85,6 +85,18 @@ class ArchivistAgent(Tool):
             "long-term Neo4j knowledge graph. Use this to persist important information."
         )
         self.input_model = ArchiveInput
+        
+        # Initialize Enhanced Archivist for advanced operations
+        from ..memory_management.agents import EnhancedArchivistAgent
+        from ..tools.utils.db_manager import db_manager
+        self.enhanced_agent = EnhancedArchivistAgent(
+            llm=llm,
+            neo4j_manager=db_manager,
+            q_learning_agent=None,  # Will be injected later
+            cache_manager=None,  # Will be injected later
+            gpu_accelerator=None,  # Will be injected later
+            config={}
+        )
 
     def _run(self, tool_input: ArchiveInput) -> str:
         """The core logic for the ArchivistAgent tool."""
