@@ -1,13 +1,11 @@
 # Use an official Python runtime as the base image
-FROM python:3.9-slim
+FROM explosionai/spacy-models:latest-py3.9
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Install build tools and dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
     libffi-dev \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*

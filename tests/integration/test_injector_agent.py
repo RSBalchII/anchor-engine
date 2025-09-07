@@ -7,7 +7,7 @@ import time
 from typing import Dict, Any
 
 # Base URL for the API
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8001"
 
 class TestInjectorAgentIntegration:
     """Test suite for InjectorAgent integration tests"""
@@ -117,7 +117,7 @@ class TestInjectorAgentIntegration:
         # This test simulates interaction with ArchivistAgent
         # by requesting archival after injection
         payload = {
-            "message": "Inject this context and archive the transaction: {"topic": "Test Injection"}",
+            "message": 'Inject this context and archive the transaction: {"topic": "Test Injection"}',
             "context": {}
         }
         

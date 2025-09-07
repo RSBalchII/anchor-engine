@@ -33,6 +33,9 @@ from src.external_context_engine.memory_management.q_learning.q_learning_agent i
 # Import the CacheManager
 from src.external_context_engine.tools.cache_manager import CacheManager
 
+# Import the InjectorAgent
+from src.external_context_engine.tools.injector_agent import InjectorAgent
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -89,6 +92,10 @@ except Exception as e:
 cache_config = config.get('cache', {})
 cache_manager = CacheManager(config=cache_config)
 logger.info("CacheManager initialized")
+
+# Initialize InjectorAgent
+injector_agent = InjectorAgent(cache_manager=cache_manager, archivist_agent=archivist_agent)
+logger.info("InjectorAgent initialized")
 
 class ChatMessage(BaseModel):
     message: str
@@ -161,6 +168,8 @@ async def chat(chat_message: ChatMessage):
             intent = "archive_memory"
         elif any(keyword in message.lower() for keyword in ["cache", "retrieve", "store in cache", "cached", "memory cache"]):
             intent = "cache_operation"
+        elif any(keyword in message.lower() for keyword in ["inject", "insert", "add to knowledge base", "integrate", "incorporate"]):
+            intent = "inject_context"
         
         # Route to appropriate agent based on intent
         if intent == "web_search":
@@ -231,6 +240,14 @@ async def chat(chat_message: ChatMessage):
             else:
                 response_text = "Please provide cache action (store/retrieve) and required data."
                 agent_used = "CacheManager"
+        elif intent == "inject_context":
+            # For context injection, process the prompt with the InjectorAgent
+            result = await injector_agent.execute({"prompt": message, "context": context})
+            if result.get("injection_status") == "success":
+                response_text = f"Context successfully injected. Confidence score: {result.get('confidence_score', 0):.2f}"
+            else:
+                response_text = f"Failed to inject context: {result.get('error_message', 'Unknown error')}"
+            agent_used = "InjectorAgent"
         else:
             # Default to web search
             result = await web_search_agent.execute(message)
@@ -378,6 +395,22 @@ async def cache_clear():
         return {"success": result}
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# InjectorAgent endpoints
+from src.external_context_engine.tools.injector_agent import AugmentedPrompt
+
+class InjectContextRequest(BaseModel):
+    prompt: str
+
+@app.post("/inject/context")
+async def inject_context(inject_request: InjectContextRequest):
+    """Inject context into a prompt using the InjectorAgent."""
+    try:
+        augmented_prompt = await injector_agent.process(inject_request.prompt)
+        return augmented_prompt
+    except Exception as e:
+        logger.error(f"Error injecting context: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 # QLearningGraphAgent endpoints

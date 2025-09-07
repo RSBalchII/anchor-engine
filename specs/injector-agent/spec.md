@@ -1,52 +1,47 @@
-# Injector Agent Specification
+# InjectorAgent Specification
 
-## 1. User Story
+## Overview
+The InjectorAgent is the primary user interface to the ECE's memory systems. It intelligently queries both the short-term (Redis) and long-term (Neo4j) memory to augment user prompts before they are sent to the final LLM.
 
-As a prompt engineer, I want to inject processed context and information into the appropriate systems or workflows so that the LLM can generate more informed and relevant responses.
+## Purpose
+The InjectorAgent serves as the intelligent context augmentation layer that:
+1. Intercepts user prompts and analyzes them for context needs
+2. Queries the high-speed Redis Context Cache for semantically similar queries
+3. If no relevant cache entries are found, queries the ArchivistAgent for deeper context from Neo4j
+4. Augments the original user prompt with retrieved context to create a richer prompt for the final LLM
 
-## 2. Functional Requirements
+## Key Features
+1. **Intelligent Query Escalation**: Smart routing from fast cache to deep memory retrieval
+2. **Prompt Augmentation**: Skillfully rewrites user prompts to include relevant context
+3. **Memory Layer Integration**: Seamless interaction with both Redis cache and Neo4j knowledge graph
+4. **Performance Optimization**: Prioritizes fast cache lookups while ensuring comprehensive context retrieval
 
-### 2.1 Context Integration
-- The agent must integrate distilled information into knowledge bases or other systems.
-- The agent should handle different types of context data (entities, relationships, key points).
-- The agent must ensure proper formatting and structure for injected data.
+## Data Models
 
-### 2.2 System Interaction
-- The agent must interact with other agents (e.g., ArchivistAgent) to obtain context.
-- The agent should be able to send augmented prompts to the LLM.
-- The agent must handle responses from the LLM and process them accordingly.
+### ContextQuery
+Represents a query for context retrieval:
+- `query_text`: The original user prompt or extracted query text
+- `query_embedding`: Optional vector representation for semantic search
+- `max_cache_results`: Maximum number of results from cache (default: 3)
+- `max_graph_results`: Maximum number of results from graph (default: 5)
 
-### 2.3 Data Verification
-- The agent must verify successful injection of data.
-- The agent should handle any errors or conflicts that arise during injection.
-- The agent must ensure data consistency between the source and target systems.
+### AugmentedPrompt
+Represents a prompt augmented with context:
+- `original_prompt`: The original user prompt
+- `augmented_prompt`: The prompt with added context
+- `context_sources`: List of sources for the added context
+- `confidence_score`: Confidence in the relevance of added context (0.0 to 1.0)
 
-## 3. Non-Functional Requirements
+## API Interface
 
-### 3.1 Performance
-- The agent should perform context integration and system interaction efficiently.
-- The agent should minimize latency in augmenting prompts and sending them to the LLM.
+### Primary Methods
+- `analyze_prompt(prompt: str) -> ContextQuery`: Analyze a prompt to determine context needs
+- `retrieve_context(query: ContextQuery) -> List[Dict]`: Retrieve context from memory layers
+- `augment_prompt(original_prompt: str, context: List[Dict]) -> AugmentedPrompt`: Augment prompt with context
+- `process(user_prompt: str) -> AugmentedPrompt`: Full end-to-end processing
 
-### 3.2 Reliability
-- The agent should handle errors gracefully and provide meaningful error messages.
-- The agent should maintain data integrity during the injection process.
-
-### 3.3 Security
-- The agent should ensure secure access to the systems it interacts with.
-- The agent should implement proper authentication and authorization mechanisms.
-
-## 4. Acceptance Criteria
-
-- Given context data, when the agent integrates it, then it should be correctly formatted and injected into the target system.
-- Given a request to augment a prompt, when the agent processes it, then it should send the augmented prompt to the LLM.
-- Given a failure in data injection or system interaction, when the agent encounters it, then it should provide a clear error message and not crash.
-- Given a response from the LLM, when the agent processes it, then it should handle the response appropriately.
-
-## 5. Review and Acceptance Checklist
-
-- [ ] All functional requirements have been implemented.
-- [ ] All non-functional requirements have been addressed.
-- [ ] Acceptance criteria have been met.
-- [ ] The agent has been tested with various context integration and system interaction scenarios.
-- [ ] Error handling has been implemented and tested.
-- [ ] Security measures have been implemented and verified.
+## Integration Points
+- **Redis Context Cache**: High-speed semantic and generative caching
+- **ArchivistAgent**: Deep memory retrieval from Neo4j knowledge graph
+- **Chat Interface**: Primary entry point for user interactions
+- **Final LLM**: Destination for context-augmented prompts

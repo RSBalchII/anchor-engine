@@ -1,87 +1,62 @@
-# Implementation Plan for Injector Agent
+# InjectorAgent Implementation Plan
 
-## 1. Tech Stack and Architecture
+## Overview
+This document outlines the implementation plan for the InjectorAgent, which serves as the primary user interface to the ECE's memory systems. The agent will intelligently query both short-term and long-term memory to augment user prompts.
 
-- **Programming Language**: Python
-- **Framework**: FastAPI (consistent with the main application)
-- **Libraries**: 
-  - requests or httpx for making HTTP requests to other agents and the LLM
-  - pydantic for data validation
-- **Architecture**: 
-  - The agent will be implemented as a standalone module within the `src/external_context_engine/tools/` directory.
-  - It will expose methods for integrating context and interacting with other systems.
-  - The agent will handle data verification and error handling.
+## Architecture
 
-## 2. Data Models
+### Components
+1. **InjectorAgent Class**: Main interface for context injection operations
+2. **Query Analysis Module**: Analyzes prompts to determine context needs
+3. **Memory Router**: Routes queries to appropriate memory layers
+4. **Prompt Augmentation Engine**: Rewrites prompts with retrieved context
+5. **API Integration**: HTTP endpoints for agent operations
 
-### 2.1 Context Model
-```python
-class Context(BaseModel):
-    entities: List[Dict[str, Any]]
-    relationships: List[Dict[str, Any]]
-    key_points: List[str]
-```
+### Dependencies
+- **CacheManager**: For Redis context cache operations
+- **ArchivistAgent**: For Neo4j knowledge graph access
+- **Natural Language Processing**: For prompt analysis and understanding
 
-### 2.2 Augmented Prompt Model
-```python
-class AugmentedPrompt(BaseModel):
-    original_prompt: str
-    context: Context
-    augmented_text: str
-```
+## Implementation Steps
 
-## 3. API Contracts
+### Phase 1: Core Agent Structure
+1. Implement InjectorAgent class with initialization and configuration
+2. Create data models (ContextQuery, AugmentedPrompt)
+3. Implement basic prompt analysis functionality
+4. Add configuration loading and validation
 
-### 3.1 Inject Context Endpoint
-- **Endpoint**: `/inject`
-- **Method**: POST
-- **Request Body**: `Context`
-- **Response**: `Dict[str, Any]` (confirmation of injection)
+### Phase 2: Memory Layer Integration
+1. Implement Redis cache querying functionality
+2. Implement ArchivistAgent integration for deep memory retrieval
+3. Create intelligent query escalation logic
+4. Add result filtering and ranking mechanisms
 
-### 3.2 Augment Prompt Endpoint
-- **Endpoint**: `/augment`
-- **Method**: POST
-- **Request Body**: `Dict[str, str]` (containing the original prompt)
-- **Response**: `AugmentedPrompt` (the augmented prompt with context)
+### Phase 3: Prompt Augmentation
+1. Implement context-aware prompt rewriting
+2. Add confidence scoring for context relevance
+3. Implement source tracking for augmented content
+4. Add natural language generation for seamless integration
 
-### 3.3 Send to LLM Endpoint
-- **Endpoint**: `/send_to_llm`
-- **Method**: POST
-- **Request Body**: `AugmentedPrompt`
-- **Response**: `Dict[str, Any]` (LLM response)
+### Phase 4: API Integration
+1. Add FastAPI endpoints for agent operations
+2. Implement request/response models
+3. Add error handling and validation
+4. Integrate with existing agent routing logic
 
-## 4. Research and Implementation Details
+### Phase 5: Testing and Optimization
+1. Write unit tests for all agent methods
+2. Create integration tests with real memory systems
+3. Implement performance benchmarks
+4. Optimize for high-concurrency scenarios
 
-- Investigate and implement secure communication with other agents (e.g., ArchivistAgent).
-- Design the data models for context and augmented prompts.
-- Implement the context integration and prompt augmentation methods.
-- Implement error handling for system interactions.
-- Implement authentication and authorization mechanisms for secure access.
-- Optimize prompt augmentation for clarity and effectiveness.
-- Implement logging for monitoring and debugging purposes.
+## Performance Considerations
+- Prioritize fast cache lookups over deep memory retrieval
+- Implement timeouts for memory operations to prevent delays
+- Use connection pooling for efficient resource usage
+- Cache frequently accessed context patterns
 
-## 5. Quickstart Guide
-
-1. Install required dependencies:
-   ```
-   pip install requests pydantic
-   ```
-
-2. Place the agent module in `src/external_context_engine/tools/injector_agent.py`.
-
-3. Configure the connection settings for other agents and the LLM.
-
-4. Use the agent in the application:
-   ```python
-   from src.external_context_engine.tools.injector_agent import InjectorAgent
-
-   agent = InjectorAgent()
-   # Inject context
-   await agent.inject(context)
-   # Augment prompt
-   augmented_prompt = await agent.augment(original_prompt)
-   # Send to LLM
-   llm_response = await agent.send_to_llm(augmented_prompt)
-   ```
-
-5. The agent will handle context integration, prompt augmentation, and communication with the LLM.
+## Error Handling
+- Graceful degradation when memory systems are unavailable
+- Fallback to original prompt when context retrieval fails
+- Comprehensive logging for debugging and monitoring
+- Clear error messages for API consumers
