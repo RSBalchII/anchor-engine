@@ -1,62 +1,15 @@
-# InjectorAgent Implementation Plan
 
-## Overview
-This document outlines the implementation plan for the InjectorAgent, which serves as the primary user interface to the ECE's memory systems. The agent will intelligently query both short-term and long-term memory to augment user prompts.
+# QLearningAgent - plan.md
 
-## Architecture
+This plan outlines the implementation strategy for the `QLearningAgent`.
 
-### Components
-1. **InjectorAgent Class**: Main interface for context injection operations
-2. **Query Analysis Module**: Analyzes prompts to determine context needs
-3. **Memory Router**: Routes queries to appropriate memory layers
-4. **Prompt Augmentation Engine**: Rewrites prompts with retrieved context
-5. **API Integration**: HTTP endpoints for agent operations
+### 1. Core Logic
+* **Language/Framework:** Python 3.11+.
+* **Q-Table Management:** The Q-Table will be implemented using a **NumPy** array for efficient numerical operations. We will create a mapping between graph node IDs and NumPy array indices.
+* **Graph Traversal:** The agent will use the `neo4j` driver to fetch the graph's topology. The Q-Learning algorithm (epsilon-greedy strategy) will be implemented in Python to decide the next action (which node to traverse to) based on the Q-Table values.
 
-### Dependencies
-- **CacheManager**: For Redis context cache operations
-- **ArchivistAgent**: For Neo4j knowledge graph access
-- **Natural Language Processing**: For prompt analysis and understanding
+### 2. Persistence
+* **Strategy:** After a training cycle, the agent will iterate through its updated Q-Table and execute Cypher queries to `MERGE` the Q-values as a property onto the corresponding relationships in the Neo4j graph. This makes the learned intelligence persistent and directly observable in the graph.
 
-## Implementation Steps
-
-### Phase 1: Core Agent Structure
-1. Implement InjectorAgent class with initialization and configuration
-2. Create data models (ContextQuery, AugmentedPrompt)
-3. Implement basic prompt analysis functionality
-4. Add configuration loading and validation
-
-### Phase 2: Memory Layer Integration
-1. Implement Redis cache querying functionality
-2. Implement ArchivistAgent integration for deep memory retrieval
-3. Create intelligent query escalation logic
-4. Add result filtering and ranking mechanisms
-
-### Phase 3: Prompt Augmentation
-1. Implement context-aware prompt rewriting
-2. Add confidence scoring for context relevance
-3. Implement source tracking for augmented content
-4. Add natural language generation for seamless integration
-
-### Phase 4: API Integration
-1. Add FastAPI endpoints for agent operations
-2. Implement request/response models
-3. Add error handling and validation
-4. Integrate with existing agent routing logic
-
-### Phase 5: Testing and Optimization
-1. Write unit tests for all agent methods
-2. Create integration tests with real memory systems
-3. Implement performance benchmarks
-4. Optimize for high-concurrency scenarios
-
-## Performance Considerations
-- Prioritize fast cache lookups over deep memory retrieval
-- Implement timeouts for memory operations to prevent delays
-- Use connection pooling for efficient resource usage
-- Cache frequently accessed context patterns
-
-## Error Handling
-- Graceful degradation when memory systems are unavailable
-- Fallback to original prompt when context retrieval fails
-- Comprehensive logging for debugging and monitoring
-- Clear error messages for API consumers
+### 3. API
+* **Interface:** It will expose a primary method, `find_optimal_path(start_node_id: str, end_node_id: str)`, for the `Archivist` to call.
