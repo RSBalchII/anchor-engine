@@ -75,6 +75,15 @@ The CacheManager is responsible for managing the short-term memory layer of the 
 
 For detailed documentation, see [CacheManager Documentation](docs/cache_manager.md).
 
+### ContextCache
+The ContextCache is the high-speed, short-term memory layer of the ECE, corresponding to Tier 1. It is a passive component implemented using Redis Stack and is managed exclusively by the `Orchestrator` agent to provide fast retrieval of recent and semantically similar information.
+
+**Key Features:**
+- Managed component with all operations controlled by the `Orchestrator`
+- Redis Stack integration for efficient key-value storage and vector similarity search
+- Semantic search capabilities using vector embeddings
+- Cache statistics tracking for performance monitoring
+
 ### WebSearchAgent
 Performs web searches to gather external context.
 

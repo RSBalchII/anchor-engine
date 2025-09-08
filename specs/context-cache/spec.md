@@ -1,58 +1,30 @@
+
+### 4. Context Cache Specification (Revised)
+
+* **Status:** This specification has been updated to clarify that the cache is a passive component managed by the `Orchestrator`.
+
 # Context Cache Specification
 
-## Overview
-The Context Cache is the short-term memory layer of the External Context Engine (ECE). It provides high-speed semantic and generative caching capabilities to reduce latency and prepare the system for the real-time InjectorAgent.
+## 1. Overview
 
-## Purpose
-The Context Cache serves as an intermediary storage layer between the ECE's agents and the long-term knowledge graph. It enables:
-1. Fast retrieval of recently accessed information
-2. Semantic similarity search for related context
-3. Reduced load on the Neo4j knowledge graph
-4. Improved response times for repeated or similar queries
+The Context Cache is the high-speed, short-term memory layer of the ECE, corresponding to **Tier 1**. It is a **passive component**, not an agent. It is implemented using Redis Stack and is managed exclusively by the `Orchestrator` agent to provide fast retrieval of recent and semantically similar information.
 
-## Key Features
-1. **Exact Match Caching**: Store and retrieve values by key
-2. **Semantic Caching**: Store vector embeddings and perform similarity searches
-3. **TTL Management**: Automatic expiration of cached entries
-4. **Statistics Tracking**: Monitor cache performance (hit rate, size, etc.)
-5. **Redis Integration**: Leverage Redis Stack for efficient storage and vector operations
+## 2. Purpose
 
-## Data Models
+The Context Cache serves as the ECE's working memory. It enables:
+1.  Fast retrieval of recently accessed information for the `Orchestrator`.
+2.  A data source for the `Distiller` agent to process for long-term storage.
+3.  Reduced load on the `Neo4j` knowledge graph for common queries.
 
-### CacheEntry
-Represents a single cached item:
-- `key`: Unique identifier for the entry
-- `value`: The cached data (string)
-- `embedding`: Optional vector representation for semantic search
-- `created_at`: Timestamp when entry was created
-- `expires_at`: Timestamp when entry will expire
-- `access_count`: Number of times entry has been accessed
+## 3. Key Features
+- **Managed Component**: All operations (read, write, delete) are initiated and controlled by the `Orchestrator`.
+- **Redis Integration**: Leverages Redis Stack for efficient key-value storage, vector similarity search, and TTL management.
 
-### SemanticQuery
-Represents a semantic search query:
-- `text`: Query text
-- `embedding`: Vector representation of the query
-- `threshold`: Minimum similarity score for results
+## 4. Integration Points
+- **Primary Manager:** `Orchestrator` Agent (Tier 1)
+- **Data Consumer:** `Distiller` Agent (Tier 3)
 
-### CacheStats
-Represents cache performance metrics:
-- `hits`: Number of successful cache retrievals
-- `misses`: Number of failed cache retrievals
-- `hit_rate`: Ratio of hits to total requests
-- `size`: Current number of entries in cache
-- `max_size`: Maximum capacity of cache
+## 5. Acceptance Criteria
 
-## API Endpoints
-
-### Cache Operations
-- `POST /cache/store`: Store a value with optional embedding
-- `POST /cache/retrieve`: Retrieve a value by key
-- `POST /cache/semantic_search`: Find similar entries by embedding
-- `GET /cache/stats`: Get cache performance statistics
-- `POST /cache/clear`: Clear all cached entries
-
-## Integration Points
-- **Redis Stack**: Primary storage backend with vector similarity search
-- **ExtractorAgent**: Populates cache with extracted information
-- **InjectorAgent**: Consumes cached context for real-time injection
-- **ArchivistAgent**: Long-term storage for cache eviction
+-   **Given** that the `Orchestrator` needs to store a piece of context, **when** it calls the cache's `store` function, **then** the data should be successfully written to Redis.
+-   **Given** that the `Distiller` agent needs to process the cache, **when** it queries the cache, **then** it should receive the current contents of the cache.

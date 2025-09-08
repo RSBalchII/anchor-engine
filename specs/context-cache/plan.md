@@ -1,73 +1,19 @@
-# Context Cache Implementation Plan
 
-## Overview
-This document outlines the implementation plan for the Context Cache component of the External Context Engine. The cache will be built using Redis Stack for high-performance storage and vector similarity search.
+# Context Cache - plan.md
 
-## Architecture
+This plan outlines the implementation strategy for the `Context Cache` component.
 
-### Components
-1. **CacheManager Class**: Main interface for cache operations
-2. **Redis Integration**: Connection and communication with Redis Stack
-3. **API Endpoints**: HTTP endpoints for cache operations
-4. **Data Models**: Pydantic models for cache entries and queries
+### 1\. Core Technology
 
-### Redis Configuration
-- Use Redis Stack for vector similarity search capabilities
-- Configure Redis with appropriate memory policies
-- Set up connection pooling for efficient resource usage
+  * **Language:** Python 3.11+.
+  * **Database:** **Redis Stack**, which includes the Redis core as well as vector search capabilities, is required.
+  * **Driver:** We will use the `redis-py` library to interact with the Redis instance.
 
-## Implementation Steps
+### 2\. Data Model & Storage
 
-### Phase 1: Core Cache Functionality
-1. Implement CacheManager class with basic Redis connectivity
-2. Create data models (CacheEntry, SemanticQuery, CacheStats)
-3. Implement exact match caching (store/retrieve)
-4. Add TTL management for automatic expiration
-5. Implement statistics tracking
+  * **Strategy:** Each piece of context will be stored as a Redis Hash. The hash will contain fields for `value` (the text), `embedding` (the vector as a byte string), `created_at`, and `access_count`.
+  * **Vector Search:** Redis's built-in vector similarity search (VSS) will be used to implement the `semantic_search` functionality. This requires creating a search index on the vector embeddings.
 
-### Phase 2: Semantic Search
-1. Implement vector storage in Redis
-2. Add cosine similarity calculation
-3. Implement semantic search functionality
-4. Optimize search performance for large datasets
+### 3\. Integration Strategy
 
-### Phase 3: API Integration
-1. Add FastAPI endpoints for all cache operations
-2. Implement request/response models
-3. Add error handling and validation
-4. Integrate with existing agent routing
-
-### Phase 4: Testing and Optimization
-1. Write unit tests for all cache operations
-2. Create integration tests with real Redis instance
-3. Optimize performance for high-concurrency scenarios
-4. Add monitoring and logging
-
-## Docker Configuration
-Add Redis service to docker-compose.yml:
-```yaml
-redis:
-  image: redis/redis-stack:latest
-  ports:
-    - "6379:6379"
-    - "8001:8001"
-  volumes:
-    - redis_data:/data
-  healthcheck:
-    test: ["CMD", "redis-cli", "ping"]
-    interval: 10s
-    timeout: 3s
-    retries: 3
-```
-
-## Dependencies
-- redis>=4.5.0
-- hiredis>=2.2.0
-- Pydantic models for data validation
-- FastAPI for API endpoints
-
-## Performance Considerations
-- Use connection pooling for Redis connections
-- Implement efficient vector similarity search
-- Set appropriate TTL values to prevent memory overflow
-- Monitor cache hit rates and adjust strategies accordingly
+  * **Approach:** The `Context Cache` module will be implemented as a self-contained Python class (`CacheManager`). The `Orchestrator` agent will then import this class and instantiate it to gain access to all cache functionalities. This maintains a clean separation of concerns while allowing for tight integration.

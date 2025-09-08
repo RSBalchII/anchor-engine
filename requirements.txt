@@ -14,3 +14,4 @@ spacy>=3.4.0
 scikit-learn>=1.0.0
 redis>=4.5.0
 hiredis>=2.2.0
+APScheduler>=3.10.0

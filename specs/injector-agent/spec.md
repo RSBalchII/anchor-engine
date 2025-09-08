@@ -1,47 +1,41 @@
-# InjectorAgent Specification
 
-## Overview
-The InjectorAgent is the primary user interface to the ECE's memory systems. It intelligently queries both the short-term (Redis) and long-term (Neo4j) memory to augment user prompts before they are sent to the final LLM.
+### 5. Injector Agent Specification (New)
 
-## Purpose
-The InjectorAgent serves as the intelligent context augmentation layer that:
-1. Intercepts user prompts and analyzes them for context needs
-2. Queries the high-speed Redis Context Cache for semantically similar queries
-3. If no relevant cache entries are found, queries the ArchivistAgent for deeper context from Neo4j
-4. Augments the original user prompt with retrieved context to create a richer prompt for the final LLM
+* **Status:** This is a new, clean specification. It defines the role of the internal, Tier 3 `Injector` agent, which is distinct from the now-external `PromptInjector`.
 
-## Key Features
-1. **Intelligent Query Escalation**: Smart routing from fast cache to deep memory retrieval
-2. **Prompt Augmentation**: Skillfully rewrites user prompts to include relevant context
-3. **Memory Layer Integration**: Seamless interaction with both Redis cache and Neo4j knowledge graph
-4. **Performance Optimization**: Prioritizes fast cache lookups while ensuring comprehensive context retrieval
+# Injector Agent Specification
 
-## Data Models
+## 1. Overview
 
-### ContextQuery
-Represents a query for context retrieval:
-- `query_text`: The original user prompt or extracted query text
-- `query_embedding`: Optional vector representation for semantic search
-- `max_cache_results`: Maximum number of results from cache (default: 3)
-- `max_graph_results`: Maximum number of results from graph (default: 5)
+The Injector is a simple, specialized **Tier 3** agent whose sole responsibility is to write data to the `Neo4j` knowledge graph. It acts as the final, transactional step in the memory storage pipeline, receiving commands exclusively from the `Archivist`.
 
-### AugmentedPrompt
-Represents a prompt augmented with context:
-- `original_prompt`: The original user prompt
-- `augmented_prompt`: The prompt with added context
-- `context_sources`: List of sources for the added context
-- `confidence_score`: Confidence in the relevance of added context (0.0 to 1.0)
+## 2. User Story
 
-## API Interface
+As a data writing service, I want to receive structured data and commands from the `Archivist` so that I can reliably and safely write that information to the `Neo4j` knowledge graph.
 
-### Primary Methods
-- `analyze_prompt(prompt: str) -> ContextQuery`: Analyze a prompt to determine context needs
-- `retrieve_context(query: ContextQuery) -> List[Dict]`: Retrieve context from memory layers
-- `augment_prompt(original_prompt: str, context: List[Dict]) -> AugmentedPrompt`: Augment prompt with context
-- `process(user_prompt: str) -> AugmentedPrompt`: Full end-to-end processing
+## 3. Functional Requirements
 
-## Integration Points
-- **Redis Context Cache**: High-speed semantic and generative caching
-- **ArchivistAgent**: Deep memory retrieval from Neo4j knowledge graph
-- **Chat Interface**: Primary entry point for user interactions
-- **Final LLM**: Destination for context-augmented prompts
+### 3.1 Data Writing
+- The agent **must** be able to receive structured data (e.g., JSON) from the `Archivist`.
+- The agent **must** translate this structured data into Cypher queries to create or merge nodes and relationships in the `Neo4j` graph.
+- The agent **must** execute these queries against the `Neo4j` database.
+
+### 3.2 Data Integrity
+- The agent **must** perform all write operations in a way that ensures data integrity. It should use `MERGE` operations where appropriate to avoid creating duplicate nodes.
+- It **must** handle potential write errors from the database gracefully.
+
+## 4. Non-Functional Requirements
+
+### 4.1 Reliability
+- The agent must be highly reliable. A failure during a write operation could lead to data loss or corruption in the knowledge graph.
+- It should implement a retry mechanism for transient database errors.
+
+## 5. Integration Points
+
+-   **Controller/Caller:** `Archivist` Agent (Tier 3)
+-   **Target Database:** `Neo4j` Knowledge Graph (Tier 3)
+
+## 6. Acceptance Criteria
+
+-   **Given** a valid, structured data object from the `Archivist`, **when** the Injector processes it, **then** the corresponding nodes and relationships should be correctly created or merged in the `Neo4j` graph.
+-   **Given** an invalid data object, **when** the Injector attempts to write it, **then** it should fail gracefully and report a clear error back to the `Archivist` without crashing.
