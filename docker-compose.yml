@@ -9,6 +9,8 @@ services:
       - .:/app
     environment:
       - PYTHONPATH=/app
+      - OLLAMA_API_BASE_URL=http://host.docker.internal:11434/api/chat
+      - TAVILY_API_KEY=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
     depends_on:
       - neo4j
       - redis

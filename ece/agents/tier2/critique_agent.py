@@ -5,6 +5,8 @@ This module implements the CritiqueAgent, which evaluates solutions
 using the Exploratory Problem-Solving workflow.
 """
 
+import os
+import httpx
 from typing import Dict, Any
 import random
 
@@ -18,100 +20,40 @@ class CritiqueAgent:
     Problem-Solving Loop.
     """
 
-    def __init__(self):
+    def __init__(self, model: str, success_threshold: float = 0.8):
         """Initialize the CritiqueAgent."""
-        pass
-    
-    def score_result(self, result_poml: str) -> str:
-        """
-        Score a solution result and provide rationale.
-        
-        Args:
-            result_poml (str): The solution result in POML format.
-            
-        Returns:
-            str: A critique with score and rationale in POML format.
-        """
-        # In a full implementation, this would analyze the solution in detail
-        # For now, we'll create a basic template with a random score
-        
-        # Parse the result to understand what's being evaluated
-        # This is a simplified implementation - a real version would do deeper analysis
-        solution_summary = self._summarize_solution(result_poml)
-        
-        # Generate a score (in a real implementation, this would be based on analysis)
-        score = self._generate_score(solution_summary)
-        
-        # Generate rationale for the score
-        rationale = self._generate_rationale(score, solution_summary)
-        
-        # Create the critique POML structure
-        critique_poml = f"""<poml>
-    <critique>
-        <solution_summary>
-            {solution_summary}
-        </solution_summary>
-        <score>
-            {score}
-        </score>
-        <rationale>
-            {rationale}
-        </rationale>
-        <improvement_suggestions>
-            <suggestion>Consider edge cases in the implementation</suggestion>
-            <suggestion>Validate assumptions made during problem solving</suggestion>
-            <suggestion>Review the efficiency of the proposed approach</suggestion>
-        </improvement_suggestions>
-    </critique>
-</poml>"""
-        
-        return critique_poml
-    
-    def _summarize_solution(self, result_poml: str) -> str:
-        """
-        Extract and summarize the key aspects of a solution from POML.
-        
-        Args:
-            result_poml (str): The solution result in POML format.
-            
-        Returns:
-            str: A summary of the solution.
-        """
-        # In a full implementation, this would parse the POML and extract key information
-        # For now, we'll just return a placeholder
-        return "Solution proposal with algorithmic approach"
-    
-    def _generate_score(self, solution_summary: str) -> float:
-        """
-        Generate a score for the solution (0.0 to 1.0 scale).
-        
-        Args:
-            solution_summary (str): A summary of the solution.
-            
-        Returns:
-            float: A score between 0.0 and 1.0.
-        """
-        # In a full implementation, this would be based on detailed analysis
-        # For now, we'll generate a random score for demonstration
-        return round(random.uniform(0.5, 0.9), 2)
-    
-    def _generate_rationale(self, score: float, solution_summary: str) -> str:
-        """
-        Generate rationale for the given score.
-        
-        Args:
-            score (float): The score assigned to the solution.
-            solution_summary (str): A summary of the solution.
-            
-        Returns:
-            str: Rationale for the score.
-        """
-        if score >= 0.8:
-            return "The solution demonstrates a strong understanding of the problem and applies appropriate methods."
-        elif score >= 0.6:
-            return "The solution is generally sound but could benefit from more thorough analysis."
-        else:
-            return "The solution has significant gaps and requires substantial revision."
+        self.model = model
+        self.success_threshold = success_threshold
+        self.ollama_endpoint = os.getenv("OLLAMA_API_BASE_URL", "http://host.docker.internal:11434/api/chat")
+        self.system_prompt = "You are a critique agent. Your task is to evaluate a proposed solution and its execution result against an original problem. Provide a score between 0.0 and 1.0, and a detailed rationale. The score should be clearly indicated as 'SCORE: 0.X'. Also provide suggestions for improvement."
+
+    async def critique(self, original_prompt: str, proposed_solution: str, execution_result: str) -> str:
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": f"Original Problem: {original_prompt}\n\nProposed Solution:\n{proposed_solution}\n\nExecution Result:\n{execution_result}\n\nCritique this solution and provide a score (0.0-1.0) and rationale."}
+        ]
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(self.ollama_endpoint, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                content = data.get('message', {}).get('content', '')
+                return content
+        except httpx.RequestError as e:
+            error_message = f"HTTP request failed: {e.__class__.__name__} - {e}"
+            print(f"Error in CritiqueAgent: {error_message}")
+            return f"Error: {error_message}"
+        except Exception as e:
+            error_message = f"An unexpected error occurred: {e}"
+            print(f"Error in CritiqueAgent: {error_message}")
+            return f"Error: {error_message}"
 
 
 def main():

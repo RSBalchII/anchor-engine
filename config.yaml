@@ -6,6 +6,15 @@ orchestrator:
   decision_tree:
     # Intents and their corresponding agents
     intents:
+      # This intent is now more specific and will be checked first.
+      parallel_thinking:
+        agent: ThinkerAgent # This keyword maps to the parallel thinking workflow
+        keywords:
+          - analyze the strengths and weaknesses
+          - compare and contrast
+          - debate the pros and cons
+          - provide multiple perspectives on
+          - evaluate the differences between
       web_search:
         agent: WebSearchAgent
         keywords:
@@ -47,12 +56,11 @@ orchestrator:
           - summarize
       extract_information:
         agent: ExtractorAgent
+        # "analyze" has been removed to avoid conflict with parallel thinking.
         keywords:
-          - extract
-          - information
-          - data
-          - parse
-          - analyze
+          - extract the information
+          - get the data from
+          - parse the contents of
       inject_context:
         agent: InjectorAgent
         keywords:
@@ -86,11 +94,28 @@ orchestrator:
           - cached
           - memory cache
 
-    # Default agent when no specific intent is matched
-    default_agent: WebSearchAgent
+      exploratory_problem_solving:
+        agent: ExploratoryAgent
+        keywords:
+          - write code
+          - create a script
+          - solve the problem of
+          - develop an algorithm for
+
+    # The default agent for general conversation remains the same.
+    default_agent: ConversationalAgent 
 
 # Agent configurations
 agents:
+  ThinkerAgent:
+    default_model: "codegemma:7b-instruct-v1.1-q4_K_M"
+  SynthesisThinker:
+    default_model: "codegemma:7b-instruct-v1.1-q4_K_M"
+  ExplorerAgent:
+    default_model: "codegemma:7b-instruct-v1.1-q4_K_M" # Placeholder model
+  CritiqueAgent:
+    default_model: "codegemma:7b-instruct-v1.1-q4_K_M" # Placeholder model
+    success_threshold: 0.8 # Example threshold
   WebSearchAgent:
     enabled: true
     api_key: "YOUR_SEARCH_API_KEY"
@@ -107,7 +132,7 @@ agents:
     
   CoherenceAgent:
     enabled: true
-    model: "gpt-3.5-turbo"
+    model: "codegemma:7b-instruct-v1.1-q4_K_M"
     threshold: 0.8
     
   SafetyAgent:
