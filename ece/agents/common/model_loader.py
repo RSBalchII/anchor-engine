@@ -582,11 +582,25 @@ class ModelManager:
         # Set the API base to the provided value if it's different from current
         if ModelManager._api_base != env_api_base:
             ModelManager._api_base = env_api_base
-            self.logger.info(f"API base updated to: {env_api_base}")
+            try:
+                self.logger.info(f"API base updated to: {env_api_base}")
+            except (AttributeError, TypeError):
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"API base updated to: {env_api_base}")
         
         # Load default model from config if no model is currently set
         if ModelManager._current_model is None:
-            self._load_default_model_from_config()
+            try:
+                self._load_default_model_from_config()
+            except Exception as e:
+                # Handle any error during model loading, including the ConfigManager logger issue
+                try:
+                    self.logger.error(f"Error during default model loading: {e}")
+                except (AttributeError, TypeError):
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error during default model loading: {e}")
         
         self.__initialized = True
     
@@ -596,6 +610,10 @@ class ModelManager:
             # Use the new config loader system that supports environment variables
             from ece.common.config_loader import get_config
             config_loader = get_config()
+            
+            # Verify that we have a proper config object
+            if not hasattr(config_loader, 'get'):
+                raise AttributeError("Config loader does not have 'get' method")
             
             # Get values using the new system, with environment variable precedence
             active_provider = config_loader.get("llm.active_provider", "llama_cpp")
@@ -617,7 +635,13 @@ class ModelManager:
                     if model_filename.endswith('.gguf.gguf'):
                         corrected_filename = model_filename.replace('.gguf.gguf', '.gguf')
                         model_path = str(original_path.parent / corrected_filename)
-                        self.logger.info(f"Corrected double .gguf extension: {model_path}")
+                        # Use safe logging in case logger has issues
+                        try:
+                            self.logger.info(f"Corrected double .gguf extension: {model_path}")
+                        except AttributeError:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.info(f"Corrected double .gguf extension: {model_path}")
                 
                 # Extract model name from the normalized path
                 model_name = Path(model_path).stem
@@ -629,13 +653,25 @@ class ModelManager:
                     # First check if the configured model file exists directly
                     if model_file_path.exists():
                         ModelManager._current_model = str(model_file_path)
-                        self.logger.info(f"Default model configured from config: {model_name}")
+                        # Use safe logging in case logger has issues
+                        try:
+                            self.logger.info(f"Default model configured from config: {model_name}")
+                        except AttributeError:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.info(f"Default model configured from config: {model_name}")
                         
                         # Use API base from the new configuration system
                         # This will use environment variables if available, otherwise config file value
                         api_base = config_loader.get("llm.providers.llama_cpp.api_base", "http://localhost:8080/v1")
                         ModelManager._api_base = api_base
-                        self.logger.info(f"API base updated from config: {api_base}")
+                        # Use safe logging in case logger has issues
+                        try:
+                            self.logger.info(f"API base updated from config: {api_base}")
+                        except AttributeError:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.info(f"API base updated from config: {api_base}")
                         
                         # Extract port from API base if available
                         try:
@@ -644,18 +680,36 @@ class ModelManager:
                             if parsed.port:
                                 ModelManager._model_server_port = parsed.port
                         except Exception as e:
-                            self.logger.warning(f"Could not parse port from API base: {e}")
+                            # Use safe logging in case logger has issues
+                            try:
+                                self.logger.warning(f"Could not parse port from API base: {e}")
+                            except AttributeError:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.warning(f"Could not parse port from API base: {e}")
                     else:
                         # If the model file doesn't exist in the models directory, check if it's an absolute path
                         config_model_path = Path(model_path)
                         if config_model_path.exists():
                             ModelManager._current_model = str(config_model_path)
-                            self.logger.info(f"Default model configured from absolute path: {model_path}")
+                            # Use safe logging in case logger has issues
+                            try:
+                                self.logger.info(f"Default model configured from absolute path: {model_path}")
+                            except AttributeError:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.info(f"Default model configured from absolute path: {model_path}")
                             
                             # Use API base from the new configuration system
                             api_base = config_loader.get("llm.providers.llama_cpp.api_base", "http://localhost:8080/v1")
                             ModelManager._api_base = api_base
-                            self.logger.info(f"API base updated from config: {api_base}")
+                            # Use safe logging in case logger has issues
+                            try:
+                                self.logger.info(f"API base updated from config: {api_base}")
+                            except AttributeError:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.info(f"API base updated from config: {api_base}")
                             
                             # Extract port from API base if available
                             try:
@@ -664,19 +718,52 @@ class ModelManager:
                                 if parsed.port:
                                     ModelManager._model_server_port = parsed.port
                             except Exception as e:
-                                self.logger.warning(f"Could not parse port from API base: {e}")
+                                # Use safe logging in case logger has issues
+                                try:
+                                    self.logger.warning(f"Could not parse port from API base: {e}")
+                                except AttributeError:
+                                    import logging
+                                    logger = logging.getLogger(__name__)
+                                    logger.warning(f"Could not parse port from API base: {e}")
                         else:
-                            self.logger.warning(f"Configured model file does not exist: {model_file_path}")
+                            # Use safe logging in case logger has issues
+                            try:
+                                self.logger.warning(f"Configured model file does not exist: {model_file_path}")
+                            except AttributeError:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.warning(f"Configured model file does not exist: {model_file_path}")
                             # Try to find a fallback model from available models
                             self._find_fallback_model(model_name)
                 else:
-                    self.logger.warning("Model name could not be extracted from model_path in config")
+                    # Use safe logging in case logger has issues
+                    try:
+                        self.logger.warning("Model name could not be extracted from model_path in config")
+                    except AttributeError:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning("Model name could not be extracted from model_path in config")
             else:
-                self.logger.warning(f"No model path specified in config for provider: {active_provider}")
+                # Use safe logging in case logger has issues
+                try:
+                    self.logger.warning(f"No model path specified in config for provider: {active_provider}")
+                except AttributeError:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"No model path specified in config for provider: {active_provider}")
                 # Try to find any available model as fallback
                 self._find_fallback_model()
         except Exception as e:
-            self.logger.error(f"Error loading default model from config: {e}")
+            # Use a broader exception handler to catch different error types
+            # And also handle the case where the original error might involve ConfigManager
+            try:
+                # Try to use logger if it's available
+                self.logger.error(f"Error loading default model from config: {e}")
+            except (AttributeError, TypeError):
+                # If self.logger is not available or has issues, use basic logging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error loading default model from config: {e}")
     
     def _find_fallback_model(self, preferred_model=None):
         """Find a fallback model from available models."""

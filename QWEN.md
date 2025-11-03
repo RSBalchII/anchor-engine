@@ -133,3 +133,84 @@ Common issues include:
 - UTCP endpoint connectivity problems
 
 The system includes comprehensive logging to the `logs/` directory for debugging purposes, with separate log files for ecosystem, model inference, and orchestrator operations.
+
+## Project Structure
+
+```
+C:\Users\rsbiiw\Projects\External-Context-Engine-ECE\
+├───.dockerignore
+├───.env.example
+├───.gitignore
+├───.project_root
+├───.python-version
+├───bootstrap.py
+├───config.yaml
+├───debug_log
+├───docker-compose.yml
+├───Dockerfile
+├───main.py
+├───pyproject.toml
+├───read_all.py
+├───README.md
+├───requirements.txt
+├───run_simplified_ecosystem.py
+├───start_simplified_ecosystem.py
+├───start_with_instructions.py
+├───uv.lock
+├───__pycache__\...
+├───dist
+├───docs
+├───ece
+│   ├───__pycache__
+│   ├───agents
+│   │   ├───__pycache__
+│   │   ├───common
+│   │   ├───tier1
+│   │   │   └───orchestrator
+│   │   ├───tier2
+│   │   └───tier3
+│   ├───common
+│   ├───components
+│   ├───tools
+│   └───unified_model_proxy.py
+├───external_context_engine_ece.egg-info
+├───llama.cpp
+├───logs
+├───models
+├───poml
+├───specs
+├───tests
+└───utility_scripts
+```
+
+## Core Components
+
+- **Orchestrator**: The central nervous system. Classifies intent and delegates tasks to other agents.
+- **DistillerAgent**: Analyzes raw text to extract entities and relationships.
+- **ArchivistAgent**: Perserts structured data to the Neo4j knowledge graph.
+- **QLearningAgent**: Intelligently traverses the knowledge graph to find optimal context paths.
+- **InjectorAgent**: Optimizes the knowledge graph through reinforcement learning.
+- **FileSystemAgent**: Provides tools for reading, writing, and listing files.
+- **WebSearchAgent**: Provides tools for internet-based searches using local DuckDuckGo scraping.
+- **GitAgent**: Provides Git operations for repository management.
+
+## Configuration
+
+The system supports multiple configuration approaches:
+
+1. **Environment Variables**: Highest precedence, can be set in `.env` file
+2. **config.yaml**: Default configuration file
+3. **Command-line Arguments**: For scripts with specific options
+
+Key configuration values include:
+- LLM provider settings (model_path, api_base, etc.)
+- Database connection details for Neo4j and Redis
+- Port assignments for various services
+- Memory limits and performance parameters
+
+## Development Process
+
+For development, the primary entry points are:
+- `start_simplified_ecosystem.py` for running the complete system
+- Individual agent files in the `ece/agents` directory for component-specific development
+- The `unified_model_proxy.py` for model management functionality

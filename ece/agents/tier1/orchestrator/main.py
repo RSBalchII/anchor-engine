@@ -73,8 +73,24 @@ async def startup_event():
     """
     Event handler for application startup.
     """
-    print("Orchestrator agent (ECE v2.0) initializing...")
-    print("Orchestrator initialized and ready to receive requests.")
+    global model_manager
+    try:
+        print("Orchestrator agent (ECE v2.0) initializing...")
+        # Initialize the model manager during startup
+        model_manager = ModelManager()
+        print("Orchestrator initialized and ready to receive requests.")
+    except Exception as e:
+        import traceback
+        error_details = f"Error during startup: {str(e)}\nTraceback:\n{traceback.format_exc()}"
+        print(error_details)
+        # Log error using appropriate logger
+        try:
+            logger.error(f"Error during startup: {e}")
+        except:
+            import logging
+            logging.basicConfig(level=logging.INFO)
+            default_logger = logging.getLogger(__name__)
+            default_logger.error(f"Error during startup: {e}")
 
 
 @app.post("/process_prompt", response_class=PlainTextResponse)
@@ -185,14 +201,23 @@ async def get_ollama_models():
         }, status_code=500)
 
 
-# Global model manager instance for the orchestrator
-model_manager = ModelManager()
+# Global model manager instance for the orchestrator - initialize as None, will be set in startup
+model_manager = None
 
 
 @app.get("/models/available")
 async def get_available_models():
     """Get list of available models from the models directory."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet",
+                "available_models": [],
+                "count": 0
+            }, status_code=503)
+        
         available_models = model_manager.get_available_models()
         return JSONResponse(content={
             "success": True,
@@ -211,7 +236,16 @@ async def get_available_models():
 @app.get("/models/current")
 async def get_current_model():
     """Get the currently active model."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet",
+                "current_model": None,
+                "is_running": False
+            }, status_code=503)
+        
         current_model = model_manager.get_current_model()
         return JSONResponse(content={
             "success": True,
@@ -230,7 +264,15 @@ async def get_current_model():
 @app.post("/models/select")
 async def select_model(request: Request):
     """Select a model by name and start it if not already running."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet",
+                "selected_model": None
+            }, status_code=503)
+        
         data = await request.json()
         model_name = data.get("model_name")
         
@@ -268,7 +310,15 @@ async def select_model(request: Request):
 @app.post("/models/start")
 async def start_model_endpoint(request: Request):
     """Start a specific model server."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet",
+                "model": None
+            }, status_code=503)
+        
         data = await request.json()
         model_name = data.get("model_name")
         port = data.get("port")  # Optional port parameter
@@ -306,7 +356,14 @@ async def start_model_endpoint(request: Request):
 @app.post("/models/stop")
 async def stop_model_endpoint():
     """Stop the currently running model server."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet"
+            }, status_code=503)
+        
         success = model_manager.stop_model()
         
         if success:
@@ -329,7 +386,15 @@ async def stop_model_endpoint():
 @app.get("/models/status")
 async def get_model_status():
     """Get the status of the model management system."""
+    global model_manager
     try:
+        if model_manager is None:
+            return JSONResponse(content={
+                "success": False,
+                "error": "Model manager not initialized yet",
+                "status": {}
+            }, status_code=503)
+        
         status = model_manager.get_model_status()
         return JSONResponse(content={
             "success": True,
@@ -345,4 +410,35 @@ async def get_model_status():
 
 @app.get("/health")
 def health_check():
-    return JSONResponse(content={"status": "ok"})
+    """
+    Health check endpoint to verify orchestrator is running and healthy.
+    """
+    global model_manager
+    try:
+        # Check if model_manager is initialized
+        if model_manager is None:
+            return JSONResponse(content={
+                "status": "starting_up",
+                "model_healthy": False,
+                "message": "Orchestrator is still starting up"
+            })
+        
+        # Check model health
+        model_healthy = model_manager.check_model_health()
+        model_status = model_manager.get_model_status()
+        
+        return JSONResponse(content={
+            "status": "ok",
+            "model_healthy": model_healthy,
+            "model_status": model_status,
+            "message": "Orchestrator is running and healthy"
+        })
+    except Exception as e:
+        import traceback
+        error_details = f"Health check error: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_details)
+        return JSONResponse(content={
+            "status": "error",
+            "model_healthy": False,
+            "message": f"Health check error: {str(e)}"
+        })

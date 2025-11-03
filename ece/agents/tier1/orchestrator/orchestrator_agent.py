@@ -179,9 +179,15 @@ class EnhancedOrchestratorAgent:
 
             # Initialize model manager for on-demand model starting/stopping
             # Use API base from config which may have been updated by environment variables
-            self.model_manager = ModelManager(api_base)
-            logger.debug("Initialized model manager for on-demand model handling")
-            logger.debug(f"Model manager configured with API base: {api_base}")
+            try:
+                self.model_manager = ModelManager(api_base)
+                logger.debug("Initialized model manager for on-demand model handling")
+                logger.debug(f"Model manager configured with API base: {api_base}")
+            except Exception as e:
+                logger.error(f"Error initializing model manager: {e}")
+                # Initialize with default settings as fallback
+                self.model_manager = ModelManager()
+                logger.info("Model manager initialized with default settings after error")
 
             # Initialize persona loader and context sequence manager for correct loading order
             self.persona_loader = PersonaLoader()

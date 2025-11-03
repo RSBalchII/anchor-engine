@@ -50,6 +50,7 @@ def create_full_corpus_recursive():
         "node_modules",
         ".obsidian",
         "llama.cpp",
+        "tests",
     }
 
     files_to_process = []
