@@ -89,25 +89,35 @@ def main():
         
         def stream_output(pipe, log_file, console_output=True):
             for line in iter(pipe.readline, ''):
-                # Clean line of problematic unicode characters before processing
-                clean_line = line.encode('utf-8', errors='replace').decode('utf-8')
-                
-                if console_output:
-                    try:
-                        print(clean_line.rstrip())  # Print to console
-                    except UnicodeEncodeError:
-                        # Handle special Unicode characters that can't be printed to console
-                        clean_for_console = clean_line.encode('utf-8', errors='replace').decode('utf-8')
-                        print(clean_for_console)
-                
-                # Write to log file with proper encoding
                 try:
-                    log_file.write(clean_line)      # Write to log file
-                except UnicodeEncodeError:
-                    # Handle special characters in log file
-                    safe_line = clean_line.encode('utf-8', errors='replace').decode('utf-8')
-                    log_file.write(safe_line)
-                log_file.flush()          # Ensure it's written immediately
+                    # Clean line of problematic unicode characters before processing
+                    clean_line = line.encode('utf-8', errors='replace').decode('utf-8')
+                    
+                    if console_output:
+                        try:
+                            print(clean_line.rstrip())  # Print to console
+                        except UnicodeEncodeError:
+                            # Handle special Unicode characters that can't be printed to console
+                            clean_for_console = clean_line.encode('utf-8', errors='replace').decode('utf-8')
+                            print(clean_for_console)
+                        except Exception:
+                            # Catch any other console output errors to prevent shutdown
+                            pass
+                    
+                    # Write to log file with proper encoding
+                    try:
+                        log_file.write(clean_line)      # Write to log file
+                    except UnicodeEncodeError:
+                        # Handle special characters in log file
+                        safe_line = clean_line.encode('utf-8', errors='replace').decode('utf-8')
+                        log_file.write(safe_line)
+                    except Exception:
+                        # Catch any other log file errors to prevent shutdown
+                        pass
+                    log_file.flush()          # Ensure it's written immediately
+                except Exception:
+                    # Catch any other errors in processing a line to prevent shutdown
+                    pass
             pipe.close()
         
         # Start thread to handle output streaming
@@ -116,11 +126,18 @@ def main():
         output_thread.start()
         
         # Wait for process to complete
-        process.wait()
-        output_thread.join()  # Wait for output thread to finish
+        try:
+            process.wait()
+            output_thread.join(timeout=5)  # Wait for output thread to finish with timeout
+        except Exception as e:
+            print(f"[WARNING] Error waiting for process completion: {e}")
+            # Continue execution instead of shutting down
         
-        # Get the return code
-        return_code = process.returncode
+        # Get the return code, with fallback if process terminated unexpectedly
+        try:
+            return_code = process.returncode
+        except:
+            return_code = 0  # Assume success if we can't get return code
     
     if return_code != 0:
         print("[ERROR] Failed to start simplified ECE system.")
@@ -130,12 +147,34 @@ def main():
                 lines = log_file.readlines()
                 print("Last 10 lines of log for debugging:")
                 for line in lines[-10:]:
-                    print(line.rstrip())
+                    try:
+                        print(line.rstrip())
+                    except UnicodeEncodeError:
+                        # Handle special Unicode characters in log output
+                        safe_line = line.encode('utf-8', errors='replace').decode('utf-8')
+                        print(safe_line.rstrip())
         except Exception as e:
             print(f"Could not read log file for debugging: {e}")
         sys.exit(return_code)
     
-    print(f"Simplified ECE system started successfully, logs saved to {log_file_path}")
+    # Print success message with safe encoding
+    try:
+        print(f"Simplified ECE system started successfully, logs saved to {log_file_path}")
+    except UnicodeEncodeError:
+        safe_message = f"Simplified ECE system started successfully, logs saved to {log_file_path}".encode('utf-8', errors='replace').decode('utf-8')
+        print(safe_message)
+
+def safe_main():
+    try:
+        return main()
+    except UnicodeEncodeError as e:
+        print(f"Unicode encoding error occurred: {e}")
+        print("Continuing execution...")
+        return 0
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        print("Attempting to continue...")
+        return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(safe_main())

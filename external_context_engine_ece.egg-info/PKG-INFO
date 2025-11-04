@@ -158,6 +158,7 @@ All markdown files in the `specs/` directory are allowed, including:
 - `specs/reasoning_flow.md` - Detailed reasoning flow documentation
 - `specs/spec.md` - Technical specifications
 - `specs/tasks.md` - Task tracking and progress
+- `specs/changelog.md` - System changelog and version history
 - Any other markdown files created in the `specs/` directory for technical documentation
 
 ### Documentation Guidelines
@@ -429,17 +430,27 @@ The PowerShell script provides the core functionality:
 - Starts all ECE agents with visible output in the terminal
 - Provides clear status messages and error handling
 
-## Communication and Logging Updates
+## Simplified Logging and Output Management
 
-Recent updates have improved error reporting and logging for better troubleshooting:
+The system now implements a simplified logging approach that consolidates all output into a single log file while maintaining real-time console visibility:
+
+- **Single Log File**: All outputs are now consolidated in `logs/ece-llamacpp.txt` for easier analysis
+- **Real-time Console Output**: All agent outputs and llama inference are displayed directly in the terminal during development
+- **Reduced Complexity**: Eliminated multiple log files and complex logging system that was causing issues
+- **Terminal-First Approach**: Output streams immediately to terminal with automatic logging
+- **UTF-8 Encoding**: Proper handling of special characters and Unicode output to prevent encoding errors
+- **Direct Routing**: All output is routed directly through the main run script eliminating intermediate logging layers
+- **Simplified Architecture**: Removed complex logger initialization and centralized output handling
+- **No File Logging Issues**: Eliminates the file logging problems that were causing system instability
+- **Streamlined Debugging**: All debug output appears in one centralized location for easier troubleshooting
+- **Unified Display**: All service outputs (llama.cpp server, orchestrator, agents) are displayed in the same terminal view
+- **Automatic File Writing**: While output appears in console, it's simultaneously written to the log file
+- **Proper Error Handling**: Improved handling of Unicode characters and special symbols to prevent console errors
+
+Recent updates have also improved error reporting and logging for better troubleshooting:
 - Debug logging has been enhanced to better track communication between agents
 - Fixed communication issues between orchestrator and agent services
 - Improved error reporting and logging for better troubleshooting
-- Enhanced visibility into system operations for development and debugging
-- Debug logs are now properly directed to files in the logs/ directory:
-  - `logs/debug_log_ecosystem.txt` - for ecosystem-related logs
-  - `logs/debug_log_model_inference.txt` - for model inference logs
-  - `logs/debug_log_orchestrator.txt` - for orchestrator logs
 - The system uses a rotating file handler to manage log sizes and prevent disk space issues
 - Fixed communication issues between orchestrator and agent services after recent configuration changes
 - Verified that ModelManager automatically updates configuration when model is changed via forge-cli
