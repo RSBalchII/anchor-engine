@@ -731,28 +731,38 @@
                     ui.log(`🔄 Iteration ${iteration}/${this.maxIterations}...`, "warn");
 
                     try {
-                        const planPrompt = `You are a Reasoning Engine.
-User Query: "${userQuery}"
-Current Time: ${Date.now()}
+                        const planPrompt = `
+You are a Memory Retrieval Agent. Your ONLY job is to convert the User's question into a specific CozoDB query format.
 
-TASK: Generate a CozoDB Datalog query to find relevant memories in the 'memory' table.
-Schema: memory { id, timestamp, role, content, embedding } where timestamp is Unix MS.
+### RULES
+1. IGNORE timestamps.
+2. IGNORE complex logic.
+3. JUST find the most important KEYWORD in the user's input.
+4. Output JSON inside a markdown block.
 
-Allowed Operations:
-- Timestamp: timestamp >= 0 (Search ALL history unless user asks for 'today/recent')
-- Search: Use 'content' variable to capture text.
-- Filtering: Use 'str_includes(content, "substring")' for text search. Do NOT use '=' for long text.
-
-OUTPUT FORMAT (JSON ONLY):
-{
-  "hypothesis": "Explanation...",
-  "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'keyword')",
-  "confidence": 0.5
-}
-
-EXAMPLE:
+### TEMPLATE (COPY THIS EXACTLY)
 User: "What is the code?"
-JSON: { "hypothesis": "Searching for code", "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'code')", "confidence": 0.8 }
+Response:
+\`\`\`json
+{
+    "hypothesis": "Searching for keyword 'code'",
+    "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'code')",
+    "confidence": 0.5
+}
+\`\`\`
+
+User: "Who is Jade?"
+Response:
+\`\`\`json
+{
+    "hypothesis": "Searching for keyword 'Jade'",
+    "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'Jade')",
+    "confidence": 0.5
+}
+\`\`\`
+
+### YOUR TURN
+User Input: "${userQuery}"
 `;
 
                         const reasoningUI = ui.appendReasoning(`Thinking: ${userQuery.substring(0, 30)}... (Iteration ${iteration})`);
@@ -760,7 +770,7 @@ JSON: { "hypothesis": "Searching for code", "query": "?[id, content, timestamp] 
                         // Use global 'engine' directly
                         const planStream = await engine.chat.completions.create({
                             messages: [{ role: "user", content: planPrompt }],
-                            max_tokens: 300,
+                            max_tokens: 600, // Increased for DeepSeek thinking
                             temperature: 0.3,
                             stream: true
                         });
@@ -773,7 +783,33 @@ JSON: { "hypothesis": "Searching for code", "query": "?[id, content, timestamp] 
                         }
                         reasoningUI.finish();
 
-                        const planResult = ResponsePattern.match(planText);
+                        // ROBUST JSON EXTRACTOR (Lobotomy for DeepSeek-R1)
+                        const extractJSON = (text) => {
+                            // 1. Try markdown block
+                            const match = text.match(/```json\s*([\s\S]*?)\s*```/);
+                            if (match) {
+                                try { return JSON.parse(match[1]); } catch (e) { }
+                            }
+                            // 2. Try Brackets
+                            const start = text.indexOf('{');
+                            const end = text.lastIndexOf('}');
+                            if (start !== -1 && end !== -1 && end > start) {
+                                try { return JSON.parse(text.substring(start, end + 1)); } catch (e) { }
+                            }
+                            return null;
+                        };
+
+                        const planData = extractJSON(planText);
+                        let planResult = null;
+
+                        if (planData) {
+                            planResult = {
+                                type: 'SEARCH_PLAN',
+                                ...planData
+                            };
+                        } else {
+                            planResult = { type: 'RAW_TEXT', text: planText };
+                        }
 
                         if (planResult.type !== 'SEARCH_PLAN') {
                             ui.log(`⚠️ Iteration ${iteration}: Plan generation failed. Got ${planResult.type}`, "warn");
@@ -1419,11 +1455,28 @@ If context is insufficient, say so clearly.`;
             ui.log(`📥 Bridge Request: ${reqId.slice(0, 8)}...`, "info");
             try {
                 // OpenAI Compatibility Mapping
-                const messages = data.messages;
-                // Force stream to true for bridge efficiency
+                let messages = data.messages || [];
 
+                // Sanitize: Ensure System Prompt is FIRST (WebLLM strict requirement)
+                // 1. Extract all system messages
+                const systemMsgs = messages.filter(m => m.role === 'system');
+                const otherMsgs = messages.filter(m => m.role !== 'system');
+
+                // 2. Combine into single system prompt (or take last one if conflict)
+                let finalSystemMsg = null;
+                if (systemMsgs.length > 0) {
+                    // Start with default or first
+                    finalSystemMsg = { role: 'system', content: systemMsgs.map(m => m.content).join("\n\n") };
+                }
+
+                // 3. Reconstruct array
+                const cleanMessages = [];
+                if (finalSystemMsg) cleanMessages.push(finalSystemMsg);
+                cleanMessages.push(...otherMsgs);
+
+                // Force stream to true for bridge efficiency
                 const completion = await engine.chat.completions.create({
-                    messages,
+                    messages: cleanMessages,
                     stream: true,
                     temperature: data.temperature || 0.7,
                     max_tokens: data.max_tokens || 4096,
