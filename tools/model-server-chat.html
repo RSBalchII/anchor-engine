@@ -369,6 +369,14 @@
             <details open>
                 <summary>Model Selection</summary>
                 <div class="panel-content">
+                    <label for="hw-profile"
+                        style="display:block; font-size: 11px; color: #ccc; margin-bottom: 4px;">Hardware
+                        Profile:</label>
+                    <select id="hw-profile" class="form-control"
+                        style="width: 100%; padding: 5px; background: #333; color: white; border: 1px solid #555; margin-bottom: 10px;">
+                        <option value="desktop">🚀 Desktop (RTX 4090 / High VRAM)</option>
+                        <option value="mobile" selected>🔋 Mobile (Snapdragon / Integrated)</option>
+                    </select>
                     <select id="model-select" disabled
                         style="width: 100%; padding: 5px; background: #333; color: white; border: 1px solid #555;">
                         <option value="" disabled selected>-- Select a Model --</option>
@@ -400,8 +408,8 @@
                             <!-- Custom input handled via logic -->
                         </optgroup>
                         <optgroup label="Specialized">
-                            <option value="huggingkot/Qwen2.5-Coder-1.5B">Qwen2.5-Coder</option>
-                            <option value="huggingkot/Phi-3.5-vision-instruct">Phi-3.5-vision</option>
+                            <option value="mlc-ai/Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen2.5-Coder-1.5B</option>
+                            <option value="mlc-ai/Phi-3.5-vision-instruct-q4f16_1-MLC">Phi-3.5-vision</option>
                         </optgroup>
                         <option value="custom">-- Custom --</option>
                     </select>
@@ -444,11 +452,32 @@
         <!-- RESIZE HANDLE -->
         <div id="resizer"></div>
 
+
+
         <div id="main">
-            <div id="chat-box"></div>
-            <div id="input-area">
-                <textarea id="input" disabled placeholder="Waiting for Engine..."></textarea>
-                <button id="send-btn" disabled>Send</button>
+            <!-- Split view for Chat and Context -->
+            <div style="flex: 1; display: flex; height: 100%; overflow: hidden;">
+                <!-- Chat Column -->
+                <div style="flex: 1; display: flex; flex-direction: column; border-right: 1px solid #333;">
+                    <div style="padding: 10px; background: #252526; font-weight: bold; border-bottom: 1px solid #333;">
+                        💬 Chat Stream</div>
+                    <div id="chat-box" style="flex: 1; overflow-y: auto; padding-right: 10px;"></div>
+                    <div id="input-area" style="padding: 10px; border-top: 1px solid #333;">
+                        <textarea id="input" disabled placeholder="Waiting for Engine..."></textarea>
+                        <button id="send-btn" disabled>Send</button>
+                    </div>
+                </div>
+
+                <!-- Context Column -->
+                <div style="width: 40%; display: flex; flex-direction: column; background: #222;">
+                    <div style="padding: 10px; background: #252526; font-weight: bold; border-bottom: 1px solid #333;">
+                        🧠 Context / Memory</div>
+                    <div id="context-box"
+                        style="flex: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; color: #aaa;">
+                        <div style="text-align: center; margin-top: 50px; color: #555;">(Memory retrievals will appear
+                            here)</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -541,6 +570,28 @@
                     }
                 };
             },
+            appendContext: (title, details) => {
+                const box = document.getElementById('context-box');
+                const div = document.createElement('div');
+                div.style.borderBottom = '1px solid #333';
+                div.style.marginBottom = '10px';
+                div.style.paddingBottom = '10px';
+
+                const h4 = document.createElement('div');
+                h4.style.fontWeight = 'bold';
+                h4.style.color = '#0078d4';
+                h4.style.marginBottom = '5px';
+                h4.textContent = `[${new Date().toLocaleTimeString()}] ${title}`;
+
+                const p = document.createElement('div');
+                p.style.whiteSpace = 'pre-wrap';
+                p.textContent = details;
+
+                div.appendChild(h4);
+                div.appendChild(p);
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
+            },
             appendReasoning: (label) => {
                 const box = document.getElementById('chat-box');
                 const details = document.createElement('details');
@@ -579,30 +630,29 @@
         // --- UTILS: Response Pattern Matcher ---
         class ResponsePattern {
             static match(response) {
-                // 1. Database Result
-                if (response?.rows && Array.isArray(response.rows)) {
-                    return {
-                        type: 'DB_RESULT',
-                        rows: response.rows,
-                        count: response.rows.length
-                    };
-                }
-
-                // 2. Search Plan (LLM JSON)
                 let data = response;
+                // Parse if string
                 if (typeof response === 'string') {
                     try {
                         const clean = response.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const start = clean.indexOf('{');
-                        const end = clean.lastIndexOf('}');
-                        if (start >= 0 && end >= 0) {
-                            data = JSON.parse(clean.substring(start, end + 1));
+                        if (clean.startsWith('{')) {
+                            data = JSON.parse(clean);
                         }
-                    } catch (e) {
-                        // Not JSON, treat as raw text
-                    }
+                    } catch (e) { }
                 }
 
+                // 1. Database Result (rows array)
+                if (data?.rows && Array.isArray(data.rows)) {
+                    return {
+                        type: 'DB_RESULT',
+                        rows: data.rows, // Use parsed data
+                        count: data.rows.length
+                    };
+                }
+
+                // 1.b Database Result (ok: true with rows inside?) - Handle specific Cozo return shapes if needed
+
+                // 2. Search Plan (LLM JSON)
                 if (data?.query && typeof data.query === 'string' && data?.hypothesis) {
                     return {
                         type: 'SEARCH_PLAN',
@@ -613,16 +663,24 @@
                 }
 
                 // 3. Error
-                if (response?.error || (typeof response === 'string' && response.toLowerCase().includes('error:'))) {
+                if (data?.error || (typeof response === 'string' && response.toLowerCase().includes('error:'))) {
                     return {
                         type: 'ERROR',
-                        error: response.error || response
+                        error: data?.error || response
+                    };
+                }
+
+                // 3.b Cozo Error
+                if (data?.ok === false && data?.message) {
+                    return {
+                        type: 'ERROR',
+                        error: data.message
                     };
                 }
 
                 // 4. LLM Chat Response
-                if (response?.choices && Array.isArray(response.choices) && response.choices.length > 0) {
-                    const content = response.choices[0]?.message?.content || response.choices[0]?.text || '';
+                if (data?.choices && Array.isArray(data.choices) && data.choices.length > 0) {
+                    const content = data.choices[0]?.message?.content || data.choices[0]?.text || '';
                     return {
                         type: 'LLM_RESPONSE',
                         text: content
@@ -639,9 +697,9 @@
 
         // --- LOGIC: Graph-R1 Loop ---
         class GraphR1ReasoningLoop {
-            constructor(cozoDb, llmEngine, embedderFn) {
+            constructor(cozoDb, embedderFn) {
                 this.db = cozoDb;
-                this.llm = llmEngine;
+                // this.llm removed - we will use global 'engine' to ensure freshness
                 this.embedder = embedderFn;
                 this.maxIterations = 3;
                 this.history = [];
@@ -654,36 +712,38 @@
 
                 ui.log(`🧠 Graph-R1 Loop Started: "${userQuery}"`, "info");
 
+                // Ensure engine is alive and reset context
+                if (!engine) throw new Error("LLM Engine not initialized.");
+                await engine.resetChat();
+
                 while (iteration < this.maxIterations) {
                     iteration++;
                     ui.log(`🔄 Iteration ${iteration}/${this.maxIterations}...`, "warn");
 
                     try {
-                        const planPrompt = `You are a Reasoning Engine analyzing memories.
-                        
-USER QUERY: "${userQuery}"
+                        const planPrompt = `You are a Reasoning Engine.
+User Query: "${userQuery}"
+Time: ${Date.now()}
 
-CURRENT CONTEXT:
-${context || "(No context yet)"}
+TASK: Generate a Datalog query to find relevant memories in the 'memory' table.
+Schema: memory { id, timestamp, role, content, embedding } where timestamp is Unix MS.
 
-TASK: Generate a Datalog query to find relevant memories. Return ONLY valid JSON.
-
-Schema: memory { id: String => timestamp: Int, role: String, content: String, embedding: <F32; 384> }
-
-Query Rules:
-1. Timestamps are Unix Ms (e.g. 1753176645000). To filter by year/date, use constraints like: 'timestamp >= ...'
-2. DO NOT put literals in the head (e.g. *memory{2025...} is INVALID). Use variables and filter: *memory{timestamp...}, timestamp >= 1735689600000
-
-OUTPUT JSON:
+OUTPUT FORMAT (JSON ONLY):
 {
-  "hypothesis": "I need to find memories from July 2025...",
-  "query": "?[id, content] := *memory{id, content, timestamp}, timestamp >= 1751328000000, timestamp <= 1754006400000",
+  "hypothesis": "Explanation of what to search for",
+  "query": "?[id, content] := *memory{id, content, timestamp}, timestamp >= START, timestamp <= END",
   "confidence": 0.5
-}`;
+}
+
+EXAMPLE (Do NOT Copy):
+User: "What did I eat?"
+JSON: { "hypothesis": "Searching for food memories", "query": "?[id, content] := *memory{id, content, timestamp}", "confidence": 0.9 }
+`;
 
                         const reasoningUI = ui.appendReasoning(`Thinking: ${userQuery.substring(0, 30)}... (Iteration ${iteration})`);
 
-                        const planStream = await this.llm.chat.completions.create({
+                        // Use global 'engine' directly
+                        const planStream = await engine.chat.completions.create({
                             messages: [{ role: "user", content: planPrompt }],
                             max_tokens: 300,
                             temperature: 0.3,
@@ -757,6 +817,9 @@ OUTPUT JSON:
                                 context += `\n--- Iteration ${iteration} Findings ---\n${newFacts}`;
                                 ui.log(`📚 Retrieved ${dbResult.count} fact(s).`, "success");
 
+                                // UPDATE CONTEXT UI
+                                ui.appendContext(`Iteration ${iteration} Findings (${dbResult.count} facts)`, newFacts);
+
                                 this.history.push({
                                     iteration,
                                     hypothesis: planResult.hypothesis,
@@ -765,6 +828,8 @@ OUTPUT JSON:
                                 });
                             } else if (dbResult.type === 'DB_RESULT') {
                                 ui.log(`📭 Iteration ${iteration}: No matching facts found.`, "warn");
+                                ui.appendContext(`Iteration ${iteration}`, "No matching memories found for: " + planResult.hypothesis);
+
                                 this.history.push({
                                     iteration,
                                     hypothesis: planResult.hypothesis,
@@ -774,6 +839,7 @@ OUTPUT JSON:
                             } else {
                                 const err = dbResult.error || "Unknown DB Error";
                                 ui.log(`⚠️ Query error: ${err}`, "error");
+                                ui.appendContext(`Iteration ${iteration} Error`, err);
                             }
 
                         } catch (e) {
@@ -782,6 +848,11 @@ OUTPUT JSON:
 
                     } catch (e) {
                         ui.log(`💥 Iteration ${iteration} error: ${e.message}`, "error");
+                        if (e.message.includes("disposed") || e.message.includes("valid external Instance")) {
+                            ui.log("❌ GPU CONTEXT LOST! The model driver has crashed. Please reload the page.", "error");
+                            alert("GPU Crash Detected\n\nThe WebGPU context was lost (likely due to buffer overflow). Please reload the page.");
+                            break; // Critical failure, stop loop
+                        }
                     }
                 }
 
@@ -948,14 +1019,40 @@ If context is insufficient, say so clearly.`;
             ui.log(`Configuring VRAM Requirement: ${vramVal}MB`, "info");
 
             // Construct Config with BOTH IDs to ensure lookup succeeds for primary OR fallback
+
+            // HARDWARE PROFILE LOGIC
+            const hwProfile = document.getElementById('hw-profile').value;
+            let appConfigOverlay = {};
+
+            if (hwProfile === 'mobile') {
+                ui.log("📱 Loading Mobile/Snapdragon Profile: Safe Mode (Chunk=64, Context=2048)", "info");
+                appConfigOverlay = {
+                    prefillChunkSize: 64,     // Critical for Snapdragon stability
+                    contextWindowSize: 2048,  // Conservative context
+                    slidingWindowSize: 2048,  // Match context
+                    useIndexedDBCache: true
+                };
+            } else {
+                ui.log("🚀 Loading Desktop/RTX Profile: Unleashed (Max Perf)", "info");
+                appConfigOverlay = {
+                    prefillChunkSize: -1,     // -1 = Auto/Max (Fastest for 4090)
+                    contextWindowSize: 32768, // Maximize context
+                    useIndexedDBCache: true
+                };
+            }
             const appConfig = {
-                model_list: [
+                "useIndexedDBCache": appConfigOverlay.useIndexedDBCache,
+                "model_list": [
                     {
                         "model": "https://huggingface.co/mlc-ai/" + simpleId,
                         "model_id": modelInput,
                         "model_lib": modelLib,
                         "vram_required_MB": vramVal,
                         "low_resource_required": true,
+                        "required_features": ["shader-f16"],
+                        "context_window_size": appConfigOverlay.contextWindowSize,
+                        "sliding_window_size": appConfigOverlay.slidingWindowSize,
+                        "prefill_chunk_size": appConfigOverlay.prefillChunkSize,
                     },
                     {
                         "model": "https://huggingface.co/mlc-ai/" + simpleId,
@@ -963,9 +1060,14 @@ If context is insufficient, say so clearly.`;
                         "model_lib": modelLib,
                         "vram_required_MB": vramVal,
                         "low_resource_required": true,
+                        "required_features": ["shader-f16"],
+                        "context_window_size": appConfigOverlay.contextWindowSize,
+                        "sliding_window_size": appConfigOverlay.slidingWindowSize,
+                        "prefill_chunk_size": appConfigOverlay.prefillChunkSize,
                     }
                 ]
             };
+
 
             // If modelLib is null (e.g. Mistral), we should let CreateMLCEngine handle it or provide a default?
             // "model_lib": modelLib || (libBase + `Mistral-7B-Instruct-v0.2-${qTag}-sw4k_cs1k-webgpu.wasm`), 
@@ -1007,7 +1109,7 @@ If context is insufficient, say so clearly.`;
                 ui.updateProgress(1.0, "Ready!");
 
                 // Initialize reasoning loop
-                reasoningLoop = new GraphR1ReasoningLoop(db, engine, embedder);
+                reasoningLoop = new GraphR1ReasoningLoop(db, embedder);
 
                 // Enable input
                 document.getElementById('input').disabled = false;

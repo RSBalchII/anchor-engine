@@ -5,10 +5,11 @@ echo.
 echo Flags applied:
 echo - enable-unsafe-webgpu (Force GPU access)
 echo - enable-dawn-features=allow_unsafe_apis (Unlock larger buffers)
-echo - enable-features=Vulkan (Try Vulkan backend if available)
+echo - enable-features=Vulkan [REMOVED] (Defaulting to D3D12 for stability)
+echo - disable-gpu-watchdog (Prevent TDR timeouts)
 echo.
 
-start msedge --enable-unsafe-webgpu --enable-dawn-features=allow_unsafe_apis --enable-features=Vulkan http://localhost:8000/model-server-chat.html
+start msedge --enable-unsafe-webgpu --enable-dawn-features=allow_unsafe_apis --disable-gpu-watchdog http://localhost:8000/model-server-chat.html
 
 echo Browser launched.
 echo.
