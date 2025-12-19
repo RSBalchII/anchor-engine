@@ -11,5 +11,10 @@ echo http://%IP%:8000/
 echo.
 
 cd tools
+
+echo Launching WebGPU Bridge (API Backend)...
+start "WebGPU Bridge" cmd /k python webgpu_bridge.py
+
+echo Launching File Server...
 python -m http.server 8000
 pause

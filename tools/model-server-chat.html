@@ -1035,11 +1035,11 @@ If context is insufficient, say so clearly.`;
             let appConfigOverlay = {};
 
             if (hwProfile === 'lite') {
-                ui.log("🔋 Loading Lite Profile (Snapdragon): Safe Mode (Chunk=64, Context=2048)", "info");
+                ui.log("🔋 Loading Lite Profile (Snapdragon): Safe Mode (Chunk=64, Context=1024)", "info");
                 appConfigOverlay = {
                     prefillChunkSize: 64,     // Strict safety
-                    contextWindowSize: 2048,
-                    slidingWindowSize: 2048,
+                    contextWindowSize: 1024,  // Maximally minimal context
+                    slidingWindowSize: 1024,
                     useIndexedDBCache: true
                 };
             } else if (hwProfile === 'mid') {
