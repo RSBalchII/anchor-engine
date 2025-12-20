@@ -26,13 +26,13 @@ The system runs entirely in `tools/` using WebAssembly (WASM).
 graph TD
     User -->|Input| HTML[model-server-chat.html]
     
-    subgraph Browser_Memory [Two Birds, One Stone]
-        HTML -->|Store/Retrieve| Cozo[CozoDB WASM]
-        Cozo -->|Persist| IDB[IndexedDB/OPFS]
+    subgraph Browser_Memory ["Two Birds, One Stone"]
+        HTML -->|Store/Retrieve| Cozo["CozoDB WASM"]
+        Cozo -->|Persist| IDB["IndexedDB/OPFS"]
     end
     
     subgraph Cognitive_Engine
-        HTML -->|Context + Prompt| WebLLM[DeepSeek-R1 (WASM)]
+        HTML -->|Context + Prompt| WebLLM["DeepSeek-R1 (WASM)"]
         WebLLM -->|Reasoning Trace| HTML
     end
 ```
