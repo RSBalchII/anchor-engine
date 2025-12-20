@@ -705,19 +705,19 @@
             }
         }
 
-        // --- LOGIC: Graph-R1 Loop ---
+        // --- LOGIC: Graph-R1 Loop (Meta-Aware) ---
         class GraphR1ReasoningLoop {
             constructor(cozoDb, embedderFn) {
                 this.db = cozoDb;
-                // this.llm removed - we will use global 'engine' to ensure freshness
                 this.embedder = embedderFn;
-                this.maxIterations = 3;
+                this.MAX_ITERATIONS = 10; // Increased for self-correction
                 this.history = [];
             }
 
             async reason(userQuery) {
                 let context = "";
                 let iteration = 0;
+                let lastError = null; // Stores "Pain"
                 this.history = [];
 
                 ui.log(`🧠 Graph-R1 Loop Started: "${userQuery}"`, "info");
@@ -726,43 +726,35 @@
                 if (!engine) throw new Error("LLM Engine not initialized.");
                 await engine.resetChat();
 
-                while (iteration < this.maxIterations) {
+                while (iteration < this.MAX_ITERATIONS) {
                     iteration++;
-                    ui.log(`🔄 Iteration ${iteration}/${this.maxIterations}...`, "warn");
+                    ui.log(`🔄 Iteration ${iteration}/${this.MAX_ITERATIONS}...`, "warn");
 
                     try {
-                        const planPrompt = `
-You are a Memory Retrieval Agent. Your ONLY job is to convert the User's question into a specific CozoDB query format.
+                        const planPrompt = `SYSTEM: You are the Sovereign Coda Reasoning Engine.
+Your goal is to retrieve memory using CozoDB Datalog.
 
-### RULES
-1. IGNORE timestamps.
-2. IGNORE complex logic.
-3. JUST find the most important KEYWORD in the user's input.
-4. Output JSON inside a markdown block.
+Current Objective: "${userQuery}"
 
-### TEMPLATE (COPY THIS EXACTLY)
-User: "What is the code?"
-Response:
+LAST ERROR: ${lastError ? lastError : "None - Initial Attempt"}
+
+SCHEMA DEFINITION:
+Relation: *memory
+Columns: {id, content, timestamp, role, source, embedding}
+
+CRITICAL SYNTAX RULES:
+1. WRONG: *memory{keyword}
+2. CORRECT: *memory{id, content, timestamp}
+3. FILTER: str_includes(content, 'keyword')
+
+You MUST output strictly in this JSON format inside a markdown block:
 \`\`\`json
 {
-    "hypothesis": "Searching for keyword 'code'",
-    "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'code')",
+    "hypothesis": "Searching for X...",
+    "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'X')",
     "confidence": 0.5
 }
 \`\`\`
-
-User: "Who is Jade?"
-Response:
-\`\`\`json
-{
-    "hypothesis": "Searching for keyword 'Jade'",
-    "query": "?[id, content, timestamp] := *memory{id, content, timestamp}, str_includes(content, 'Jade')",
-    "confidence": 0.5
-}
-\`\`\`
-
-### YOUR TURN
-User Input: "${userQuery}"
 `;
 
                         const reasoningUI = ui.appendReasoning(`Thinking: ${userQuery.substring(0, 30)}... (Iteration ${iteration})`);
@@ -783,129 +775,73 @@ User Input: "${userQuery}"
                         }
                         reasoningUI.finish();
 
-                        // ROBUST JSON EXTRACTOR (Lobotomy for DeepSeek-R1)
+                        // ROBUST JSON EXTRACTOR
                         const extractJSON = (text) => {
-                            // 1. Try markdown block
                             const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-                            if (match) {
-                                try { return JSON.parse(match[1]); } catch (e) { }
-                            }
-                            // 2. Try Brackets
+                            if (match) { try { return JSON.parse(match[1]); } catch (e) { } }
                             const start = text.indexOf('{');
                             const end = text.lastIndexOf('}');
-                            if (start !== -1 && end !== -1 && end > start) {
-                                try { return JSON.parse(text.substring(start, end + 1)); } catch (e) { }
-                            }
+                            if (start !== -1 && end > start) { try { return JSON.parse(text.substring(start, end + 1)); } catch (e) { } }
                             return null;
                         };
 
                         const planData = extractJSON(planText);
-                        let planResult = null;
 
-                        if (planData) {
-                            planResult = {
-                                type: 'SEARCH_PLAN',
-                                ...planData
-                            };
-                        } else {
-                            planResult = { type: 'RAW_TEXT', text: planText };
+                        if (!planData) {
+                            throw new Error("No JSON found. Output valid JSON inside ```json``` blocks.");
                         }
 
-                        if (planResult.type !== 'SEARCH_PLAN') {
-                            ui.log(`⚠️ Iteration ${iteration}: Plan generation failed. Got ${planResult.type}`, "warn");
-                            if (iteration >= this.maxIterations) break;
-                            continue;
-                        }
+                        ui.log(`🤔 Hypothesis: ${planData.hypothesis}`, "info");
 
-                        ui.log(`🤔 Hypothesis: ${planResult.hypothesis}`, "info");
-
-                        // Stop if confident
-                        if (planResult.confidence >= 0.8) {
-                            ui.log(`✅ High confidence reached (${(planResult.confidence * 100).toFixed(0)}%)`, "success");
-                            break;
-                        }
-
-                        // 2. QUERY: Execute Datalog
+                        // Execute Query
                         try {
-                            const cleanQuery = planResult.query.replace(/```/g, '').trim();
-                            const queryParams = {};
+                            const cleanQuery = planData.query.replace(/```/g, '').trim();
 
-                            // Execute query
-                            let dbRaw;
-                            let dbResult;
-                            try {
-                                dbRaw = await this.db.run(cleanQuery, JSON.stringify(queryParams));
-                                dbResult = ResponsePattern.match(dbRaw);
-                            } catch (qe) {
-                                // Handle known parser errors gracefully (e.g., missing sort key)
-                                ui.log(`Query execution failed: ${qe.message}. Attempting sanitized fallback.`, "warn");
-                                if (qe.message && qe.message.includes("Sort key 'timestamp' not found")) {
-                                    try {
-                                        const sanitized = cleanQuery.replace(/:sort\s+-timestamp/g, '');
-                                        ui.log('Retrying query without :sort -timestamp', 'info');
-                                        dbRaw = await this.db.run(sanitized, JSON.stringify(queryParams));
-                                        dbResult = ResponsePattern.match(dbRaw);
-                                    } catch (qe2) {
-                                        ui.log(`Fallback query failed: ${qe2.message}`, 'error');
-                                        dbResult = { type: 'ERROR', error: qe2.message };
-                                    }
-                                } else {
-                                    dbResult = { type: 'ERROR', error: qe.message };
-                                }
+                            if (cleanQuery.toLowerCase().includes("select")) {
+                                throw new Error("Invalid Syntax: SQL detected. Use Datalog syntax only.");
+                            }
+
+                            ui.log(`Exec: ${cleanQuery}`, 'info');
+
+                            const dbRaw = await this.db.run(cleanQuery);
+                            const dbResult = ResponsePattern.match(dbRaw);
+
+                            if (dbResult.type === 'ERROR') {
+                                throw new Error(`CozoDB Syntax Error: ${dbResult.error}`);
                             }
 
                             if (dbResult.type === 'DB_RESULT' && dbResult.count > 0) {
                                 const newFacts = dbResult.rows
-                                    .map((row, idx) => {
-                                        // Handle array rows
-                                        if (Array.isArray(row)) {
-                                            return `[Fact ${idx + 1}] ${row.slice(1).join(': ')}`;
-                                        }
-                                        return `[Fact ${idx + 1}] ${JSON.stringify(row)}`;
-                                    })
+                                    .map((row, idx) => Array.isArray(row) ? `[Fact ${idx + 1}] ${row.slice(1).join(': ')}` : `[Fact ${idx + 1}] ${JSON.stringify(row)}`)
                                     .join("\n");
 
                                 context += `\n--- Iteration ${iteration} Findings ---\n${newFacts}`;
                                 ui.log(`📚 Retrieved ${dbResult.count} fact(s).`, "success");
-
-                                // UPDATE CONTEXT UI
                                 ui.appendContext(`Iteration ${iteration} Findings (${dbResult.count} facts)`, newFacts);
 
                                 this.history.push({
                                     iteration,
-                                    hypothesis: planResult.hypothesis,
+                                    hypothesis: planData.hypothesis,
                                     facts_retrieved: dbResult.count,
-                                    confidence: planResult.confidence
+                                    confidence: planData.confidence
                                 });
-                            } else if (dbResult.type === 'DB_RESULT') {
-                                ui.log(`📭 Iteration ${iteration}: No matching facts found.`, "warn");
-                                ui.appendContext(`Iteration ${iteration}`, "No matching memories found for: " + planResult.hypothesis);
-
-                                this.history.push({
-                                    iteration,
-                                    hypothesis: planResult.hypothesis,
-                                    facts_retrieved: 0,
-                                    confidence: planResult.confidence
-                                });
+                                // Success - we can stop or continue if confidence is low, but usually we stop on success
+                                break;
                             } else {
-                                const err = dbResult.error || "Unknown DB Error";
-                                ui.log(`⚠️ Query error: ${err}`, "error");
-                                ui.appendContext(`Iteration ${iteration} Error`, err);
+                                ui.log(`📭 Empty Result. Retrying...`, "warn");
+                                lastError = "Query returned 0 results. Try a broader substring search.";
+                                continue;
                             }
 
-                        } catch (e) {
-                            ui.log(`🔥 Query execution failed: ${e.message}`, "error");
+                        } catch (qe) {
+                            throw new Error(`Execution Error: ${qe.message}`);
                         }
 
-                    } catch (e) {
-                        ui.log(`💥 Iteration ${iteration} error: ${e.message}`, "error");
-                        if (e.message.includes("disposed") || e.message.includes("valid external Instance")) {
-                            ui.log("❌ GPU CONTEXT LOST! The model driver has crashed. Please reload the page.", "error");
-                            alert("GPU Crash Detected\n\nThe WebGPU context was lost (likely due to buffer overflow). Please reload the page.");
-                            break; // Critical failure, stop loop
-                        }
+                    } catch (err) {
+                        ui.log(`❌ Iteration ${iteration} Failed: ${err.message}`, "error");
+                        lastError = err.message;
                     }
-                }
+                } // End While
 
                 ui.log(`✨ Graph-R1 Loop completed after ${iteration} iteration(s).`, "success");
                 return { context, trace: this.history };
