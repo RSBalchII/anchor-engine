@@ -287,26 +287,36 @@
                 
                 appendLog('main', "DEBUG: Creating memory table...", 'info');
                 // Ensure tables exist (idempotent)
-                await runQuery(`
-                    :create memory {
-                        id: String =>
-                        timestamp: Int,
-                        role: String,
-                        content: String,
-                        source: String,
-                        embedding: <F32; 384>?
-                    }
-                `);
+                try {
+                    await runQuery(`
+                        :create memory {
+                            id: String =>
+                            timestamp: Int,
+                            role: String,
+                            content: String,
+                            source: String,
+                            embedding: <F32; 384>?
+                        }
+                    `);
+                } catch (e) {
+                    if (!e.message.includes('conflicts with an existing one')) throw e;
+                    appendLog('main', "Memory table already exists.", 'info');
+                }
                 
                 appendLog('main', "DEBUG: Creating relationships table...", 'info');
-                await runQuery(`
-                    :create relationships {
-                        source_id: String,
-                        target_id: String,
-                        type: String =>
-                        weight: Float
-                    }
-                `);
+                try {
+                    await runQuery(`
+                        :create relationships {
+                            source_id: String,
+                            target_id: String,
+                            type: String =>
+                            weight: Float
+                        }
+                    `);
+                } catch (e) {
+                    if (!e.message.includes('conflicts with an existing one')) throw e;
+                    appendLog('main', "Relationships table already exists.", 'info');
+                }
 
                 appendLog('main', "CozoDB Ready.");
                 
