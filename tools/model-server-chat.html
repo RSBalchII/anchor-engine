@@ -272,7 +272,46 @@
                 border-color: transparent;
             }
         }
-    </style>
+
+        /* --- Drag & Drop --- */
+        #input-area.drag-active {
+            border: 2px dashed #00ff88;
+            background: #1a1a1a;
+        }
+
+        #image-preview-container {
+            display: none; /* Hidden by default */
+            margin-bottom: 5px;
+            padding: 5px;
+            background: #252526;
+            border-radius: 4px;
+            border: 1px solid #444;
+            position: relative;
+            width: fit-content;
+        }
+
+        #image-preview {
+            max-height: 100px;
+            border-radius: 4px;
+            display: block;
+        }
+
+        #remove-image-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #a43131;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            line-height: 18px;
+            text-align: center;
+            padding: 0;
+        }
 </head>
 
 <body>
@@ -311,6 +350,11 @@
                             <option value="mlc-ai/Qwen3-8B-q4f16_1-MLC">Qwen 3 8B (Base) [Verified]</option>
                             <option value="mlc-ai/Qwen2.5-7B-Instruct-q4f16_1-MLC" selected>Qwen 2.5 7B (Instruct) [Verified]</option>
                             <option value="mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 Mini (3.8B)</option>
+                        </optgroup>
+
+                        <optgroup label="👁️ Vision Models">
+                            <option value="mlc-ai/Phi-3.5-vision-instruct-q4f16_1-MLC">Phi 3.5 Vision (4.2B) [Multimodal]</option>
+                            <option value="mlc-ai/Qwen2-VL-7B-Instruct-q4f16_1-MLC">Qwen2-VL 7B (Instruct) [Multimodal]</option>
                         </optgroup>
 
                         <optgroup label="🚀 High Performance (Small)">
@@ -390,9 +434,17 @@
                     <div style="padding: 10px; background: #252526; font-weight: bold; border-bottom: 1px solid #333;">
                         💬 Chat Stream</div>
                     <div id="chat-box"></div>
-                    <div id="input-area" style="padding: 10px; border-top: 1px solid #333;">
-                        <textarea id="input" disabled placeholder="Waiting for Engine..."></textarea>
-                        <button id="send-btn" disabled>Send</button>
+                    
+                    <!-- Input Area with Drag & Drop -->
+                    <div id="input-container" style="border-top: 1px solid #333; padding: 10px; display: flex; flex-direction: column;">
+                        <div id="image-preview-container">
+                            <img id="image-preview" src="" alt="Preview">
+                            <button id="remove-image-btn">×</button>
+                        </div>
+                        <div id="input-area" style="display: flex; gap: 10px; padding: 5px; border: 2px dashed transparent; border-radius: 6px; transition: all 0.2s;">
+                            <textarea id="input" disabled placeholder="Type or Drag & Drop Image..."></textarea>
+                            <button id="send-btn" disabled>Send</button>
+                        </div>
                     </div>
                 </div>
 
@@ -436,30 +488,22 @@
             if (!state.autoSave || !window.db) return;
             try {
                 const ts = Date.now();
-                const id = `msg_${ts}_${role}`;
-                // Minimal escape for Datalog string
-                const safeContent = content.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                const id = 'msg_' + ts + '_' + role;
 
                 // Write to Memory (Embedding null for Dreamer to fix later)
-                const query = `
-                    :put memory {
-                        id: "${id}",
-                        timestamp: ${ts},
-                        role: "${role}",
-                        content: "${safeContent}",
-                        source: "root_console",
-                        embedding: null
-                    }
-                `;
-                await window.db.run(query);
+                const query = ":put memory { id: $id, timestamp: $ts, role: $role, content: $content, source: 'root_console', embedding: null }";
+                await window.db.run(query, JSON.stringify({ id, ts, role, content }));
                 ui.log(`💾 Memory Saved (${role})`, "debug");
             } catch (e) {
                 ui.log(`Save Failed: ${e.message}`, "error");
             }
         }
 
-        // Expose toggle handler
-        window.toggleAutoSave = (checked) => { state.autoSave = checked; };
+        // Expose toggle handler globally
+        window.toggleAutoSave = (checked) => { 
+            state.autoSave = checked; 
+            ui.log(`Auto-Save: ${checked ? 'ON' : 'OFF'}`, 'info');
+        };
 
         // Bridge legacy UI logging to Sovereign Logger
         const ui = {
@@ -552,6 +596,45 @@
         let engine;
         let contextManager;
         let selectedModelId = null;
+        let currentImageBase64 = null; // Staged image
+
+        // --- UTILS: Image Handling ---
+        function clearImage() {
+            currentImageBase64 = null;
+            document.getElementById('image-preview-container').style.display = 'none';
+            document.getElementById('image-preview').src = "";
+        }
+
+        document.getElementById('remove-image-btn').onclick = clearImage;
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('input-area').classList.add('drag-active');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('input-area').classList.remove('drag-active');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('input-area').classList.remove('drag-active');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    currentImageBase64 = event.target.result;
+                    document.getElementById('image-preview').src = currentImageBase64;
+                    document.getElementById('image-preview-container').style.display = 'block';
+                    ui.log("📸 Image attached.", "info");
+                };
+                reader.readAsDataURL(file);
+            } else {
+                ui.log("⚠️ Please drop a valid image file.", "warn");
+            }
+        }
 
         // --- UTILS: Response Pattern Matcher ---
         class ResponsePattern {
@@ -676,24 +759,7 @@
 2. **MINIMIZE ENTROPY:** If a Clue contains the answer, OUTPUT IT DIRECTLY. Do not generate "filler".
 3. **PATH OF LEAST ACTION:** The most efficient answer is the correct one.
 `;
-                return `
-### SYSTEM TIME
-${now}
-
-### BACKGROUND INFORMATION
-${retrievedMemories ? retrievedMemories : "No specific context available."} 
-
-### CHAT HISTORY
-${chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
-
-### INSTRUCTION
-${systemPrompt}
-${physicsInstruction}
-Based on the Background Information above, answer the following question.
-
-### USER QUESTION
-${userText}
-`;
+                return `### SYSTEM TIME\n${now}\n\n### BACKGROUND INFORMATION\n${retrievedMemories ? retrievedMemories : "No specific context available."} \n\n### CHAT HISTORY\n${chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}\n\n### INSTRUCTION\n${systemPrompt}\n${physicsInstruction}\nBased on the Background Information above, answer the following question.\n\n### USER QUESTION\n${userText}`;
             }
 
             async executeR1Loop(userText, history) {
@@ -747,25 +813,59 @@ ${userText}
         async function handleSend() {
             const input = document.getElementById('input');
             const text = input.value.trim();
-            if (!text || !engine) return;
+            
+            // Allow sending if there is text OR an image
+            if ((!text && !currentImageBase64) || !engine) return;
 
             input.value = "";
             input.disabled = true;
             document.getElementById('send-btn').disabled = true;
 
-            ui.append("user", text);
-            if (state.autoSave) await saveTurn("user", text);
+            // Display Logic
+            if (currentImageBase64) {
+                ui.append("user", `![Uploaded Image](${currentImageBase64})\n\n${text}`);
+            } else {
+                ui.append("user", text);
+            }
+
+            if (state.autoSave) await saveTurn("user", text + (currentImageBase64 ? " [Image Attached]" : ""));
 
             try {
-                const { context, finalAnswer } = await contextManager.executeR1Loop(text, []);
-                if (finalAnswer && finalAnswer.includes("System Crash")) return ui.log("🛑 Execution halted (GPU Crash).", "error");
+                // Construct Message Payload
+                let messages = [];
+                let context = "";
 
-                ui.log("🧪 Synthesizing...", "warn");
-                const sysPrompt = `You are a helpful assistant with access to retrieved context. Use it to answer the user's question.\n\nCONTEXT:\n${context || "(No relevant context)"}`;
+                // If Image: Bypass R1 Loop (Vision models typically don't do R1 reasoning yet or complex context mixing)
+                // We use a direct shot for now.
+                if (currentImageBase64) {
+                     messages = [
+                        { role: "system", content: "You are a helpful assistant. Analyze the user's image and text." },
+                        { 
+                            role: "user", 
+                            content: [
+                                { type: "text", text: text || "What is in this image?" },
+                                { type: "image_url", image_url: { url: currentImageBase64 } }
+                            ]
+                        }
+                    ];
+                    ui.log("👁️ Processing Visual Data...", "warn");
+                } else {
+                    // Standard Text Path (R1 Loop)
+                    const r1Result = await contextManager.executeR1Loop(text, []);
+                    context = r1Result.context;
+                    const finalAnswer = r1Result.finalAnswer;
+                    
+                    if (finalAnswer && finalAnswer.includes("System Crash")) return ui.log("🛑 Execution halted (GPU Crash).", "error");
+
+                    ui.log("🧪 Synthesizing...", "warn");
+                    const sysPrompt = `You are a helpful assistant with access to retrieved context. Use it to answer the user's question.\n\nCONTEXT:\n${context || "(No relevant context)"}`;
+                    messages = [{ role: "system", content: sysPrompt }, { role: "user", content: text }];
+                }
+
                 const msgHandle = ui.append("assistant", "");
 
                 const stream = await engine.chat.completions.create({
-                    messages: [{ role: "system", content: sysPrompt }, { role: "user", content: text }],
+                    messages: messages,
                     max_tokens: 1024,
                     temperature: 0.7,
                     stream: true
@@ -777,6 +877,10 @@ ${userText}
                     fullAnswer += delta;
                     msgHandle.update(fullAnswer);
                 }
+                
+                // Cleanup
+                if (currentImageBase64) clearImage();
+
                 if (state.autoSave) await saveTurn("assistant", fullAnswer);
                 ui.log("✅ Response generated.", "success");
 
@@ -826,6 +930,10 @@ ${userText}
                 else if (lowerId.includes('qwen3-8b')) modelLib = libBase + `Qwen3-8B-${qTag}-ctx4k_cs1k-webgpu.wasm`;
                 else if (lowerId.includes('qwen2.5-7b')) modelLib = libBase + `Qwen2-7B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm`;
                 else if (lowerId.includes('phi-3.5-mini')) modelLib = libBase + `Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm`;
+                
+                // Vision Models
+                else if (lowerId.includes('phi-3.5-vision')) modelLib = libBase + `Phi-3.5-vision-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm`;
+                else if (lowerId.includes('qwen2-vl-7b')) modelLib = libBase + `Qwen2-VL-7B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm`;
 
                 // Small / Efficient
                 else if (lowerId.includes('smollm2-1.7b')) modelLib = libBase + `SmolLM2-1.7B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm`;
@@ -934,6 +1042,8 @@ ${userText}
                 // Input Handlers (idempotent)
                 const sendBtn = document.getElementById('send-btn');
                 const input = document.getElementById('input');
+                const dropZone = document.getElementById('input-area');
+
                 if (sendBtn && input) {
                     sendBtn.onclick = handleSend; // Use property to avoid duplicates
                     input.onkeydown = (e) => {
@@ -942,6 +1052,12 @@ ${userText}
                             handleSend();
                         }
                     };
+                }
+
+                if (dropZone) {
+                    dropZone.addEventListener('dragover', handleDragOver);
+                    dropZone.addEventListener('dragleave', handleDragLeave);
+                    dropZone.addEventListener('drop', handleDrop);
                 }
             }
         }
