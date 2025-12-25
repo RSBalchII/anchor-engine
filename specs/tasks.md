@@ -14,13 +14,15 @@
 - [x] **Model Profiles**: Added Lite, Mid, High, Ultra profiles.
 - [x] **Crash Prevention**: Context clamping for constrained drivers.
 - [x] **Mobile Optimization**: Service Worker (`llm-worker.js`) for non-blocking inference.
+- [x] **Consciousness Semaphore**: Implemented resource arbitration in `sovereign.js`.
 
 ## Phase 3: The Subconscious (Completed) ✅
 - [x] **Root Dreamer**: Created `tools/root-dreamer.html` for background memory consolidation.
 - [x] **Ingestion Refinement**: Upgraded `read_all.py` to produce LLM-legible YAML.
 - [x] **Root Architecture Docs**: Finalized terminology (Sovereign -> Root).
+- [x] **Memory Hygiene**: Implemented "Forgetting Curve" in `root-dreamer.html`.
 
-## Phase 3.1: Active Cognition (Current)
+## Phase 3.1: Active Cognition (Completed)
 - [x] **Memory Writing**: Implement `saveTurn` to persist chat to CozoDB.
 - [x] **User Control**: Add "Auto-Save" toggle to System Controls.
 - [x] **Temporal Grounding**: Inject System Time into `buildVirtualPrompt`.
