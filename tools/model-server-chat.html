@@ -478,6 +478,7 @@
     <script type="module">
         // --- IMPORTS ---
         import { SovereignLogger, createStore, getWebGPUConfig, initCozo, GPUController } from './modules/sovereign.js';
+        import { MemoryAuditor } from './modules/agents.js';
 
         // Load hot reload functionality in development
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -498,6 +499,7 @@
 
         // --- ROOT KERNEL SETUP ---
         const logger = new SovereignLogger('Root-Console');
+        const auditor = new MemoryAuditor();
 
         const { state, subscribe } = createStore({
             status: "Initializing...",
@@ -509,11 +511,21 @@
         // --- UTILS: The Archivist ---
         async function saveTurn(role, content) {
             if (!state.autoSave || !window.db) return;
-            try {
-                const ts = Date.now();
-                const id = 'msg_' + ts + '_' + role;
 
-                // Write to Memory (Embedding null for Dreamer to fix later)
+            // 1. Prepare Candidate
+            const ts = Date.now();
+            const id = 'msg_' + ts + '_' + role;
+            const candidate = { id, timestamp: ts, role, content, source: 'root_console' };
+
+            // 2. THE AUDIT
+            const audit = auditor.audit(candidate);
+            if (!audit.passed) {
+                ui.log(`🛑 Memory Rejected: ${audit.reason}`, "error");
+                return; // Stop. Do not write to DB.
+            }
+
+            try {
+                // 3. Commit (Only if passed)
                 const query = ":put memory { id: $id, timestamp: $ts, role: $role, content: $content, source: 'root_console', embedding: null }";
                 await window.db.run(query, JSON.stringify({ id, ts, role, content }));
                 ui.log(`💾 Memory Saved (${role})`, "debug");
