@@ -1,5 +1,22 @@
 # Context-Engine Changelog
 
+## [2.0.2] - 2025-12-31 "Test Suite Organization & Pipeline Verification"
+
+### Added
+- **Test Directory Structure**: Created dedicated `tests/` directory in project root for all test files
+- **Test File Migration**: Moved all test files from `tools/` and `scripts/` to new `tests/` directory:
+    - `test_model_loading.py` → `tests/test_model_loading.py`
+    - `test_model_availability.py` → `tests/test_model_availability.py`
+    - `test_orchestrator.py` → `tests/test_orchestrator.py`
+    - `model_test.html` → `tests/model_test.html`
+    - `test_gpu_fixes.py` → `tests/test_gpu_fixes.py`
+- **Test Configuration Updates**: Updated test files to use correct port (8000 instead of 8080) for current architecture
+- **Comprehensive Test Suite**: Enhanced test coverage for model loading, endpoint accessibility, and data pipeline verification
+
+### Changed
+- **Project Organization**: Consolidated all test assets into dedicated directory for better maintainability
+- **Test Architecture**: Updated test configurations to match current Anchor Core unified architecture (port 8000)
+
 ## [2.0.1] - 2025-12-30 "Server Stability & Endpoint Fixes"
 
 ### Fixed

@@ -37,12 +37,28 @@ active_requests: Dict[str, asyncio.Queue] = {}
 # --- MODEL RESOLVE REDIRECT (for MLC-LLM compatibility) ---
 # Handle the /resolve/main/ pattern that MLC-LLM expects for local models
 @app.get("/models/{model_name}/resolve/main/{file_path}")
-@app.head("/models/{model_name}/resolve/main/{file_path}")
-@app.options("/models/{model_name}/resolve/main/{file_path}")
-async def model_resolve_redirect(model_name: str, file_path: str, request: Request):
-    """Redirect MLC-LLM /resolve/main/ requests to actual local model files"""
+async def model_resolve_redirect_get(model_name: str, file_path: str):
+    """Handle GET requests for MLC-LLM /resolve/main/ requests"""
     import os
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import FileResponse, RedirectResponse
+
+    # Construct path to actual model file
+    models_base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
+    actual_path = os.path.join(models_base, model_name, file_path)
+
+    # Check if the file exists in the actual model directory
+    if os.path.exists(actual_path) and os.path.isfile(actual_path):
+        return NoCacheFileResponse(actual_path)
+    else:
+        # If file doesn't exist locally, redirect to HuggingFace (Standard 009 Bridge Redirect Logic)
+        print(f"⚠️ File not found locally, redirecting to HuggingFace: {model_name}/resolve/main/{file_path}")
+        hf_url = f"https://huggingface.co/mlc-ai/{model_name}/resolve/main/{file_path}"
+        return RedirectResponse(url=hf_url, status_code=302)
+
+@app.head("/models/{model_name}/resolve/main/{file_path}")
+async def model_resolve_redirect_head(model_name: str, file_path: str):
+    """Handle HEAD requests for MLC-LLM /resolve/main/ requests"""
+    import os
     from starlette.responses import Response
 
     # Construct path to actual model file
@@ -51,33 +67,37 @@ async def model_resolve_redirect(model_name: str, file_path: str, request: Reque
 
     # Check if the file exists in the actual model directory
     if os.path.exists(actual_path) and os.path.isfile(actual_path):
-        # For HEAD requests, return a minimal response with correct headers
-        if request.method == "HEAD":
-            # Get file size for Content-Length header
-            file_size = os.path.getsize(actual_path)
-            return Response(
-                status_code=200,
-                headers={
-                    "content-type": "application/json" if actual_path.endswith(('.json', '.config')) else "application/octet-stream",
-                    "content-length": str(file_size)
-                }
-            )
-        # For OPTIONS requests (CORS preflight), return appropriate headers
-        elif request.method == "OPTIONS":
-            return Response(
-                status_code=200,
-                headers={
-                    "access-control-allow-origin": "*",
-                    "access-control-allow-methods": "GET, HEAD, OPTIONS",
-                    "access-control-allow-headers": "*",
-                    "access-control-max-age": "86400"
-                }
-            )
-        else:
-            return FileResponse(actual_path)
+        # Get file size for Content-Length header
+        file_size = os.path.getsize(actual_path)
+        return Response(
+            status_code=200,
+            headers={
+                "content-length": str(file_size),
+                "content-type": "application/json" if actual_path.endswith(('.json', '.config')) else "application/octet-stream",
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     else:
-        # If file doesn't exist, return 404
-        return JSONResponse(status_code=404, content={"error": f"File {file_path} not found for model {model_name}"})
+        # If file doesn't exist locally, redirect to HuggingFace (Standard 009 Bridge Redirect Logic)
+        print(f"⚠️ HEAD request: File not found locally, redirecting to HuggingFace: {model_name}/resolve/main/{file_path}")
+        hf_url = f"https://huggingface.co/mlc-ai/{model_name}/resolve/main/{file_path}"
+        return RedirectResponse(url=hf_url, status_code=302)
+
+@app.options("/models/{model_name}/resolve/main/{file_path}")
+async def model_resolve_redirect_options(model_name: str, file_path: str):
+    """Handle OPTIONS requests for MLC-LLM /resolve/main/ requests"""
+    # For OPTIONS requests (CORS preflight), return appropriate headers
+    return Response(
+        status_code=200,
+        headers={
+            "access-control-allow-origin": "*",
+            "access-control-allow-methods": "GET, HEAD, OPTIONS",
+            "access-control-allow-headers": "*",
+            "access-control-max-age": "86400"
+        }
+    )
 
 
 # --- STATIC ASSETS (No-Cache for Models) ---

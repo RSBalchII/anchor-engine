@@ -222,7 +222,7 @@
 
             } catch (e) {
                 log(`Brain Error: ${e.message}`, 'error');
-                log(`(Ensure tools/model-server-chat.html is open with Ghost Engine loaded)`, 'info');
+                log(`(Ensure chat.html is open with Ghost Engine loaded)`, 'info');
                 return null;
             } finally {
                 DOM.status.classList.remove('busy');

@@ -12,7 +12,7 @@ import json
 def test_gpu_status():
     """Test GPU status endpoint"""
     try:
-        response = requests.get("http://localhost:8080/v1/gpu/status", 
+        response = requests.get("http://localhost:8000/v1/gpu/status",
                               headers={"Authorization": "Bearer sovereign-secret"})
         if response.status_code == 200:
             status = response.json()
@@ -30,8 +30,8 @@ def test_lock_acquisition(agent_id: str, timeout: int = 120):  # Increased to 12
     try:
         print(f"⏳ Agent {agent_id} requesting GPU lock...")
         start_time = time.time()
-        
-        response = requests.post("http://localhost:8080/v1/gpu/lock",
+
+        response = requests.post("http://localhost:8000/v1/gpu/lock",
                                 headers={"Authorization": "Bearer sovereign-secret"},
                                 json={"id": agent_id},
                                 timeout=timeout)
@@ -43,7 +43,7 @@ def test_lock_acquisition(agent_id: str, timeout: int = 120):  # Increased to 12
             print(f"✅ Agent {agent_id} acquired lock in {elapsed:.2f}s: {result.get('token', 'no-token')}")
             
             # Release the lock
-            release_response = requests.post("http://localhost:8080/v1/gpu/unlock",
+            release_response = requests.post("http://localhost:8000/v1/gpu/unlock",
                                           headers={"Authorization": "Bearer sovereign-secret"},
                                           json={"id": agent_id})
             if release_response.status_code == 200:
@@ -87,7 +87,7 @@ def test_force_release():
     print("\n🔧 Testing force release functionality...")
     
     # First, acquire a lock manually
-    response = requests.post("http://localhost:8080/v1/gpu/lock",
+    response = requests.post("http://localhost:8000/v1/gpu/lock",
                             headers={"Authorization": "Bearer sovereign-secret"},
                             json={"id": "test-force-release"})
     
@@ -95,7 +95,7 @@ def test_force_release():
         print("✅ Acquired test lock")
         
         # Now force release all locks
-        force_response = requests.post("http://localhost:8080/v1/gpu/force-release-all",
+        force_response = requests.post("http://localhost:8000/v1/gpu/force-release-all",
                                      headers={"Authorization": "Bearer sovereign-secret"})
         
         if force_response.status_code == 200:

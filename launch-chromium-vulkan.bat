@@ -7,7 +7,7 @@ if not exist "%USER_DATA%" mkdir "%USER_DATA%"
 
 :: Define Flags (Critical for Snapdragon)
 set "FLAGS=--user-data-dir="%USER_DATA%" --ignore-gpu-blocklist --enable-webgpu-developer-features --enable-unsafe-webgpu --enable-dawn-features=allow_unsafe_apis --enable-features=Vulkan --use-angle=vulkan --disable-gpu-watchdog"
-set "URL=http://localhost:8000/tools/model-server-chat.html"
+set "URL=http://localhost:8000/chat.html"
 
 echo ---------------------------------------------------
 echo 🔍 Detecting Browsers (Vulkan Mode)...
