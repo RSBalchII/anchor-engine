@@ -31,10 +31,10 @@ def download_file(url, dest_path, progress_callback=None):
                 wrote += len(chunk)
                 # Optional: detailed progress
         
-        if progress_callback: progress_callback(f"✓ Saved {dest_path.name}", 1.0)
+        if progress_callback: progress_callback(f"Saved {dest_path.name}", 1.0)
         
     except Exception as e:
-        if progress_callback: progress_callback(f"❌ Error {dest_path.name}: {e}", 0.0)
+        if progress_callback: progress_callback(f"Error {dest_path.name}: {e}", 0.0)
         raise e
 
 def download_model(model_id, repo_url=None, base_dir=None, progress_callback=None):
@@ -61,7 +61,7 @@ def download_model(model_id, repo_url=None, base_dir=None, progress_callback=Non
     model_dir = base_dir / dir_name
     model_dir.mkdir(exist_ok=True)
     
-    if progress_callback: progress_callback(f"🚀 Starting download for {dir_name}", 0.0)
+    if progress_callback: progress_callback(f"Starting download for {dir_name}", 0.0)
 
     # 1. Download ndarray-cache.json
     cache_url = f"{repo_url}/resolve/main/ndarray-cache.json"
@@ -111,7 +111,7 @@ def download_model(model_id, repo_url=None, base_dir=None, progress_callback=Non
         if progress_callback: 
             progress_callback(f"Checked {fname}", completed/total_files)
 
-    if progress_callback: progress_callback("✅ Download Complete", 1.0)
+    if progress_callback: progress_callback("Download Complete", 1.0)
     print(f"Serve at: http://localhost:8080/models/{dir_name}")
 
 def main():

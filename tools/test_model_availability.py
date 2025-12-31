@@ -23,7 +23,7 @@ class ModelAvailabilityTester:
 
     def test_model_availability(self, model_name):
         """Test if a model is available for loading by checking required files"""
-        print(f"🔍 Testing model availability: {model_name}")
+        print(f"Testing model availability: {model_name}")
 
         # Define the required model files for MLC-LLM using the resolve/main pattern
         # This matches how the MLC-LLM library actually accesses files
@@ -61,14 +61,14 @@ class ModelAvailabilityTester:
                 model_result["files"][file_path] = file_status
 
                 if response.status_code == 200:
-                    print(f"  ✅ {file_path}")
+                    print(f"  OK {file_path}")
                 elif response.status_code == 404:
-                    print(f"  ❌ {file_path} - NOT FOUND")
+                    print(f"  MISSING {file_path} - NOT FOUND")
                     missing_files.append(file_path)
                     model_result["available"] = False
                     model_result["download_required"] = True
                 else:
-                    print(f"  ⚠️ {file_path} - Status {response.status_code}")
+                    print(f"  WARNING {file_path} - Status {response.status_code}")
                     model_result["available"] = False
 
             except requests.exceptions.RequestException as e:
@@ -84,16 +84,16 @@ class ModelAvailabilityTester:
                 model_result["available"] = False
 
         if missing_files:
-            print(f"  📋 Missing files: {len(missing_files)} required files not found")
+            print(f"  INFO Missing files: {len(missing_files)} required files not found")
         else:
-            print(f"  🎉 Model {model_name} is fully available for loading!")
+            print(f"  SUCCESS Model {model_name} is fully available for loading!")
 
         self.results[model_name] = model_result
         return model_result["available"]
 
     def test_model_download_capability(self, model_id):
         """Test if the model download endpoint works for a given model"""
-        print(f"\n🔄 Testing download capability for: {model_id}")
+        print(f"\nTesting download capability for: {model_id}")
         
         try:
             url = urljoin(self.base_url, "/v1/models/pull")
@@ -106,50 +106,50 @@ class ModelAvailabilityTester:
             response = requests.post(url, json=payload, headers=self.headers, timeout=5)
             
             if response.status_code in [200, 409, 400]:  # 409=already exists, 400=bad request (but endpoint works)
-                print(f"  ✅ Download endpoint accessible for {model_id}")
+                print(f"  OK Download endpoint accessible for {model_id}")
                 return True
             else:
-                print(f"  ❌ Download endpoint failed for {model_id}: {response.status_code}")
+                print(f"  FAILED Download endpoint failed for {model_id}: {response.status_code}")
                 return False
-                
+
         except requests.exceptions.RequestException as e:
-            print(f"  ❌ Download endpoint error for {model_id}: {e}")
+            print(f"  FAILED Download endpoint error for {model_id}: {e}")
             return False
 
     def run_model_availability_tests(self, model_list):
         """Run availability tests for a list of models"""
-        print(f"🚀 Running Model Availability Tests against: {self.base_url}")
+        print(f"Running Model Availability Tests against: {self.base_url}")
         print("-" * 70)
         
         available_models = []
         unavailable_models = []
         
         for model_name in model_list:
-            print(f"\n📋 Testing: {model_name}")
+            print(f"\nINFO Testing: {model_name}")
             is_available = self.test_model_availability(model_name)
-            
+
             if is_available:
                 available_models.append(model_name)
-                print(f"  🟢 RESULT: AVAILABLE for loading")
+                print(f"  RESULT: AVAILABLE for loading")
             else:
                 unavailable_models.append(model_name)
-                print(f"  🔴 RESULT: NOT AVAILABLE (download required)")
+                print(f"  RESULT: NOT AVAILABLE (download required)")
                 
                 # Test if download is possible
                 huggingface_id = f"mlc-ai/{model_name}"
                 self.test_model_download_capability(huggingface_id)
         
         print("\n" + "="*70)
-        print("📊 TEST SUMMARY:")
+        print("TEST SUMMARY:")
         print(f"  Available Models: {len(available_models)}")
         for model in available_models:
-            print(f"    ✅ {model}")
-            
+            print(f"    OK {model}")
+
         print(f"  Unavailable Models: {len(unavailable_models)}")
         for model in unavailable_models:
-            print(f"    ❌ {model}")
-        
-        print("\n💡 RECOMMENDATION:")
+            print(f"    MISSING {model}")
+
+        print("\nRECOMMENDATION:")
         if unavailable_models:
             print("  - Download required models using the /v1/models/pull endpoint")
             print("  - Or ensure models are pre-loaded in the models/ directory")
@@ -209,14 +209,14 @@ def main():
         report = tester.generate_report()
         with open(args.output, 'w') as f:
             json.dump(report, f, indent=2)
-        print(f"\n📄 Test report saved to: {args.output}")
+        print(f"\nTest report saved to: {args.output}")
 
     # Exit with error code if no models are available
     if not available:
-        print("\n❌ No models are currently available for loading!")
+        print("\nERROR: No models are currently available for loading!")
         sys.exit(1)
     else:
-        print(f"\n✅ {len(available)} model(s) are ready for loading!")
+        print(f"\nSUCCESS: {len(available)} model(s) are ready for loading!")
         sys.exit(0)
 
 
