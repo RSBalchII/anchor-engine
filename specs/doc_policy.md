@@ -50,6 +50,7 @@
 5. **Enforcement:** If a solution violates a Standard, reject it immediately.
 6. **Standards Evolution:** New standards should follow the "Triangle of Pain" format and be numbered sequentially (001, 002, etc.).
 7. **Cross-Reference:** When creating new standards, reference related existing standards to maintain consistency.
+8. **Logging Standard:** All scripts must output logs to the logs directory with automatic truncation after 5k lines or 10k chars, and must run in detached mode for LLM models to prevent blocking operations.
 
 ---
 *Verified by Architecture Council. Edited by Humans Only.*
