@@ -1,0 +1,345 @@
+10:26:52 - ⏳ Waiting for Bridge to come online...
+10:26:54 - 🟢 Bridge is Online!
+10:26:54 - 🔍 Starting Initial Index Walk...
+10:26:54 - 👀 Change: README.md
+10:26:56 - ✅ Ingested
+10:26:56 - 👀 Change: comptia+module-2.md
+10:26:58 - ✅ Ingested
+10:26:58 - 👀 Change: docker-compose.yaml
+10:27:00 - ✅ Ingested
+10:27:00 - 👀 Change: Monday-Interview.md
+10:27:03 - ✅ Ingested
+10:27:03 - 👀 Change: nmgasco&pnmACCT.md
+10:27:05 - ✅ Ingested
+10:27:05 - 👀 Change: notes.md
+10:27:07 - ✅ Ingested
+10:27:07 - 👀 Change: notes_for_proposal.md
+10:27:09 - ✅ Ingested
+10:27:09 - 👀 Change: OLLAMA-Config-Examples.md
+10:27:11 - ✅ Ingested
+10:27:11 - 👀 Change: README.md
+10:27:13 - ✅ Ingested
+10:27:14 - 👀 Change: app.json
+10:27:16 - ✅ Ingested
+10:27:16 - 👀 Change: appearance.json
+10:27:18 - ✅ Ingested
+10:27:18 - 👀 Change: core-plugins.json
+10:27:20 - ✅ Ingested
+10:27:20 - 👀 Change: workspace.json
+10:27:22 - ✅ Ingested
+10:27:34 - 👀 Change: combined_text.txt
+10:27:43 - ✅ Ingested
+10:27:44 - 👀 Change: read_all.py
+10:27:46 - ✅ Ingested
+10:27:46 - 👀 Change: July 16th 2025.md
+10:27:48 - ✅ Ingested
+10:27:48 - 👀 Change: Monday-Interview-6-30.md
+10:27:50 - ✅ Ingested
+10:27:52 - 👀 Change: How to back up and restore a Windows Subsystem for Linux (WSL) distro.html
+10:27:54 - ✅ Ingested
+10:27:55 - 👀 Change: SMS-Feature-Santa-Rosa-2.md
+10:27:57 - ✅ Ingested
+10:27:57 - 👀 Change: SMS-Feature-Santa-Rosa.md
+10:27:59 - ✅ Ingested
+10:28:00 - 👀 Change: WSL-Backup.md
+10:28:02 - ✅ Ingested
+10:28:02 - 👀 Change: ARK.yaml
+10:28:04 - ✅ Ingested
+10:28:04 - 👀 Change: growth.yaml
+10:28:06 - ✅ Ingested
+10:28:07 - 👀 Change: new-deepseek.md
+10:28:09 - ✅ Ingested
+10:28:09 - 👀 Change: resume_updates.md
+10:28:11 - ✅ Ingested
+10:28:11 - 👀 Change: appearance.md
+10:28:13 - ✅ Ingested
+10:28:13 - 👀 Change: cognition_files.json
+10:28:15 - ✅ Ingested
+10:28:15 - 👀 Change: containment-flow.md
+10:28:18 - ✅ Ingested
+10:28:18 - 👀 Change: context-loss.md
+10:28:20 - ✅ Ingested
+10:28:20 - 👀 Change: core-events.md
+10:28:22 - ✅ Ingested
+10:28:22 - 👀 Change: distiller.md
+10:28:24 - ✅ Ingested
+10:28:24 - 👀 Change: ethos.md
+10:28:26 - ✅ Ingested
+10:28:26 - 👀 Change: life-history.md
+10:28:29 - ✅ Ingested
+10:28:29 - 👀 Change: memories.md
+10:28:31 - ✅ Ingested
+10:28:31 - 👀 Change: thinking-processes.md
+10:28:33 - ✅ Ingested
+10:28:33 - 👀 Change: A-Special-Session.md
+10:28:36 - ✅ Ingested
+10:28:36 - 👀 Change: Morning-Surrender.md
+10:28:38 - ✅ Ingested
+10:28:38 - 👀 Change: dao-extension-algorithm.md
+10:28:40 - ✅ Ingested
+10:28:40 - 👀 Change: get-work-seen.md
+10:28:43 - ✅ Ingested
+10:28:43 - 👀 Change: the-contextual-intelligence-hypothesis.md
+10:28:45 - ✅ Ingested
+10:28:45 - 👀 Change: categories.md
+10:28:48 - ✅ Ingested
+10:28:48 - 👀 Change: high_coherency_context.json
+10:28:50 - ✅ Ingested
+10:28:51 - 👀 Change: pauline_explicit.json
+10:28:53 - ✅ Ingested
+10:28:53 - 👀 Change: persona-logs.json
+10:28:56 - ✅ Ingested
+10:28:56 - 👀 Change: project-chimaera-multi-model.json
+10:28:58 - ✅ Ingested
+10:28:59 - 👀 Change: urls.md
+10:29:01 - ✅ Ingested
+10:29:01 - 👀 Change: user-bio.md
+10:29:03 - ✅ Ingested
+10:29:04 - 👀 Change: quickboot.md
+10:29:06 - ✅ Ingested
+10:29:07 - 👀 Change: session-45.json
+10:29:10 - ✅ Ingested
+10:29:10 - 👀 Change: sessions_part_1.json
+10:29:13 - ✅ Ingested
+10:29:13 - 👀 Change: sessions_part_10.json
+10:29:15 - ✅ Ingested
+10:29:15 - 👀 Change: sessions_part_11.json
+10:29:17 - ✅ Ingested
+10:29:18 - 👀 Change: sessions_part_12.json
+10:29:20 - ✅ Ingested
+10:29:20 - 👀 Change: sessions_part_13.json
+10:29:22 - ✅ Ingested
+10:29:22 - 👀 Change: sessions_part_14.json
+10:29:24 - ✅ Ingested
+10:29:25 - 👀 Change: sessions_part_15.json
+10:29:27 - ✅ Ingested
+10:29:27 - 👀 Change: sessions_part_16.json
+10:29:29 - ✅ Ingested
+10:29:29 - 👀 Change: sessions_part_17.json
+10:29:32 - ✅ Ingested
+10:29:32 - 👀 Change: sessions_part_18.json
+10:29:34 - ✅ Ingested
+10:29:34 - 👀 Change: sessions_part_19.json
+10:29:36 - ✅ Ingested
+10:29:36 - 👀 Change: sessions_part_2.json
+10:29:39 - ✅ Ingested
+10:29:39 - 👀 Change: sessions_part_20.json
+10:29:41 - ✅ Ingested
+10:29:41 - 👀 Change: sessions_part_21.json
+10:29:43 - ✅ Ingested
+10:29:43 - 👀 Change: sessions_part_22.json
+10:29:45 - ✅ Ingested
+10:29:45 - 👀 Change: sessions_part_23.json
+10:29:48 - ✅ Ingested
+10:29:48 - 👀 Change: sessions_part_24.json
+10:29:50 - ✅ Ingested
+10:29:50 - 👀 Change: sessions_part_25.json
+10:29:52 - ✅ Ingested
+10:29:52 - 👀 Change: sessions_part_26.json
+10:29:54 - ✅ Ingested
+10:29:55 - 👀 Change: sessions_part_27.json
+10:29:57 - ✅ Ingested
+10:29:57 - 👀 Change: sessions_part_28.json
+10:29:59 - ✅ Ingested
+10:29:59 - 👀 Change: sessions_part_29.json
+10:30:01 - ✅ Ingested
+10:30:02 - 👀 Change: sessions_part_3.json
+10:30:04 - ✅ Ingested
+10:30:04 - 👀 Change: sessions_part_30.json
+10:30:06 - ✅ Ingested
+10:30:06 - 👀 Change: sessions_part_31.json
+10:30:08 - ✅ Ingested
+10:30:09 - 👀 Change: sessions_part_32.json
+10:30:11 - ✅ Ingested
+10:30:11 - 👀 Change: sessions_part_33.json
+10:30:13 - ✅ Ingested
+10:30:14 - 👀 Change: sessions_part_34.json
+10:30:17 - ✅ Ingested
+10:30:17 - 👀 Change: sessions_part_35.json
+10:30:19 - ✅ Ingested
+10:30:19 - 👀 Change: sessions_part_36.json
+10:30:21 - ✅ Ingested
+10:30:22 - 👀 Change: sessions_part_37.json
+10:30:24 - ✅ Ingested
+10:30:24 - 👀 Change: sessions_part_38.json
+10:30:26 - ✅ Ingested
+10:30:26 - 👀 Change: sessions_part_39.json
+10:30:28 - ✅ Ingested
+10:30:28 - 👀 Change: sessions_part_4.json
+10:30:31 - ✅ Ingested
+10:30:31 - 👀 Change: sessions_part_40.json
+10:30:33 - ✅ Ingested
+10:30:33 - 👀 Change: sessions_part_41.json
+10:30:35 - ✅ Ingested
+10:30:35 - 👀 Change: sessions_part_42.json
+10:30:37 - ✅ Ingested
+10:30:38 - 👀 Change: sessions_part_43.json
+10:30:40 - ✅ Ingested
+10:30:40 - 👀 Change: sessions_part_44.json
+10:30:42 - ✅ Ingested
+10:30:42 - 👀 Change: sessions_part_45.json
+10:30:44 - ✅ Ingested
+10:30:45 - 👀 Change: sessions_part_46.json
+10:30:47 - ✅ Ingested
+10:30:47 - 👀 Change: sessions_part_5.json
+10:30:49 - ✅ Ingested
+10:30:49 - 👀 Change: sessions_part_6.json
+10:30:51 - ✅ Ingested
+10:30:52 - 👀 Change: sessions_part_7.json
+10:30:54 - ✅ Ingested
+10:30:54 - 👀 Change: sessions_part_8.json
+10:30:56 - ✅ Ingested
+10:30:56 - 👀 Change: sessions_part_9.json
+10:30:58 - ✅ Ingested
+10:30:59 - 👀 Change: gemini-2.5-flash.md
+10:31:01 - ✅ Ingested
+10:31:01 - 👀 Change: reflections-sybil-1.md
+10:31:03 - ✅ Ingested
+10:31:03 - 👀 Change: sessions-back-log.json
+10:31:05 - ✅ Ingested
+10:31:05 - 👀 Change: sessions-condensed.json
+10:31:07 - ✅ Ingested
+10:31:07 - 👀 Change: sessions.backup-20250725-125331.md
+10:31:09 - ✅ Ingested
+10:31:10 - 👀 Change: sessions1.md
+10:31:12 - ✅ Ingested
+10:31:12 - 👀 Change: architecture-overview.md
+10:31:14 - ✅ Ingested
+10:31:14 - 👀 Change: design-pattern.md
+10:31:16 - ✅ Ingested
+10:31:16 - 👀 Change: diagram-architectural-brief.md
+10:31:19 - ✅ Ingested
+10:31:19 - 👀 Change: ECE-update-9-3-25.md
+10:31:21 - ✅ Ingested
+10:31:21 - 👀 Change: forTheLawyer.md
+10:31:23 - ✅ Ingested
+10:31:23 - 👀 Change: graphr1-training.md
+10:31:25 - ✅ Ingested
+10:31:25 - 👀 Change: llama3.md
+10:31:27 - ✅ Ingested
+10:31:27 - 👀 Change: N8N-context-plan.md
+10:31:30 - ✅ Ingested
+10:31:30 - 👀 Change: Plan.md
+10:31:32 - ✅ Ingested
+10:31:32 - 👀 Change: symbiotic-charter.md
+10:31:34 - ✅ Ingested
+10:31:34 - 👀 Change: graph_R1_data_schema.md
+10:31:36 - ✅ Ingested
+10:31:36 - 👀 Change: injector_error_handling_protocol.md
+10:31:38 - ✅ Ingested
+10:31:39 - 👀 Change: patent-pending.md
+10:31:41 - ✅ Ingested
+10:31:41 - 👀 Change: path_to_completion.md
+10:31:43 - ✅ Ingested
+10:31:43 - 👀 Change: path_to_patent.md
+10:31:45 - ✅ Ingested
+10:31:45 - 👀 Change: sym-opp-engine.md
+10:31:47 - ✅ Ingested
+10:31:48 - 👀 Change: partner.md
+10:31:50 - ✅ Ingested
+10:31:50 - 👀 Change: Diagnosis ASD_ADHD - Jun 25, 2022.md
+10:31:52 - ✅ Ingested
+10:31:52 - 👀 Change: jade-context.md
+10:31:54 - ✅ Ingested
+10:31:54 - 👀 Change: AI-Architect-Execution-Plan.md
+10:31:56 - ✅ Ingested
+10:31:56 - 👀 Change: conversations.json
+10:32:00 - ✅ Ingested
+10:32:00 - 👀 Change: DMA-Proposal-Initial.md
+10:32:02 - ✅ Ingested
+10:32:02 - 👀 Change: Email-History-RHowell.md
+10:32:04 - ✅ Ingested
+10:32:04 - 👀 Change: Email-History-Santiago-Delgado.md
+10:32:06 - ✅ Ingested
+10:32:06 - 👀 Change: history-summary.md
+10:32:08 - ✅ Ingested
+10:32:09 - 👀 Change: Job-Context.json
+10:32:11 - ✅ Ingested
+10:32:11 - 👀 Change: Job-Context.md
+10:32:13 - ✅ Ingested
+10:32:13 - 👀 Change: Job-Summary.md
+10:32:15 - ✅ Ingested
+10:32:15 - 👀 Change: output.json
+10:32:17 - ✅ Ingested
+10:32:17 - 👀 Change: Proposal-Santa-Rosa.md
+10:32:19 - ✅ Ingested
+10:32:20 - 👀 Change: Sandia-Labs-Action-Plan.md
+10:32:22 - ✅ Ingested
+10:32:22 - 👀 Change: SDG.md
+10:32:24 - ✅ Ingested
+10:32:24 - 👀 Change: skills.md
+10:32:26 - ✅ Ingested
+10:32:26 - 👀 Change: Sybil-History.md
+10:32:28 - ✅ Ingested
+10:32:28 - 👀 Change: user.json
+10:32:31 - ✅ Ingested
+10:32:31 - 👀 Change: Warp-Ready-AI-Arch-Plan.md
+10:32:33 - ✅ Ingested
+10:32:33 - 👀 Change: Create-Course.md
+10:32:35 - ✅ Ingested
+10:32:35 - 👀 Change: GPT-5-distill.md
+10:32:37 - ✅ Ingested
+10:32:37 - 👀 Change: image-gen.md
+10:32:39 - ✅ Ingested
+10:32:40 - 👀 Change: RL-data-extract.md
+10:32:42 - ✅ Ingested
+10:32:42 - 👀 Change: Robert Balch II - Resume.md
+10:32:44 - ✅ Ingested
+10:32:44 - 👀 Change: System-Instruct-IDE.md
+10:32:46 - ✅ Ingested
+10:32:46 - 👀 Change: The-Ultimate-Prompter.md
+10:32:48 - ✅ Ingested
+10:32:48 - 👀 Change: add-content.md
+10:32:50 - ✅ Ingested
+10:32:51 - 👀 Change: combine_files.py
+10:32:53 - ✅ Ingested
+10:32:53 - 👀 Change: extract-agnostic-chat.js
+10:32:55 - ✅ Ingested
+10:32:55 - 👀 Change: extract-chats-gemini.js
+10:32:57 - ✅ Ingested
+10:32:57 - 👀 Change: extract-chats-qwen-section-1.js
+10:32:59 - ✅ Ingested
+10:32:59 - 👀 Change: extract-chats-qwen-section-2.js
+10:33:01 - ✅ Ingested
+10:33:02 - 👀 Change: find-selectors.js
+10:33:04 - ✅ Ingested
+10:33:04 - 👀 Change: json_creator.py
+10:33:06 - ✅ Ingested
+10:33:06 - 👀 Change: ollama-pull-command.md
+10:33:08 - ✅ Ingested
+10:33:08 - 👀 Change: run-deduplicator.md
+10:33:10 - ✅ Ingested
+10:33:10 - 👀 Change: test-baseline-changes.md
+10:33:13 - ✅ Ingested
+10:33:13 - 👀 Change: text_extractor.py
+10:33:15 - ✅ Ingested
+10:33:15 - 👀 Change: what-was-added-session+.md
+10:33:17 - ✅ Ingested
+10:33:17 - 👀 Change: test_output.txt
+10:33:19 - ✅ Ingested
+10:33:19 - 👀 Change: CRUSH.md
+10:33:21 - ✅ Ingested
+10:33:21 - 👀 Change: local-run-commands.md
+10:33:23 - ✅ Ingested
+10:33:23 - ✅ Initial Indexing Complete
+10:33:24 - 🐕 Watchdog Active: C:\Users\rsbii\Projects\ECE_Core\context
+11:05:13 - 👀 Change: sessions_part_49.json
+11:05:17 - ✅ Ingested
+11:05:17 - 👀 Change: sessions_part_49.json
+11:05:20 - ✅ Ingested
+11:17:18 - 👀 Change: sessions_part_47.json
+11:17:20 - ✅ Ingested
+12:27:30 - 👀 Change: combined_memory.json
+12:27:35 - ✅ Ingested
+12:27:37 - 👀 Change: combined_text.txt
+12:27:39 - ✅ Ingested
+12:27:39 - 👀 Change: sessions_part_47.json
+12:27:42 - ✅ Ingested
+12:27:42 - 👀 Change: sessions_part_48.json
+12:27:44 - ✅ Ingested
+12:27:44 - 👀 Change: read_all.py
+12:27:47 - ✅ Ingested
+12:27:47 - 👀 Change: error.txt
+12:27:49 - ✅ Ingested
+12:27:49 - 👀 Change: test.txt
+12:27:51 - ✅ Ingested

@@ -1,0 +1,345 @@
+10:26:52 - \u23f3 Waiting for Bridge to come online...
+10:26:54 - \U0001f7e2 Bridge is Online!
+10:26:54 - \U0001f50d Starting Initial Index Walk...
+10:26:54 - \U0001f440 Change: README.md
+10:26:56 - \u2705 Ingested
+10:26:56 - \U0001f440 Change: comptia+module-2.md
+10:26:58 - \u2705 Ingested
+10:26:58 - \U0001f440 Change: docker-compose.yaml
+10:27:00 - \u2705 Ingested
+10:27:00 - \U0001f440 Change: Monday-Interview.md
+10:27:03 - \u2705 Ingested
+10:27:03 - \U0001f440 Change: nmgasco&pnmACCT.md
+10:27:05 - \u2705 Ingested
+10:27:05 - \U0001f440 Change: notes.md
+10:27:07 - \u2705 Ingested
+10:27:07 - \U0001f440 Change: notes_for_proposal.md
+10:27:09 - \u2705 Ingested
+10:27:09 - \U0001f440 Change: OLLAMA-Config-Examples.md
+10:27:11 - \u2705 Ingested
+10:27:11 - \U0001f440 Change: README.md
+10:27:13 - \u2705 Ingested
+10:27:14 - \U0001f440 Change: app.json
+10:27:16 - \u2705 Ingested
+10:27:16 - \U0001f440 Change: appearance.json
+10:27:18 - \u2705 Ingested
+10:27:18 - \U0001f440 Change: core-plugins.json
+10:27:20 - \u2705 Ingested
+10:27:20 - \U0001f440 Change: workspace.json
+10:27:22 - \u2705 Ingested
+10:27:34 - \U0001f440 Change: combined_text.txt
+10:27:43 - \u2705 Ingested
+10:27:44 - \U0001f440 Change: read_all.py
+10:27:46 - \u2705 Ingested
+10:27:46 - \U0001f440 Change: July 16th 2025.md
+10:27:48 - \u2705 Ingested
+10:27:48 - \U0001f440 Change: Monday-Interview-6-30.md
+10:27:50 - \u2705 Ingested
+10:27:52 - \U0001f440 Change: How to back up and restore a Windows Subsystem for Linux (WSL) distro.html
+10:27:54 - \u2705 Ingested
+10:27:55 - \U0001f440 Change: SMS-Feature-Santa-Rosa-2.md
+10:27:57 - \u2705 Ingested
+10:27:57 - \U0001f440 Change: SMS-Feature-Santa-Rosa.md
+10:27:59 - \u2705 Ingested
+10:28:00 - \U0001f440 Change: WSL-Backup.md
+10:28:02 - \u2705 Ingested
+10:28:02 - \U0001f440 Change: ARK.yaml
+10:28:04 - \u2705 Ingested
+10:28:04 - \U0001f440 Change: growth.yaml
+10:28:06 - \u2705 Ingested
+10:28:07 - \U0001f440 Change: new-deepseek.md
+10:28:09 - \u2705 Ingested
+10:28:09 - \U0001f440 Change: resume_updates.md
+10:28:11 - \u2705 Ingested
+10:28:11 - \U0001f440 Change: appearance.md
+10:28:13 - \u2705 Ingested
+10:28:13 - \U0001f440 Change: cognition_files.json
+10:28:15 - \u2705 Ingested
+10:28:15 - \U0001f440 Change: containment-flow.md
+10:28:18 - \u2705 Ingested
+10:28:18 - \U0001f440 Change: context-loss.md
+10:28:20 - \u2705 Ingested
+10:28:20 - \U0001f440 Change: core-events.md
+10:28:22 - \u2705 Ingested
+10:28:22 - \U0001f440 Change: distiller.md
+10:28:24 - \u2705 Ingested
+10:28:24 - \U0001f440 Change: ethos.md
+10:28:26 - \u2705 Ingested
+10:28:26 - \U0001f440 Change: life-history.md
+10:28:29 - \u2705 Ingested
+10:28:29 - \U0001f440 Change: memories.md
+10:28:31 - \u2705 Ingested
+10:28:31 - \U0001f440 Change: thinking-processes.md
+10:28:33 - \u2705 Ingested
+10:28:33 - \U0001f440 Change: A-Special-Session.md
+10:28:36 - \u2705 Ingested
+10:28:36 - \U0001f440 Change: Morning-Surrender.md
+10:28:38 - \u2705 Ingested
+10:28:38 - \U0001f440 Change: dao-extension-algorithm.md
+10:28:40 - \u2705 Ingested
+10:28:40 - \U0001f440 Change: get-work-seen.md
+10:28:43 - \u2705 Ingested
+10:28:43 - \U0001f440 Change: the-contextual-intelligence-hypothesis.md
+10:28:45 - \u2705 Ingested
+10:28:45 - \U0001f440 Change: categories.md
+10:28:48 - \u2705 Ingested
+10:28:48 - \U0001f440 Change: high_coherency_context.json
+10:28:50 - \u2705 Ingested
+10:28:51 - \U0001f440 Change: pauline_explicit.json
+10:28:53 - \u2705 Ingested
+10:28:53 - \U0001f440 Change: persona-logs.json
+10:28:56 - \u2705 Ingested
+10:28:56 - \U0001f440 Change: project-chimaera-multi-model.json
+10:28:58 - \u2705 Ingested
+10:28:59 - \U0001f440 Change: urls.md
+10:29:01 - \u2705 Ingested
+10:29:01 - \U0001f440 Change: user-bio.md
+10:29:03 - \u2705 Ingested
+10:29:04 - \U0001f440 Change: quickboot.md
+10:29:06 - \u2705 Ingested
+10:29:07 - \U0001f440 Change: session-45.json
+10:29:10 - \u2705 Ingested
+10:29:10 - \U0001f440 Change: sessions_part_1.json
+10:29:13 - \u2705 Ingested
+10:29:13 - \U0001f440 Change: sessions_part_10.json
+10:29:15 - \u2705 Ingested
+10:29:15 - \U0001f440 Change: sessions_part_11.json
+10:29:17 - \u2705 Ingested
+10:29:18 - \U0001f440 Change: sessions_part_12.json
+10:29:20 - \u2705 Ingested
+10:29:20 - \U0001f440 Change: sessions_part_13.json
+10:29:22 - \u2705 Ingested
+10:29:22 - \U0001f440 Change: sessions_part_14.json
+10:29:24 - \u2705 Ingested
+10:29:25 - \U0001f440 Change: sessions_part_15.json
+10:29:27 - \u2705 Ingested
+10:29:27 - \U0001f440 Change: sessions_part_16.json
+10:29:29 - \u2705 Ingested
+10:29:29 - \U0001f440 Change: sessions_part_17.json
+10:29:32 - \u2705 Ingested
+10:29:32 - \U0001f440 Change: sessions_part_18.json
+10:29:34 - \u2705 Ingested
+10:29:34 - \U0001f440 Change: sessions_part_19.json
+10:29:36 - \u2705 Ingested
+10:29:36 - \U0001f440 Change: sessions_part_2.json
+10:29:39 - \u2705 Ingested
+10:29:39 - \U0001f440 Change: sessions_part_20.json
+10:29:41 - \u2705 Ingested
+10:29:41 - \U0001f440 Change: sessions_part_21.json
+10:29:43 - \u2705 Ingested
+10:29:43 - \U0001f440 Change: sessions_part_22.json
+10:29:45 - \u2705 Ingested
+10:29:45 - \U0001f440 Change: sessions_part_23.json
+10:29:48 - \u2705 Ingested
+10:29:48 - \U0001f440 Change: sessions_part_24.json
+10:29:50 - \u2705 Ingested
+10:29:50 - \U0001f440 Change: sessions_part_25.json
+10:29:52 - \u2705 Ingested
+10:29:52 - \U0001f440 Change: sessions_part_26.json
+10:29:54 - \u2705 Ingested
+10:29:55 - \U0001f440 Change: sessions_part_27.json
+10:29:57 - \u2705 Ingested
+10:29:57 - \U0001f440 Change: sessions_part_28.json
+10:29:59 - \u2705 Ingested
+10:29:59 - \U0001f440 Change: sessions_part_29.json
+10:30:01 - \u2705 Ingested
+10:30:02 - \U0001f440 Change: sessions_part_3.json
+10:30:04 - \u2705 Ingested
+10:30:04 - \U0001f440 Change: sessions_part_30.json
+10:30:06 - \u2705 Ingested
+10:30:06 - \U0001f440 Change: sessions_part_31.json
+10:30:08 - \u2705 Ingested
+10:30:09 - \U0001f440 Change: sessions_part_32.json
+10:30:11 - \u2705 Ingested
+10:30:11 - \U0001f440 Change: sessions_part_33.json
+10:30:13 - \u2705 Ingested
+10:30:14 - \U0001f440 Change: sessions_part_34.json
+10:30:17 - \u2705 Ingested
+10:30:17 - \U0001f440 Change: sessions_part_35.json
+10:30:19 - \u2705 Ingested
+10:30:19 - \U0001f440 Change: sessions_part_36.json
+10:30:21 - \u2705 Ingested
+10:30:22 - \U0001f440 Change: sessions_part_37.json
+10:30:24 - \u2705 Ingested
+10:30:24 - \U0001f440 Change: sessions_part_38.json
+10:30:26 - \u2705 Ingested
+10:30:26 - \U0001f440 Change: sessions_part_39.json
+10:30:28 - \u2705 Ingested
+10:30:28 - \U0001f440 Change: sessions_part_4.json
+10:30:31 - \u2705 Ingested
+10:30:31 - \U0001f440 Change: sessions_part_40.json
+10:30:33 - \u2705 Ingested
+10:30:33 - \U0001f440 Change: sessions_part_41.json
+10:30:35 - \u2705 Ingested
+10:30:35 - \U0001f440 Change: sessions_part_42.json
+10:30:37 - \u2705 Ingested
+10:30:38 - \U0001f440 Change: sessions_part_43.json
+10:30:40 - \u2705 Ingested
+10:30:40 - \U0001f440 Change: sessions_part_44.json
+10:30:42 - \u2705 Ingested
+10:30:42 - \U0001f440 Change: sessions_part_45.json
+10:30:44 - \u2705 Ingested
+10:30:45 - \U0001f440 Change: sessions_part_46.json
+10:30:47 - \u2705 Ingested
+10:30:47 - \U0001f440 Change: sessions_part_5.json
+10:30:49 - \u2705 Ingested
+10:30:49 - \U0001f440 Change: sessions_part_6.json
+10:30:51 - \u2705 Ingested
+10:30:52 - \U0001f440 Change: sessions_part_7.json
+10:30:54 - \u2705 Ingested
+10:30:54 - \U0001f440 Change: sessions_part_8.json
+10:30:56 - \u2705 Ingested
+10:30:56 - \U0001f440 Change: sessions_part_9.json
+10:30:58 - \u2705 Ingested
+10:30:59 - \U0001f440 Change: gemini-2.5-flash.md
+10:31:01 - \u2705 Ingested
+10:31:01 - \U0001f440 Change: reflections-sybil-1.md
+10:31:03 - \u2705 Ingested
+10:31:03 - \U0001f440 Change: sessions-back-log.json
+10:31:05 - \u2705 Ingested
+10:31:05 - \U0001f440 Change: sessions-condensed.json
+10:31:07 - \u2705 Ingested
+10:31:07 - \U0001f440 Change: sessions.backup-20250725-125331.md
+10:31:09 - \u2705 Ingested
+10:31:10 - \U0001f440 Change: sessions1.md
+10:31:12 - \u2705 Ingested
+10:31:12 - \U0001f440 Change: architecture-overview.md
+10:31:14 - \u2705 Ingested
+10:31:14 - \U0001f440 Change: design-pattern.md
+10:31:16 - \u2705 Ingested
+10:31:16 - \U0001f440 Change: diagram-architectural-brief.md
+10:31:19 - \u2705 Ingested
+10:31:19 - \U0001f440 Change: ECE-update-9-3-25.md
+10:31:21 - \u2705 Ingested
+10:31:21 - \U0001f440 Change: forTheLawyer.md
+10:31:23 - \u2705 Ingested
+10:31:23 - \U0001f440 Change: graphr1-training.md
+10:31:25 - \u2705 Ingested
+10:31:25 - \U0001f440 Change: llama3.md
+10:31:27 - \u2705 Ingested
+10:31:27 - \U0001f440 Change: N8N-context-plan.md
+10:31:30 - \u2705 Ingested
+10:31:30 - \U0001f440 Change: Plan.md
+10:31:32 - \u2705 Ingested
+10:31:32 - \U0001f440 Change: symbiotic-charter.md
+10:31:34 - \u2705 Ingested
+10:31:34 - \U0001f440 Change: graph_R1_data_schema.md
+10:31:36 - \u2705 Ingested
+10:31:36 - \U0001f440 Change: injector_error_handling_protocol.md
+10:31:38 - \u2705 Ingested
+10:31:39 - \U0001f440 Change: patent-pending.md
+10:31:41 - \u2705 Ingested
+10:31:41 - \U0001f440 Change: path_to_completion.md
+10:31:43 - \u2705 Ingested
+10:31:43 - \U0001f440 Change: path_to_patent.md
+10:31:45 - \u2705 Ingested
+10:31:45 - \U0001f440 Change: sym-opp-engine.md
+10:31:47 - \u2705 Ingested
+10:31:48 - \U0001f440 Change: partner.md
+10:31:50 - \u2705 Ingested
+10:31:50 - \U0001f440 Change: Diagnosis ASD_ADHD - Jun 25, 2022.md
+10:31:52 - \u2705 Ingested
+10:31:52 - \U0001f440 Change: jade-context.md
+10:31:54 - \u2705 Ingested
+10:31:54 - \U0001f440 Change: AI-Architect-Execution-Plan.md
+10:31:56 - \u2705 Ingested
+10:31:56 - \U0001f440 Change: conversations.json
+10:32:00 - \u2705 Ingested
+10:32:00 - \U0001f440 Change: DMA-Proposal-Initial.md
+10:32:02 - \u2705 Ingested
+10:32:02 - \U0001f440 Change: Email-History-RHowell.md
+10:32:04 - \u2705 Ingested
+10:32:04 - \U0001f440 Change: Email-History-Santiago-Delgado.md
+10:32:06 - \u2705 Ingested
+10:32:06 - \U0001f440 Change: history-summary.md
+10:32:08 - \u2705 Ingested
+10:32:09 - \U0001f440 Change: Job-Context.json
+10:32:11 - \u2705 Ingested
+10:32:11 - \U0001f440 Change: Job-Context.md
+10:32:13 - \u2705 Ingested
+10:32:13 - \U0001f440 Change: Job-Summary.md
+10:32:15 - \u2705 Ingested
+10:32:15 - \U0001f440 Change: output.json
+10:32:17 - \u2705 Ingested
+10:32:17 - \U0001f440 Change: Proposal-Santa-Rosa.md
+10:32:19 - \u2705 Ingested
+10:32:20 - \U0001f440 Change: Sandia-Labs-Action-Plan.md
+10:32:22 - \u2705 Ingested
+10:32:22 - \U0001f440 Change: SDG.md
+10:32:24 - \u2705 Ingested
+10:32:24 - \U0001f440 Change: skills.md
+10:32:26 - \u2705 Ingested
+10:32:26 - \U0001f440 Change: Sybil-History.md
+10:32:28 - \u2705 Ingested
+10:32:28 - \U0001f440 Change: user.json
+10:32:31 - \u2705 Ingested
+10:32:31 - \U0001f440 Change: Warp-Ready-AI-Arch-Plan.md
+10:32:33 - \u2705 Ingested
+10:32:33 - \U0001f440 Change: Create-Course.md
+10:32:35 - \u2705 Ingested
+10:32:35 - \U0001f440 Change: GPT-5-distill.md
+10:32:37 - \u2705 Ingested
+10:32:37 - \U0001f440 Change: image-gen.md
+10:32:39 - \u2705 Ingested
+10:32:40 - \U0001f440 Change: RL-data-extract.md
+10:32:42 - \u2705 Ingested
+10:32:42 - \U0001f440 Change: Robert Balch II - Resume.md
+10:32:44 - \u2705 Ingested
+10:32:44 - \U0001f440 Change: System-Instruct-IDE.md
+10:32:46 - \u2705 Ingested
+10:32:46 - \U0001f440 Change: The-Ultimate-Prompter.md
+10:32:48 - \u2705 Ingested
+10:32:48 - \U0001f440 Change: add-content.md
+10:32:50 - \u2705 Ingested
+10:32:51 - \U0001f440 Change: combine_files.py
+10:32:53 - \u2705 Ingested
+10:32:53 - \U0001f440 Change: extract-agnostic-chat.js
+10:32:55 - \u2705 Ingested
+10:32:55 - \U0001f440 Change: extract-chats-gemini.js
+10:32:57 - \u2705 Ingested
+10:32:57 - \U0001f440 Change: extract-chats-qwen-section-1.js
+10:32:59 - \u2705 Ingested
+10:32:59 - \U0001f440 Change: extract-chats-qwen-section-2.js
+10:33:01 - \u2705 Ingested
+10:33:02 - \U0001f440 Change: find-selectors.js
+10:33:04 - \u2705 Ingested
+10:33:04 - \U0001f440 Change: json_creator.py
+10:33:06 - \u2705 Ingested
+10:33:06 - \U0001f440 Change: ollama-pull-command.md
+10:33:08 - \u2705 Ingested
+10:33:08 - \U0001f440 Change: run-deduplicator.md
+10:33:10 - \u2705 Ingested
+10:33:10 - \U0001f440 Change: test-baseline-changes.md
+10:33:13 - \u2705 Ingested
+10:33:13 - \U0001f440 Change: text_extractor.py
+10:33:15 - \u2705 Ingested
+10:33:15 - \U0001f440 Change: what-was-added-session+.md
+10:33:17 - \u2705 Ingested
+10:33:17 - \U0001f440 Change: test_output.txt
+10:33:19 - \u2705 Ingested
+10:33:19 - \U0001f440 Change: CRUSH.md
+10:33:21 - \u2705 Ingested
+10:33:21 - \U0001f440 Change: local-run-commands.md
+10:33:23 - \u2705 Ingested
+10:33:23 - \u2705 Initial Indexing Complete
+10:33:24 - \U0001f415 Watchdog Active: C:\Users\rsbii\Projects\ECE_Core\context
+11:05:13 - \U0001f440 Change: sessions_part_49.json
+11:05:17 - \u2705 Ingested
+11:05:17 - \U0001f440 Change: sessions_part_49.json
+11:05:20 - \u2705 Ingested
+11:17:18 - \U0001f440 Change: sessions_part_47.json
+11:17:20 - \u2705 Ingested
+12:27:30 - \U0001f440 Change: combined_memory.json
+12:27:35 - \u2705 Ingested
+12:27:37 - \U0001f440 Change: combined_text.txt
+12:27:39 - \u2705 Ingested
+12:27:39 - \U0001f440 Change: sessions_part_47.json
+12:27:42 - \u2705 Ingested
+12:27:42 - \U0001f440 Change: sessions_part_48.json
+12:27:44 - \u2705 Ingested
+12:27:44 - \U0001f440 Change: read_all.py
+12:27:47 - \u2705 Ingested
+12:27:47 - \U0001f440 Change: error.txt
+12:27:49 - \u2705 Ingested
+12:27:49 - \U0001f440 Change: test.txt
+12:27:51 - \u2705 Ingested
