@@ -12,8 +12,8 @@ Just you, Node.js, and your infinite context.
 1.  **Download** this repository.
 2.  **Install** Node.js dependencies: `cd engine && npm install`
 3.  **Inject Context**: Drop any `.md`, `.txt`, or `.yaml` files into the `context/` directory.
-4.  **Launch** the unified system: `start_engine.bat`
-5.  **Search**: Access the dashboard at `http://localhost:3000` to query your memories.
+4.  **Launch** the unified system: `start_engine.*` specificed for your environment.
+6.  **Search**: Access the dashboard at `http://localhost:3000` to query your memories.
 
 *That's it. You are running a headless context engine with persistent Graph Memory.*
 
