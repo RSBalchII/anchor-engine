@@ -51,7 +51,7 @@ function shouldIgnore(filePath) {
 // Function to aggregate all file contents from the project root
 function createFullCorpusRecursive() {
     const rootDir = __dirname;
-    const contextDir = path.join(rootDir, 'context');
+    const contextDir = path.join(rootDir, 'codebase');
     console.log(`Scanning project root: ${rootDir}`);
 
     if (!fs.existsSync(contextDir)) {

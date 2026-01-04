@@ -10,6 +10,7 @@ backups/*.json
 # Context (User Data) - Keep folder, ignore content
 context/*
 !context/.gitkeep
+codebase/
 
 # Logs
 logs/*
