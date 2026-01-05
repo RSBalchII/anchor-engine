@@ -1,0 +1,9 @@
+Database schema already exists
+FTS index already exists
+Database initialization complete
+No backups directory found at /Users/punkdad/ECE_Core/backups, skipping auto-hydration.
+File watcher initialized for context directory
+Sovereign Context Engine listening on port 3000
+Health check: http://localhost:3000/health
+Processing: /Users/punkdad/ECE_Core/context/README.md
+Ingested: README.md
