@@ -118,7 +118,7 @@ async function executeSearch(query, bucket, buckets, max_chars = 5000, deep = fa
     }
 
     if (allHits.length === 0) {
-        return await basicSearch(query, max_chars);
+        return await basicSearch(query, max_chars, targetBuckets);
     }
 
     const rawWindowSize = Math.floor(max_chars / allHits.length);

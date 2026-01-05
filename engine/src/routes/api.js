@@ -14,6 +14,11 @@ const inference = require('../services/inference');
 router.post('/ingest', async (req, res) => {
   try {
     const { content, filename, source, type, bucket, buckets } = req.body;
+    
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: "Invalid content: must be a non-empty string" });
+    }
+
     const targetBuckets = buckets || (bucket ? [bucket] : ['core']);
     const result = await ingestContent(content, filename, source, type, targetBuckets);
     res.json(result);
@@ -40,7 +45,11 @@ router.post('/query', async (req, res) => {
 router.post('/memory/search', async (req, res) => {
   try {
     const { query, max_chars, bucket, buckets, deep } = req.body;
-    if (!query) return res.status(400).json({ error: 'Query required' });
+    
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({ error: "Invalid query: must be a non-empty string" });
+    }
+
     const result = await executeSearch(query, bucket, buckets, max_chars, deep);
     res.json(result);
   } catch (error) {

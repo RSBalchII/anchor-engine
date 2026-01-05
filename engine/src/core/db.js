@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 const { DB_PATH, BACKUPS_DIR, LOGS_DIR } = require('../config/paths');
 const { hydrate } = require('../hydrate');
 const { CozoDb } = require('./cozo_loader');
@@ -34,6 +35,18 @@ async function initializeDb() {
             // 1. Get all data
             const data = await db.run('?[id, timestamp, content, source, type, hash, bucket] := *memory{id, timestamp, content, source, type, hash, bucket}');
             
+            // EMERGENCY BACKUP BEFORE DESTRUCTIVE CHANGE
+            try {
+                const emergencyBackup = data.rows.map(r => ({ id: r[0], timestamp: r[1], content: r[2], source: r[3], type: r[4], hash: r[5], bucket: r[6] }));
+                const yamlStr = yaml.dump(emergencyBackup);
+                const backupPath = path.join(BACKUPS_DIR, `MIGRATION_BACKUP_${Date.now()}.yaml`);
+                if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+                fs.writeFileSync(backupPath, yamlStr);
+                console.log(`[Safety] Emergency backup created at ${backupPath}`);
+            } catch (e) {
+                console.error('[Safety] Emergency backup failed, but continuing migration:', e.message);
+            }
+
             // 2. Clear old table
             await db.run('~memory(_) :rm');
             
