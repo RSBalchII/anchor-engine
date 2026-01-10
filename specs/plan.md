@@ -1,6 +1,6 @@
 # Anchor Core Roadmap (V2.4)
 
-**Status:** Markovian Reasoning Deployed
+**Status:** Markovian Reasoning Deployed & Context Assembly Experiments Added
 **Focus:** Production Polish & Verification.
 
 ## Phase 1: Foundation (Completed)
@@ -17,6 +17,13 @@
 - [x] **Kernel Implementation**: Created `sovereign.js` (Unified Logger, State, Hardware).
 - [x] **The Ears**: Refactored `root-mic.html` to Root Architecture.
 - [x] **The Stomach**: Refactored `sovereign-db-builder.html` to Root Architecture.
+
+## Phase 3: Markovian Reasoning & Context Optimization (Completed)
+- [x] **Scribe Service**: Created `engine/src/services/scribe.js` for rolling state
+- [x] **Context Weaving**: Upgraded `inference.js` to auto-inject session state
+- [x] **Dreamer Service**: Enhanced `dreamer.js` with batch processing to prevent OOM errors
+- [x] **Semantic Translation**: Added intent translation via local SLM
+- [x] **Context Experiments**: Created `engine/tests/context_experiments.js` for optimal context window sizing
 - [x] **The Brain**: Refactored `model-server-chat.html` to Root Architecture (Graph-R1 preservation).
 
 ## Phase 3-8: [Archived] (Completed)

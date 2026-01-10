@@ -7,9 +7,9 @@
 - [x] **API Fortification**: Add input validation for `ingest` and `search` endpoints (`api.js`).
 - [x] **Search Resiliency**: Fix bucket-filtering bypass in `executeSearch`.
 - [x] **Verification Suite**: 100% pass rate on `npm test`.
-- [ ] **Chat Cockpit Enhancement**: Add conversation history persistence to `chat.html`
-- [ ] **Streaming Responses**: Implement SSE for real-time token streaming
-- [ ] **One-Click Install**: Create `setup.ps1` / `setup.sh` scripts
+- [x] **Chat Cockpit Enhancement**: Add conversation history persistence to `chat.html`
+- [x] **Streaming Responses**: Implement SSE for real-time token streaming
+- [x] **One-Click Install**: Create `setup.ps1` / `setup.sh` scripts
 
 ### Phase 11: Markovian Reasoning Engine (Completed)
 - [x] **Scribe Service**: Created `engine/src/services/scribe.js` for rolling state
@@ -19,6 +19,40 @@
 - [x] **Config Fixes**: Externalized MODELS_DIR, fixed package.json typo
 - [x] **API Endpoints**: Added `/v1/scribe/*` and `/v1/inference/status`
 - [x] **Standard 041**: Documented Markovian architecture
+
+### Phase 13: Epochal Historian & Mirror Protocol Enhancement (Completed)
+- [x] **Epochal Historian Implementation**: Implement recursive decomposition (Epochs -> Episodes -> Propositions) in Dreamer service
+- [x] **Mirror Protocol Enhancement**: Update to prioritize Epoch-based structure in `context/mirrored_brain/[Bucket]/[Epoch]/[Memory_ID].md`
+- [x] **Documentation Updates**: Update `specs/spec.md`, `specs/search_patterns.md`, and `specs/context_assembly_findings.md` with Epochal Historian details
+- [x] **Watcher Shield**: Ensure file watcher ignores `context/mirrored_brain/` to prevent recursive loops
+
+### Phase 14: Path Resolution Fixes (Completed)
+- [x] **Service Module Path Corrections**: Fix relative import paths in all service files (search, ingest, scribe, dreamer, mirror, inference, watcher, safe-shell-executor)
+- [x] **Core Module References**: Correct paths from `'../core/db'` to `'../../core/db'` in services located in subdirectories
+- [x] **Configuration Imports**: Standardize all relative imports to properly reference core modules and configuration files
+- [x] **Module Loading Verification**: Verify all modules load without "Cannot find module" errors
+
+### Phase 15: Schema Evolution & Epochal Historian Enhancement (Completed)
+- [x] **Database Schema Update**: Add `epochs: String` field to memory table schema to store epochal classifications
+- [x] **Dreamer Service Update**: Modify database queries and updates to include epochs field in processing
+- [x] **Search Service Update**: Modify database queries to include epochs field in search operations
+- [x] **Mirror Service Update**: Ensure epochs field is properly handled in mirroring operations
+- [x] **Documentation Updates**: Update `specs/spec.md`, `specs/search_patterns.md`, and `specs/context_assembly_findings.md` with schema changes
+
+### Phase 16: Brain Link & Sovereign Desktop (In Progress)
+- [x] **Schema Introspection Fix**: Use `::columns memory` instead of broken `*columns{...}` query (Standard 053)
+- [x] **FTS Persistence**: FTS index now survives restarts (no more migration loop)
+- [x] **Brain Link UI**: Auto-context injection in `chat.html` with memory budget slider
+- [x] **Personal Memory Ingestion**: Created `add_personal_memories.js` for test data
+- [x] **Planning Document**: Created `specs/sovereign-desktop-app.md` with full architecture
+- [x] **Chat UI Overhaul**: Simplified chat.html - removed Brain Link (unreliable local), kept Manual Context
+- [x] **Streaming Tokens**: Real-time token streaming display as LLM generates response
+- [x] **Thinking/Answer Separation**: Model `<think>` blocks displayed separately with purple styling
+- [x] **User Message Fix**: User prompts now persist correctly in chat history
+- [ ] **Sovereign Desktop Prototype**: Electron overlay with hotkey activation
+- [ ] **Screen Capture Integration**: Add VL model for screen understanding
+- [ ] **Proactive Memory**: Auto-ingest screen context and conversation highlights
+- [ ] **Distribution**: Installer, auto-update, first-run wizard
 
 ### Phase 10: Cortex Upgrade (Completed)
 - [x] **Multi-Bucket Schema**: Migrate from single `bucket` to `buckets: [String]` (Standard 039).

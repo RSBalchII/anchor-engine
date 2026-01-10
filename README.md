@@ -1,183 +1,168 @@
-# Context Engine (Sovereign Edition)
+# ECE_Core - Sovereign Context Engine
 
-> **Philosophy:** Your mind, augmented. Your data, sovereign. Your tools, open.
+**A Headless Node.js cognitive extraction system** that implements a "Sovereign Context Engine" - designed to provide infinite context augmentation for human cognition without cloud dependencies. The system runs entirely locally using Node.js and CozoDB with RocksDB persistence.
 
-A **Headless Node.js** cognitive extraction system. No browser dependencies. No cloud. No installation.
-Just you, Node.js, and your infinite context.
+## Core Features
 
----
+- **Markovian Reasoning Engine**: Scribe and Dreamer services for session state and background memory organization
+- **Elastic Window Cognitive Retrieval**: Solves the "Keyword Saturation" problem
+- **Zero-Cloud Portability**: Cognitive history moves between machines using YAML snapshots
+- **Universal Context Extraction**: Tool for extracting context from any codebase
+- **File Monitoring**: Automatic ingestion of new files in the `context/` directory
+- **Multi-Platform Support**: Windows, macOS, and Linux
 
-## ⚡ Quick Start
+## Quick Start
 
-1.  **Download** this repository.
-2.  **Install** Node.js dependencies: `cd engine && npm install`
-3.  **Inject Context**: Drop any `.md`, `.txt`, or `.yaml` files into the `context/` directory.
-4.  **Launch** the unified system: `start_engine.bat` (Windows) or `./start_engine.sh` (macOS/Linux)
-5.  **Search**: Access the dashboard at `http://localhost:3000` to query your memories.
+1. **Prerequisites**: Install Node.js
+2. **Setup**: Clone the repository and install dependencies:
+   ```bash
+   cd engine && npm install
+   ```
+3. **Add Context**: Drop `.md`, `.txt`, or `.yaml` files into the `context/` directory
+4. **Run**: Use appropriate startup script:
+   - Windows: `start_engine.bat`
+   - macOS/Linux: `./start_engine.sh`
+5. **Access**: Visit `http://localhost:3000` for the interface
 
-*That's it. You are running a headless context engine with persistent Graph Memory.*
+## Architecture
 
-## 📋 Script Running Protocol
+The system uses a Node.js monolith with:
+- **Engine**: Express.js server in `engine/` directory
+- **Memory**: CozoDB with RocksDB persistence
+- **Ingestion**: `chokidar` watches `context/` directory for auto-ingestion
+- **API**: REST endpoints for ingestion, querying, and health checks
 
-**IMPORTANT**: To prevent getting stuck in long-running loops, follow the script running protocol:
+## API Endpoints
 
-- All services run in detached mode with logging to the `logs/` directory
-- Never run long-running processes in attached mode
-- Check log files in `logs/` directory to monitor system status
-- Use `start_engine.bat`, `start_engine.ps1`, or `start_engine.sh` to start the system properly
+- `POST /v1/memory/search` - Cognitive Search with "Elastic Window" strategy
+- `POST /v1/ingest` - Content ingestion
+- `POST /v1/query` - Raw CozoDB query execution
+- `GET /health` - Service health check
+- `POST /v1/chat/completions` - LLM chat completions
+- `POST /v1/dream` - Trigger background memory organization
+- `GET /v1/backup` - Export cognitive history as YAML
+- `GET /v1/buckets` - Get available memory buckets
+- `POST /v1/scribe/update` - Update session state
+- `GET /v1/scribe/state` - Get current session state
 
----
+## Deterministic Search Syntax Guide
 
-## 🏗️ Architecture
+The system supports a deterministic search syntax for precise query construction, allowing human operators to craft accurate searches:
 
-The system now runs in `engine/` using Node.js with direct CozoDB integration.
+- **Quoted Phrases**: `"Project Sybil"` for exact phrase matching
+- **Temporal Tags**: `@2025`, `@July`, `@Monday`, `@---` (representing current year) for temporal filtering
+- **Bucket Tags**: `#work`, `#personal`, `#technical` for categorical filtering
+- **Epochal Tags**: `#epoch:"Project Alpha Development"` for searching within specific epochs
+- **Keywords**: Regular terms for general text matching
+- **Combined Syntax**: `"Project Sybil" @2025 #work #epoch:"Project Alpha Development" meeting notes` for complex queries
 
-### 1. The Sovereign Loop
-```mermaid
-graph TD
-    User -->|Input| API["HTTP API"]
+### Operator Manual: Search Syntax Examples
 
-    subgraph "SOVEREIGN ENGINE (Port 3000)"
-        Engine[Express Server]
-        API["API Endpoints"]
-        Cozo["CozoDB Node"]
-    end
+As a human operator (Rob), use these patterns for effective searches:
 
-    API -->|REST| Engine
-    Engine -->|Direct| Cozo["CozoDB (RocksDB)"]
+- **Basic phrase search**: `"Project Sybil"` - Find exact phrase anywhere in memory
+- **Temporal filtering**: `"Project Sybil" @2025` - Find exact phrase from 2025
+- **Category filtering**: `"meeting notes" #work` - Find in work bucket only
+- **Multi-category search**: `"meeting notes" #work #personal` - Find in multiple buckets
+- **Temporal range**: `@2024 @2025 "annual review"` - Find across multiple years
+- **Epochal search**: `#epoch:"Project Alpha Development" authentication changes` - Find within specific project epoch
+- **Complex query**: `"Project Sybil" @Q1 #work #meeting #epoch:"Project Alpha Development" detailed notes` - Multi-faceted search
 
-    subgraph File_Watcher ["Context Watcher"]
-        Watcher[chokidar] -->|Monitor| Context["context/ directory"]
-        Watcher -->|Ingest| Cozo
-    end
+### Search Strategy
 
-    subgraph Cognitive_Engine
-        Engine -->|Query| Cozo
-        Cozo -->|Results| Engine
-    end
+The system uses an "Elastic Window" cognitive retrieval strategy:
+1. **Direct Search (70% budget)**: FTS-based search for exact matches
+2. **Tag Harvesting**: Extracts buckets from direct results
+3. **Associative Search (30% budget)**: Finds related content based on shared tags
+4. **Temporal Search**: Incorporates temporal tags to enhance relevance
+5. **Epochal Navigation**: Uses hierarchical organization (Epochs -> Episodes -> Propositions) for improved precision
+
+### Epochal Historian
+
+The system includes an Epochal Historian that performs recursive decomposition of memories:
+- **Epochs**: Major time periods or thematic clusters of memories
+- **Episodes**: Specific events or topics within an Epoch
+- **Propositions**: Individual facts, statements, or insights
+
+This hierarchical organization improves search precision and enables pattern recognition across time periods.
+
+## Key Services
+
+### Scribe Service
+Maintains rolling session state summaries to prevent context overflow and maintain coherence across long conversations.
+
+### Dreamer Service
+Performs background memory organization and re-categorization, running automatically every 15 minutes after a 60-second startup delay.
+
+### File Watcher
+Monitors the `context/` directory for file changes and processes new/changed files with deduplication.
+Supports bidirectional synchronization with the mirrored brain in `context/mirrored_brain/`.
+Changes to mirrored files are automatically synced back to the database.
+
+### Mirror Protocol
+Creates a physical copy of your AI Brain in `context/mirrored_brain/` with YAML Frontmatter.
+The filesystem acts as a "Second Brain" interface compatible with tools like Obsidian.
+The File Watcher is configured to ignore the `context/mirrored_brain/` directory to prevent recursion loops.
+
+### Mirror Protocol Directory Structure
+The Mirror Protocol now implements a hierarchical organization based on the Epochal Historian's recursive decomposition:
+- **Primary Structure**: `context/mirrored_brain/[Bucket]/Epochs/[Epoch Name]/[Memory_ID].[ext]`
+- **Episode Decomposition**: `context/mirrored_brain/[Bucket]/Epochs/[Epoch Name]/Episodes/[Episode Name]/[Memory_ID].[ext]`
+- **Fallback Structure**: `context/mirrored_brain/[Bucket]/Years/[Year]/[Memory_ID].[ext]`
+
+### Schema Fields
+The system uses a flexible schema to store memory information:
+- `buckets: [String]`: Allows memories to belong to multiple categories simultaneously
+- `tags: String`: Stores semantic tags as JSON-formatted arrays for enhanced search capabilities
+- `epochs: String`: Stores epochal classifications as JSON-formatted arrays for hierarchical organization (Epochs -> Episodes -> Propositions)
+
+## Path Resolution
+
+The system has been updated to fix critical path resolution issues in service modules:
+
+- Fixed relative import paths in all service files (search, ingest, scribe, dreamer, mirror, inference, watcher, safe-shell-executor)
+- Corrected paths from `'../core/db'` to `'../../core/db'` in services located in subdirectories
+- Standardized all relative imports to properly reference core modules and configuration files
+- These fixes resolved "Cannot find module" errors that were preventing the application from starting
+
+## Backup and Portability
+
+### Exporting Data
+- UI: "Export Snapshot" button in dashboard
+- API: `GET /v1/backup` returns YAML file
+- Snapshots saved to `backups/` directory
+
+### Moving to New Machine
+1. Copy latest `.yaml` snapshot to new machine
+2. Install Node.js and run `npm install` in `engine/` folder
+3. Hydrate: `node src/hydrate.js ../backups/your_snapshot.yaml`
+4. Launch with appropriate start script
+
+## Documentation
+
+For detailed information, see:
+- [specs/spec.md](specs/spec.md) - System architecture
+- [specs/plan.md](specs/plan.md) - Development roadmap
+- [specs/search_patterns.md](specs/search_patterns.md) - Search capabilities
+- [specs/context_assembly_findings.md](specs/context_assembly_findings.md) - Experimental findings
+- [specs/sovereign-desktop-app.md](specs/sovereign-desktop-app.md) - Sovereign Desktop overlay app vision
+- [README_PKG.md](README_PKG.md) - Packaging and distribution
+
+## Future: Sovereign Desktop
+
+The next evolution of ECE is a **desktop overlay application** that provides:
+- **Screen Awareness**: Local VL model reads your screen context
+- **Hotkey Activation**: `Alt+Space` for instant AI access
+- **Proactive Memory**: Auto-remembers important observations
+- **100% Local**: No cloud, no subscriptions, full privacy
+
+See [specs/sovereign-desktop-app.md](specs/sovereign-desktop-app.md) for the full architecture plan.
+
+## Testing
+
+Run the comprehensive test suite with:
+```bash
+npm test
 ```
 
-### 2. Core Components
-*   **Engine**: `src/index.js` - Node.js server with Express, CORS, and body-parser.
-*   **Memory**: `CozoDB (Node)` - Stores relations (`*memory`) with RocksDB persistence.
-*   **Ingestion**: `chokidar` - Watches `context/` directory for file changes and auto-ingests.
-*   **Core**: `engine/` - Node.js monolith handling API, ingestion, and database operations.
-*   **Data**: `context/` - Directory for storing context files that are automatically monitored.
-
----
-
-## 🏛️ Node.js Monolith Architecture
-
-The system now features the unified Node.js monolith architecture for simplified deployment:
-
-*   **Sovereign Engine**: Single-process Node.js server handling API, ingestion, and database on port 3000
-*   **CozoDB Integration**: Direct integration with `cozo-node` using RocksDB backend
-*   **File Watcher**: `chokidar` monitors `context/` directory for automatic ingestion
-*   **API Endpoints**: Standardized endpoints for ingestion, querying, and health checks
-
-### Getting Started with Node.js Monolith
-1. Install dependencies: `cd engine && npm install`
-2. Start the unified system: `start_engine.bat` (Windows) or `./start_engine.sh` (macOS/Linux)
-   *Note: On macOS/Linux, you may need to run `chmod +x start_engine.sh` first.*
-3. Access the health check: `http://localhost:3000/health`
-4. Use the API endpoints for ingestion and querying
-
-### API Endpoints
-*   `POST /v1/memory/search` - **Cognitive Search**: Returns "Elastic Window" snippets grouped by file.
-*   `POST /v1/ingest` - Content ingestion endpoint (manual override).
-*   `POST /v1/query` - Raw CozoDB query execution endpoint.
-*   `GET /health` - Service health verification endpoint.
-
----
-
-## 🧠 Cognitive Retrieval (Elastic Window)
-
-The engine uses a sophisticated **"Elastic Window"** strategy to solve the "Keyword Saturation" problem (where large files flood the LLM context).
-
-### 1. BM25 Full-Text Search
-When you query the engine, it first performs a **BM25 Full-Text Search** across the entire database to find the most relevant documents.
-
-### 2. Elastic Snippeting
-Instead of returning the whole file, the engine:
-- **Scans** for every occurrence of your keywords.
-- **Allocates** a character budget (default 5000) across all hits.
-- **Expands** a "window" of context (min 300 chars) around each hit to capture full thoughts.
-- **Merges** overlapping or nearby snippets to ensure coherence.
-
-### 3. Grouped Output
-Results are returned as a **Context Digest**:
-- **Source Header**: Printed once per file with a relevance score.
-- **Snippets**: All relevant sections from that file listed below the header.
-- **Separators**: Clear `---` markers between different sources.
-
-This ensures the LLM receives **high-density, relevant paragraphs** instead of "sentence soup" or massive, irrelevant file chunks.
-
----
-
-## � Portability & Snapshots (The "Ship" Protocol)
-
-The Context Engine is designed for **Zero-Cloud Portability**. You can move your entire cognitive history between machines without a database server.
-
-### 1. Exporting Your Mind
-- **UI Export**: Click the **"Export Snapshot"** button in the dashboard.
-- **API Export**: `GET /v1/backup` returns a portable YAML file containing every memory, hash, and bucket.
-- **Storage**: Snapshots are saved to the `backups/` directory as `cozo_memory_snapshot_YYYY-MM-DD.yaml`.
-- **Git Policy**: The `backups/` folder is ignored by Git to keep your repository clean, but these files are your primary "Cognitive Backups."
-
-### 2. Moving to a New Machine
-To move your context to a new device:
-1.  **Copy** your latest `.yaml` snapshot to the new machine.
-2.  **Install** Node.js and run `npm install` in the `engine/` folder.
-3.  **Hydrate**: Run the hydration command:
-    ```bash
-    cd engine
-    node src/hydrate.js ../backups/your_snapshot.yaml
-    ```
-4.  **Launch**: Run `start_engine.bat`. Your entire history is now live on the new machine.
-
-### 3. Why Snapshots?
-- **Human Readable**: You can open the `.yaml` file in any text editor to see your data.
-- **Deduplication**: The engine uses MD5 hashing to ensure that if you re-ingest the same file, it doesn't create duplicates.
-- **Bucket Preservation**: Your custom partitions (e.g., "research", "coding") are preserved across migrations.
-
----
-
-## �🔄 Context Collection & Migration
-
-The system now includes comprehensive context collection and legacy migration:
-
-*   **Legacy Migration**: `engine/src/migrate_history.js` consolidates legacy session files into YAML/JSON
-*   **Context Collection**: `read_all.js` and `engine/src/read_all.js` aggregate content from project directories
-*   **File Monitoring**: Automatic ingestion of new files in `context/` directory
-*   **Multi-Format Output**: Generates text, JSON, and YAML formats for maximum compatibility
-*   **Archive Strategy**: Legacy V2 artifacts archived to `archive/v2_python_bridge/`
-
-### Data Migration Process
-1. Legacy session files consolidated from `context/Coding-Notes/Notebook/history/important-context/sessions/`
-2. Converted to YAML format in `context/full_history.yaml` and `context/full_history.json`
-3. Auto-ingested into CozoDB for persistent storage
-4. Legacy Python infrastructure archived for historical reference
-
-### Context Collection Strategy
-*   **File Discovery**: Recursive scanning of `context/` directory
-*   **Format Support**: Handles .json, .md, .yaml, .txt, .py, .js, .html, .css, .sh, .ps1, .bat
-*   **Exclusion Rules**: Skips common build directories, logs, and combined outputs
-*   **Encoding Detection**: Robust encoding handling for various file types
-*   **Structured Output**: Generates both JSON and YAML memory files
-
----
-
-## 📚 Documentation
-
-*   **Architecture**: [specs/spec.md](specs/spec.md)
-*   **Roadmap**: [specs/plan.md](specs/plan.md)
-*   **Migration Guide**: [specs/standards/034-nodejs-monolith-migration.md](specs/standards/034-nodejs-monolith-migration.md)
-*   **Autonomous Execution**: [specs/protocols/001-autonomous-execution.md](specs/protocols/001-autonomous-execution.md)
-
----
-
-## 🧹 Legacy Support
-The old Python/Browser Bridge (V2) has been **archived**.
-*   Legacy artifacts: `archive/v2_python_bridge/`
-*   Legacy code: `webgpu_bridge.py`, `anchor_watchdog.py`, `start-anchor.bat`, etc.
-*   Migration guide: [specs/standards/034-nodejs-monolith-migration.md](specs/standards/034-nodejs-monolith-migration.md)
+This executes the complete test suite covering all functionality in the system.

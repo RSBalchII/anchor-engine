@@ -1,0 +1,4 @@
+Starting database initialization for Dreamer test...
+Database initialization completed successfully
+Error during dreamer test: Cannot find requested stored relation 'columns'
+Stack: undefined

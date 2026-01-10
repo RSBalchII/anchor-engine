@@ -8,11 +8,11 @@ if (IS_PKG) {
     const nativePath = path.join(path.dirname(process.execPath), 'cozo_node.node');
     try {
         const native = require(nativePath);
-        
+
         // Minimal CozoDb implementation for PKG mode
         class PkgCozoDb {
             constructor(engine, path, options) {
-                this.db_id = native.open_db(engine || 'mem', path || 'data.db', JSON.stringify(options || {}));
+                this.db_id = native.open_db(engine || 'rocksdb', path || 'data.db', JSON.stringify(options || {}));
             }
 
             close() {

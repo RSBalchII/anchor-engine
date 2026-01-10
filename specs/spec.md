@@ -1,145 +1,173 @@
-# Anchor Core: The Visual Monolith (v4.1)
+# ECE_Core Architecture Specification
 
-**Status:** Node.js Monolith + CozoDB (RocksDB) + Local Inference + Markovian Reasoning
-**Philosophy:** Database as Source of Truth, Context Weaving, Stateless Portability.
-
-## 1. System Architecture
+## System Architecture Diagram
 
 ```mermaid
-graph TD
-    subgraph Node_Monolith [Localhost:3000]
-        Express[Express API]
-        Watcher[Chokidar Watcher]
-        Cozo[CozoDB + RocksDB]
-        FTS[BM25 Search Engine]
-        Llama[node-llama-cpp / GGUF]
-        Scribe[Scribe - Markovian State]
+graph TB
+    subgraph "User Interface Layer"
+        UI[Web Interface]
     end
 
-    subgraph Storage
-        DB_File["engine/context.db"]
-        Backups["backups/*.yaml"]
-        Models["models/*.gguf"]
+    subgraph "API Layer"
+        API[REST API Server]
     end
 
-    subgraph Ingestion_Sources
-        Context_Folder["context/ folder"]
-        Sessions["context/sessions/"]
-        Coding_Notes["context/Coding-Notes/"]
+    subgraph "Service Layer"
+        A[Ingest Service]
+        B[Search Service]
+        C[Dreamer Service]
+        D[Scribe Service]
+        E[Mirror Service]
+        F[Watcher Service]
+        G[Inference Service]
     end
 
-    Ingestion_Sources -->|File Events| Watcher
-    Watcher -->|:replace| Cozo
-    Express -->|Query| Cozo
-    Express -->|Prompt| Llama
-    Llama -->|Load| Models
-    Scribe -->|State| Cozo
-    Scribe -->|Compress| Llama
-    Cozo -->|Persist| DB_File
-    
-    User -->|Search/Ingest/Chat| Express
-    
-    subgraph Portability_Loop
-        Cozo -->|Eject| Backups
-        Backups -->|Hydrate| Cozo
+    subgraph "Core Layer"
+        H[CozoDB with RocksDB Backend]
+        I[Memory Table Schema: id, timestamp, content, source, type, hash, buckets, tags, epochs]
     end
+
+    subgraph "File System Layer"
+        J[Context Directory]
+        K[Mirrored Brain Directory]
+        L[Backup Directory]
+    end
+
+    subgraph "External Resources"
+        M[GGUF Models]
+        N[YAML Snapshots]
+    end
+
+    UI --> API
+    API --> A
+    API --> B
+    API --> C
+    API --> D
+    API --> E
+    API --> F
+    API --> G
+
+    A --> H
+    B --> H
+    C --> H
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+
+    H --> I
+    A --> J
+    F --> J
+    E --> K
+    F --> K
+    C --> K
+    E --> N
+    L --> N
+
+    G --> M
+
+    style H fill:#e1f5fe
+    style K fill:#f3e5f5
+    style J fill:#e8f5e8
 ```
 
-## 2. Core Services
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **Express API** | `src/index.js` | HTTP server, routes, static files |
-| **CozoDB** | `src/core/db.js` | RocksDB-backed graph database |
-| **Inference** | `src/services/inference.js` | Local LLM via `node-llama-cpp` |
-| **Scribe** | `src/services/scribe.js` | Markovian rolling context |
-| **Dreamer** | `src/services/dreamer.js` | Background memory organization |
-| **Search** | `src/services/search.js` | BM25 FTS with bucket filtering |
-| **Watcher** | `src/services/watcher.js` | File system ingestion |
-
-## 3. Memory Schema (Standard 039)
-
-```
-memory {
-  id: String (PK)
-  timestamp: Int
-  content: String
-  source: String
-  type: String
-  hash: String
-  buckets: [String]  // Multi-category support
-}
-```
-
-## 4. Context Weaving (Standard 041)
+## Mirror Protocol Flow
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant API
-    participant Scribe
-    participant Inference
-    participant LLM
+    participant DB as CozoDB
+    participant MS as Mirror Service
+    participant FS as File System
+    participant WS as Watcher Service
 
-    User->>API: POST /v1/chat/completions
-    API->>Scribe: getState()
-    Scribe-->>API: [SESSION STATE]
-    API->>Inference: chat(state + message)
-    Inference->>LLM: prompt()
-    LLM-->>Inference: response
-    Inference-->>API: response
-    API-->>User: { choices: [...] }
+    Note over DB, WS: Preventing Recursive Loop
+    DB->>MS: Query all memories
+    MS->>FS: Write memories to context/mirrored_brain/
+    FS-->>WS: File change event
+    alt File in mirrored_brain/
+        WS--x FS: Ignore (Watcher Shield)
+    else File in context/
+        WS->>DB: Process and ingest
+    end
 ```
 
-## 5. API Reference
+## Deterministic Search Syntax
 
-### Memory Operations
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/ingest` | POST | Ingest content with buckets |
-| `/v1/memory/search` | POST | BM25 search with bucket filter |
-| `/v1/buckets` | GET | List all buckets |
-| `/v1/backup` | GET | Export YAML snapshot |
+The system supports a deterministic search syntax with the following elements:
 
-### Inference Operations
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/models` | GET | List available GGUF models |
-| `/v1/inference/load` | POST | Load model with context size |
-| `/v1/inference/status` | GET | Current model status |
-| `/v1/chat/completions` | POST | Chat with Context Weaving |
+- **Quoted Phrases**: `"Project Sybil"` for exact phrase matching
+- **Temporal Tags**: `@year` (e.g., `@2025`, `@---`) for temporal filtering
+- **Bucket Tags**: `#work` for categorical filtering
+- **Keywords**: General text matching
+- **Combined Syntax**: `"Project Sybil" @2025 #work meeting notes`
 
-### Scribe (Markovian State)
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/scribe/update` | POST | Update rolling state from history |
-| `/v1/scribe/state` | GET | Get current session state |
-| `/v1/scribe/state` | DELETE | Clear session state |
+## Mirror Protocol Workflow
 
-### System
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/health` | GET | Health check |
-| `/v1/dream` | POST | Trigger Dreamer organization |
+The Mirror Protocol creates a bidirectional synchronization between the CozoDB graph and the filesystem:
 
-## 6. Portability Lifecycle
+### Filesystem Representation
+- Creates files in `context/mirrored_brain/[Bucket]/[Epoch]/[Memory_ID].md`
+- Files have appropriate extensions based on content type (.md, .json, .js, .py, etc.)
+- Includes frontmatter with metadata (id, timestamp, date, source, type, hash, buckets, tags)
+- Reflects the current database state when created
 
+### Bidirectional Sync
+- **Database → Filesystem**: On startup and during Dreamer cycles, database entries are mirrored to files
+- **Filesystem → Database**: Changes to mirrored files are automatically synced back to the database
+- **Deletion Sync**: Deleting a mirrored file removes the corresponding database entry
+
+### Recursive Loop Prevention
+The system implements a "Watcher Shield" to prevent recursive ingestion:
+- The file watcher ignores the `context/mirrored_brain/` directory
+- This prevents mirrored files from being re-ingested into the database
+- Ensures the system doesn't enter an infinite loop
+
+### Epoch-Based Structure Enhancement
+- Prioritizes Epochs (e.g., `context/mirrored_brain/[Bucket]/[Epoch]/[Memory_ID].md`)
+- Falls back to Year structure if no Epoch is assigned by the Dreamer
+- Organizes memories hierarchically based on the Recursive Decomposition (Epochs -> Episodes -> Propositions)
+
+## Recursive Decomposition (Epochs -> Episodes -> Propositions)
+
+```mermaid
+graph TD
+    A[Epochal Historian] --> B[Epochs: Major Time Periods/Themes]
+    A --> C[Episodes: Specific Events/Narratives]
+    A --> D[Propositions: Individual Facts/Statements]
+
+    B --> E[Long-term Historical Patterns]
+    C --> F[Mid-term Event Clusters]
+    D --> G[Short-term Atomic Facts]
+
+    B -.-> C
+    C -.-> D
+
+    style A fill:#ffcccc
+    style B fill:#ccffcc
+    style C fill:#ccttcc
+    style D fill:#ccttcc
 ```
-1. INGEST  → Watcher indexes files into CozoDB
-2. EJECT   → GET /v1/backup exports YAML snapshot
-3. SHIP    → Copy YAML to new machine
-4. HYDRATE → node src/hydrate.js restores state
-```
 
-## 7. Standards Reference
+## Epochal Historian (Dreamer Service Enhancement)
 
-| ID | Name | Summary |
-|----|------|---------|
-| 037 | Snapshot Portability | Eject/Hydrate workflow |
-| 038 | Cortex Upgrade | node-llama-cpp integration |
-| 039 | Multi-Bucket Schema | `buckets: [String]` support |
-| 040 | Cozo Syntax Compliance | List query patterns |
-| 041 | Markovian Reasoning | Scribe + Context Weaving |
+The Dreamer service now includes an Epochal Historian that identifies and synthesizes historical patterns in the memory graph:
 
----
-*End of Specification*
+### Epoch Identification
+- Analyzes memories chronologically to identify major time periods or themes
+- Groups related memories into Epochs based on semantic similarity and temporal proximity
+- Creates hierarchical organization: Epochs contain Episodes, which contain individual Propositions
+
+### Episode Formation
+- Clusters related memories within an Epoch based on topic, context, or relationship
+- Forms coherent narrative threads within larger time periods
+- Enables more granular organization within broader Epochs
+
+### Proposition Capture
+- Extracts individual facts, statements, or insights from memories
+- Maintains atomic units of knowledge that can be referenced independently
+- Preserves the original context and source information
+
+### Implementation in Dreamer Service
+- Runs periodically during background memory organization
+- Uses local LLM to analyze and categorize memories
+- Updates memory entries with epochal tags for improved organization and retrieval

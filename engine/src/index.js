@@ -1,3 +1,10 @@
+// Load environment variables first (before anything else)
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv is optional - continue without it
+}
+
 require('./core/logger');
 const express = require('express');
 const cors = require('cors');
@@ -5,10 +12,13 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const { db, init } = require('./core/db');
 const apiRoutes = require('./routes/api');
-const { setupFileWatcher } = require('./services/watcher');
+const { setupFileWatcher } = require('./services/watcher/watcher');
+const { dream } = require('./services/dreamer/dreamer');
+const { mirrorToDisk } = require('./services/mirror/mirror');
 const config = require('./config/paths');
 
-const PORT = process.env.PORT || 3000;
+const configValues = require('./config/app');
+const PORT = process.env.PORT || configValues.DEFAULT_PORT;
 
 // Setup Express
 const app = express();
@@ -39,10 +49,58 @@ async function boot() {
         console.log(`Base Path: ${config.BASE_PATH}`);
         console.log(`Interface Dir: ${config.INTERFACE_DIR}`);
         console.log(`Database Path: ${config.DB_PATH}`);
-        
-        await init(); // Initialize DB and Auto-Hydrate
+
+        // Initialize DB with retry logic for locking issues
+        let dbInitialized = false;
+        let retries = 0;
+        const maxRetries = 5;
+
+        while (!dbInitialized && retries < maxRetries) {
+            try {
+                await init(); // Initialize DB and Auto-Hydrate
+                dbInitialized = true;
+                console.log('Database initialized successfully');
+            } catch (dbError) {
+                retries++;
+                console.error(`Database initialization failed (attempt ${retries}/${maxRetries}):`, dbError.message);
+
+                if (retries >= maxRetries) {
+                    console.error('Max retries reached. Please ensure no other instances are running.');
+                    process.exit(1);
+                }
+
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+
         setupFileWatcher(); // Start Watcher
-        
+
+        // Schedule dreamer to run automatically with configured intervals
+        const DREAM_INTERVAL = configValues.DREAM_INTERVAL_MS; // Configurable interval in milliseconds
+        const STARTUP_DELAY = configValues.STARTUP_DELAY_MS; // Configurable startup delay
+
+        console.log(`🌙 Dreamer: Scheduling self-organization cycle every ${DREAM_INTERVAL / 60000} minutes with ${STARTUP_DELAY / 1000}s startup delay`);
+
+        // Initial delay before starting the interval
+        setTimeout(() => {
+            setInterval(async () => {
+                try {
+                    const result = await dream();
+                    console.log(`🌙 Dreamer Auto-Run Result:`, result);
+
+                    // Trigger mirror protocol after each dreamer cycle to update physical representation
+                    try {
+                        await mirrorToDisk();
+                    } catch (mirrorError) {
+                        console.error('🪞 Mirror Protocol Error after Dreamer cycle:', mirrorError.message);
+                    }
+                } catch (error) {
+                    console.error('🌙 Dreamer Auto-Run Error:', error);
+                }
+            }, DREAM_INTERVAL);
+        }, STARTUP_DELAY);
+
         app.listen(PORT, () => {
             console.log(`Sovereign Context Engine listening on port ${PORT}`);
             console.log(`Health check: http://localhost:${PORT}/health`);
@@ -58,7 +116,11 @@ async function boot() {
 const shutdown = async (signal) => {
   console.log(`Shutting down gracefully... (Signal: ${signal})`);
   try {
-    await db.close();
+    // Ensure database is properly closed
+    if (db && typeof db.close === 'function') {
+      await db.close();
+      console.log('Database connection closed');
+    }
   } catch (e) {
     console.error('Error closing database:', e);
   }

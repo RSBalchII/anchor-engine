@@ -22,6 +22,8 @@ Node.js Monolith, CozoDB, Termux, Hardware limits, and system architecture decis
 - [031-ghost-engine-stability-fix.md](10-ARCH/031-ghost-engine-stability-fix.md) - CozoDB schema FTS failure handling
 - [032-ghost-engine-initialization-flow.md](10-ARCH/032-ghost-engine-initialization-flow.md) - Database initialization race condition prevention
 - [034-nodejs-monolith-migration.md](10-ARCH/034-nodejs-monolith-migration.md) - Migration to Node.js monolith architecture
+- [048-epochal-historian-recursive-decomposition.md](10-ARCH/048-epochal-historian-recursive-decomposition.md) - Epochal Historian & Recursive Decomposition (Epochs -> Episodes -> Propositions)
+- [051-service-module-path-resolution.md](10-ARCH/051-service-module-path-resolution.md) - Service Module Path Resolution for subdirectory services
 
 ## Domain 20: DATA (Data, Memory, Filesystem)
 Source of Truth, File Ingestion, Schemas, YAML Snapshots, and all data-related concerns.
@@ -36,6 +38,8 @@ Source of Truth, File Ingestion, Schemas, YAML Snapshots, and all data-related c
 - [030-multi-format-output.md](20-DATA/030-multi-format-output.md) - JSON, YAML, and text output support
 - [033-cozodb-syntax-compliance.md](20-DATA/033-cozodb-syntax-compliance.md) - CozoDB syntax compliance requirements
 - [037-database-hydration-snapshot-portability.md](20-DATA/037-database-hydration-snapshot-portability.md) - Database hydration and snapshot portability workflow
+- [052-schema-evolution-epochal-classification.md](20-DATA/052-schema-evolution-epochal-classification.md) - Schema Evolution & Epochal Classification for hierarchical memory organization
+- [053-cozodb-pain-points-reference.md](20-DATA/053-cozodb-pain-points-reference.md) - **🔥 CRITICAL**: CozoDB pain points, gotchas, and lessons learned
 
 ## Domain 30: OPS (Protocols, Safety, Debugging)
 Agent Safety (Protocol 001), Logging, Async handling, and operational procedures.
@@ -50,6 +54,7 @@ Agent Safety (Protocol 001), Logging, Async handling, and operational procedures
 - [025-script-logging-protocol.md](30-OPS/025-script-logging-protocol.md) - Script logging protocol (Protocol 001)
 - [035-never-attached-mode.md](30-OPS/035-never-attached-mode.md) - Never run services in attached mode (Detached Execution)
 - [036-log-file-management-protocol.md](30-OPS/036-log-file-management-protocol.md) - Log file management and rotation
+- [050-windows-background-process-behavior.md](30-OPS/050-windows-background-process-behavior.md) - Windows background process behavior and console window prevention
 
 ## Domain 40: BRIDGE (APIs, Extensions, UI)
 Extensions, Ports, APIs, and all interface-related concerns.

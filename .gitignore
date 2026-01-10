@@ -1,6 +1,12 @@
 # Node
 node_modules/
 npm-debug.log
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
 
 # Database & Storage (User Data)
 engine/context.db/
@@ -15,6 +21,10 @@ codebase/
 # Logs
 logs/*
 !logs/.gitkeep
+
+# Build outputs
+dist/
+build/
 
 # System
 .DS_Store

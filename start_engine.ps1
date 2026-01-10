@@ -4,8 +4,8 @@
 Write-Host "Starting ECE_Core Engine with logging protocol..." -ForegroundColor Green
 
 # Create logs directory if it doesn't exist
-if (!(Test-Path "../logs")) {
-    New-Item -ItemType Directory -Path "../logs" | Out-Null
+if (!(Test-Path "logs")) {
+    New-Item -ItemType Directory -Path "logs" | Out-Null
     Write-Host "Created logs directory" -ForegroundColor Cyan
 }
 

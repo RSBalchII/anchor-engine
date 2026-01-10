@@ -1,0 +1,15 @@
+{
+  "context": {
+    "loadMemoryFromIncludeDirectories": true
+  },
+  "tools": {
+    "approvalMode": "auto-edit"
+  },
+  "$version": 2,
+  "ui": {
+    "hideBanner": true,
+    "showMemoryUsage": true,
+    "showLineNumbers": false,
+    "showCitations": true
+  }
+}

@@ -11,80 +11,173 @@ if (!fs.existsSync(LOGS_DIR)) {
 }
 
 // Initialize CozoDB with RocksDB backend
-const db = new CozoDb('rocksdb', DB_PATH);
+// Use appropriate engine based on whether we're in PKG mode or development
+const dbEngine = require('../config/paths').IS_PKG ? 'rocksdb' : 'rocksdb';
+const db = new CozoDb(dbEngine, DB_PATH);
+
+/**
+ * Helper function to remove all indices attached to the memory relation
+ * CozoDB requires indices to be removed before the relation can be dropped
+ * Note: CozoDB uses "::fts drop <name>" syntax for FTS indices
+ */
+async function removeMemoryIndices() {
+  // List of known FTS index names to try removing
+  const ftsIndexNames = ['memory:content_fts', 'content_fts'];
+  
+  for (const indexName of ftsIndexNames) {
+    // Try multiple syntaxes as CozoDB versions may differ
+    const dropCommands = [
+      `::fts drop ${indexName}`,
+      `::fts destroy ${indexName}`,
+      `::hnsw drop ${indexName}`,
+    ];
+    
+    for (const cmd of dropCommands) {
+      try {
+        await db.run(cmd);
+        console.log(`Index dropped with: ${cmd}`);
+        break; // Success, move to next index
+      } catch (e) {
+        // Command failed, try next syntax
+        continue;
+      }
+    }
+  }
+  
+  console.log('Index cleanup completed');
+}
+
+/**
+ * Helper function to perform schema migration
+ * Extracts all data, recreates table with new schema, and reinserts data
+ * @param {string} label - Log label for identifying which migration path is running
+ */
+async function performSchemaMigration(label = '') {
+  const logPrefix = label ? `[${label}] ` : '';
+  
+  // Eject current data
+  console.log(`${logPrefix}Ejecting current data for schema migration...`);
+
+  // Get all existing data
+  const allDataQuery = '?[id, timestamp, content, source, type, hash, buckets, tags] := *memory{id, timestamp, content, source, type, hash, buckets, tags}';
+  const allData = await db.run(allDataQuery);
+
+  // CRITICAL: Remove all indices BEFORE removing the relation
+  console.log(`${logPrefix}Removing indices before dropping relation...`);
+  await removeMemoryIndices();
+
+  // Small delay to ensure index removal is processed
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // Drop the existing memory relation using ::remove
+  await db.run('::remove memory');
+  console.log(`${logPrefix}Old memory relation removed with ::remove`);
+
+  // Small delay to ensure the removal is fully processed
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // Create the memory relation with the new schema including epochs
+  const schemaQuery = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String], tags: String, epochs: String}';
+  await db.run(schemaQuery);
+  console.log(`${logPrefix}Memory relation recreated with epochs column`);
+
+  // Reinsert the data with default empty epochs
+  if (allData.rows && allData.rows.length > 0) {
+    console.log(`${logPrefix}Reinserting ${allData.rows.length} records with schema migration...`);
+
+    const BATCH_SIZE = 50; // Smaller batch size
+    for (let i = 0; i < allData.rows.length; i += BATCH_SIZE) {
+      const batch = allData.rows.slice(i, i + BATCH_SIZE);
+      console.log(`${logPrefix}Inserting batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(allData.rows.length/BATCH_SIZE)} (${batch.length} records)...`);
+
+      const values = batch.map(row => [
+        row[0], // id
+        row[1], // timestamp
+        row[2], // content
+        row[3], // source
+        row[4], // type
+        row[5], // hash
+        row[6], // buckets
+        row[7], // tags
+        '[]'    // epochs (default empty array)
+      ]);
+
+      const insertQuery = `?[id, timestamp, content, source, type, hash, buckets, tags, epochs] <- $data :put memory {id, timestamp, content, source, type, hash, buckets, tags, epochs}`;
+      await db.run(insertQuery, { data: values });
+      console.log(`${logPrefix}Batch complete`);
+    }
+
+    console.log(`${logPrefix}Schema migration completed for ${allData.rows.length} records`);
+  }
+}
 
 async function initializeDb() {
   try {
-    // Check if the memory relation already exists
-    const checkQuery = '::relations';
-    const relations = await db.run(checkQuery);
+    // Check if the memory relation exists and has the correct schema
+    const relations = await db.run('::relations');
+    const memoryRelationExists = relations.rows.some(row => row[0] === 'memory');
 
-    // Only create the memory table if it doesn't already exist
-    if (!relations.rows.some(row => row[0] === 'memory')) {
-        const schemaQuery = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String]}';
-        await db.run(schemaQuery);
-        console.log('Database schema initialized');
-    } else {
-        // Check if we need to migrate from bucket (String) to buckets ([String])
-        const columnsQuery = '::columns memory';
-        const columns = await db.run(columnsQuery);
-        const hasBuckets = columns.rows.some(row => row[0] === 'buckets');
+    if (memoryRelationExists) {
+      console.log('Memory relation exists, checking schema...');
+
+      try {
+        // Check if the schema has the epochs column using CozoDB's ::columns command
+        // This returns column metadata including name, type, and constraints
+        const columnResult = await db.run('::columns memory');
         
-        if (!hasBuckets) {
-            console.log('Migrating schema: bucket -> buckets');
-            // 1. Get all data
-            const data = await db.run('?[id, timestamp, content, source, type, hash, bucket] := *memory{id, timestamp, content, source, type, hash, bucket}');
-            
-            // EMERGENCY BACKUP BEFORE DESTRUCTIVE CHANGE
-            try {
-                const emergencyBackup = data.rows.map(r => ({ id: r[0], timestamp: r[1], content: r[2], source: r[3], type: r[4], hash: r[5], bucket: r[6] }));
-                const yamlStr = yaml.dump(emergencyBackup);
-                const backupPath = path.join(BACKUPS_DIR, `MIGRATION_BACKUP_${Date.now()}.yaml`);
-                if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
-                fs.writeFileSync(backupPath, yamlStr);
-                console.log(`[Safety] Emergency backup created at ${backupPath}`);
-            } catch (e) {
-                console.error('[Safety] Emergency backup failed, but continuing migration:', e.message);
-            }
+        // columnResult.rows is array of [name, type, nullable, default, ...]
+        const hasEpochsColumn = columnResult.rows.some(row => row[0] === 'epochs');
 
-            // 2. Clear old table
-            await db.run('~memory(_) :rm');
-            
-            // 3. We can't easily change schema without dropping, so we'll just warn and suggest manual reset if this fails
-            console.log('Warning: Schema migration requires manual database reset or complex Cozo migration.');
-            console.log('Attempting to drop and recreate...');
-            try {
-                await db.run('::fts remove memory:content_fts');
-            } catch (e) {}
-            await db.run('::remove memory');
-            
-            // 4. Create new table
-            const schemaQuery = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String]}';
-            await db.run(schemaQuery);
-            
-            // 5. Re-insert data with bucket wrapped in list
-            if (data.rows.length > 0) {
-                const migratedValues = data.rows.map(r => [r[0], r[1], r[2], r[3], r[4], r[5], [r[6]]]);
-                await db.run('?[id, timestamp, content, source, type, hash, buckets] <- $data :put memory {id, timestamp, content, source, type, hash, buckets}', { data: migratedValues });
-            }
-            console.log('Migration complete.');
+        if (hasEpochsColumn) {
+          console.log('Schema already includes epochs column');
         } else {
-            console.log('Database schema already exists');
+          // If epochs column doesn't exist, migrate the schema
+          console.log('Epochs column not found, migrating schema...');
+          await performSchemaMigration('primary');
         }
+      } catch (checkError) {
+        // If the metadata query fails, try a simple probe query instead
+        console.log('Column check failed, trying probe query...');
+        try {
+          // Try to select epochs - if it fails, column doesn't exist
+          await db.run('?[epochs] := *memory{epochs}, epochs = ""', {});
+          console.log('Schema already includes epochs column (verified by probe)');
+        } catch (probeError) {
+          console.log('Epochs column not found (probe failed), migrating schema...');
+          await performSchemaMigration('fallback');
+        }
+      }
+    } else {
+      // Create the memory relation with the correct schema if it doesn't exist
+      console.log('Creating new memory relation with full schema...');
+      const schemaQuery = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String], tags: String, epochs: String}';
+      await db.run(schemaQuery);
+      console.log('Database schema initialized');
     }
 
-    // Try to create FTS index
+    // FTS index creation - wrap in Promise.race with timeout
     try {
+      console.log('Attempting to create FTS index...');
       const ftsQuery = `::fts create memory:content_fts {extractor: content, tokenizer: Simple, filters: [Lowercase]}`;
-      await db.run(ftsQuery);
-      console.log('FTS index created');
+      
+      // Use Promise.race for timeout protection
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('FTS creation timeout after 5s')), 5000)
+      );
+      
+      const ftsResult = await Promise.race([db.run(ftsQuery), timeoutPromise]);
+      console.log('FTS index created successfully', ftsResult);
     } catch (e) {
-      if (e.message && e.message.includes('already exists')) {
-        console.log('FTS index already exists');
+      const errMsg = e.message || String(e);
+      if (errMsg.includes('already exists') || errMsg.includes('exists') || errMsg.includes('FtsExprAlreadyDefined')) {
+        console.log('FTS index already exists (OK)');
       } else {
-        console.log('FTS creation failed (optional feature):', e.message);
+        // FTS is optional - log but don't fail
+        console.log('FTS index creation skipped:', errMsg.substring(0, 200));
       }
     }
+    
+    console.log('Database initialization complete');
   } catch (error) {
     console.error('Error initializing database:', error);
     throw error;
@@ -110,11 +203,89 @@ async function autoHydrate() {
     if (files.length > 0) {
       const latest = files[0];
       console.log(`🔄 Stateless Mode: Reloading from latest backup: ${latest.name}`);
-      
-      // Clear existing memories to ensure a clean reload
-      // await db.run('~memory{_} :rm'); // Skipping for now to avoid syntax issues
-      
-      await hydrate(db, latest.path);
+
+      try {
+        await hydrate(db, latest.path);
+      } catch (hydrationError) {
+        console.error('Hydration failed, attempting schema migration instead...');
+
+        // If hydration fails, try to load the backup data directly with schema migration
+        const yaml = require('js-yaml');
+        const fs = require('fs');
+        const crypto = require('crypto');
+
+        try {
+          // First, remove any indices attached to the memory relation
+          console.log("Fallback: Removing indices before dropping relation...");
+          await removeMemoryIndices();
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Then, ensure the schema is correct by dropping and recreating the table
+          try {
+            await db.run('::remove memory');
+            console.log("Fallback: Existing memory table removed for clean hydration...");
+            // Add a small delay to ensure the removal is fully processed
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (e) {
+            // If removal fails, the table might not exist, which is fine
+            console.log("Fallback: Memory table removal result (expected if table doesn't exist):", e.message);
+          }
+
+          // Create the new table with the correct schema
+          const schema = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String], tags: String, epochs: String}';
+          await db.run(schema);
+          console.log("Fallback: Memory table created with correct schema...");
+
+          const fileContent = fs.readFileSync(latest.path, 'utf8');
+          const records = yaml.load(fileContent);
+
+          if (Array.isArray(records) && records.length > 0) {
+            // Process records with schema migration
+            console.log(`Loading ${records.length} records with schema migration...`);
+
+            const BATCH_SIZE = 100;
+            let processed = 0;
+
+            while (processed < records.length) {
+              const batch = records.slice(processed, processed + BATCH_SIZE);
+
+              const values = batch.map(r => [
+                r.id || '',
+                parseInt(r.timestamp) || Date.now(),
+                r.content || '',
+                r.source || '',
+                r.type || 'text',
+                r.hash || crypto.createHash('md5').update(r.content || '').digest('hex'),
+                Array.isArray(r.buckets) ? r.buckets : (r.bucket ? [r.bucket] : ['core']),
+                r.tags || '',
+                JSON.stringify(r.epochs || [])  // Add epochs field with default empty array, ensuring it's a string
+              ]);
+
+              const q = `?[id, timestamp, content, source, type, hash, buckets, tags, epochs] <- $values :put memory {id, timestamp, content, source, type, hash, buckets, tags, epochs}`;
+              await db.run(q, { values });
+
+              processed += batch.length;
+              process.stdout.write(`Schema migration progress: ${processed}/${records.length}\r`);
+            }
+
+            console.log(`\n✅ Schema migration completed with ${records.length} records.`);
+
+            // CRITICAL: Recreate FTS index after migration (Standard 053: CozoDB Pain Points)
+            // FTS index does NOT survive backup/restore - must be recreated
+            try {
+              await db.run(`::fts create memory:content_fts {extractor: content, tokenizer: Simple, filters: [Lowercase]}`);
+              console.log('✅ FTS index recreated after migration');
+            } catch (ftsError) {
+              if (!ftsError.message.includes('already exists')) {
+                console.error('⚠️ FTS index recreation failed:', ftsError.message);
+              }
+            }
+          }
+        } catch (migrationError) {
+          console.error('Schema migration also failed:', migrationError.message);
+          console.log('Continuing with existing database state...');
+        }
+      }
       console.log(`✅ Database reloaded from backup. Current session is temporary unless you 'Eject' (Backup).`);
     } else {
       console.log('No snapshots found in backups directory. Starting with current database state.');

@@ -10,12 +10,91 @@
 5. **Pain into Patterns:** Every major bug must become a Standard.
 6. **LLM-First Documentation:** Documentation must be structured for LLM consumption and automated processing.
 
+## User-Facing Documentation
+
+### `QUICKSTART.md` (Root) — **PRIMARY USER GUIDE**
+*   **Role:** First-time user onboarding and daily workflow reference.
+*   **Content:** Data ingestion methods, deduplication logic, backup/restore, search patterns.
+*   **Audience:** New users, daily reference for workflow.
+*   **Authority:** Canonical guide for how users interact with ECE.
+
+### `README.md` (Root)
+*   **Role:** Project overview, installation, and quick start.
+*   **Content:** What ECE is, how to install, link to QUICKSTART.md.
+
+## Data Ingestion Standards
+
+### Unified Ingestion Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  INPUT METHODS (All paths lead to CozoDB)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Drop files → context/           (Watcher auto-ingests)       │
+│  2. Corpus YAML → context/          (read_all.js output)         │
+│  3. API POST → /v1/ingest           (Programmatic)               │
+│  4. Backup restore → backups/       (Session resume)             │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  DEDUPLICATION LAYER                                             │
+├─────────────────────────────────────────────────────────────────┤
+│  • Hash match → Skip (exact duplicate)                           │
+│  • >80% Jaccard → Skip (semantic duplicate)                      │
+│  • 50-80% Jaccard → New version (temporal folding)               │
+│  • <50% Jaccard → New document                                   │
+│  • >500KB → Reject (Standard 053: FTS poisoning)                │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  CozoDB GRAPH → Mirror → context/mirrored_brain/                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Corpus File Format (read_all.js output)
+```yaml
+project_structure: "C:/path/to/project"
+files:
+  - path: "src/index.js"
+    content: "// file content..."
+  - path: "README.md"
+    content: "# Project..."
+metadata:
+  total_files: N
+  timestamp: "ISO-8601"
+```
+
+### Ingestion Rules
+1. **Max Content Size:** 500KB per file (Standard 053: CozoDB Pain Points)
+2. **Auto-Bucketing:** Top-level folder name = bucket; root files → `pending`
+3. **Corpus Detection:** Files with `project_structure:` + `files:` array are extracted
+4. **Temporal Folding:** Search shows latest version, history timestamps collapsed
+
 ## Structure
 
 ### 1. The Blueprint (`specs/spec.md`)
 *   **Role:** The single architectural source of truth.
 *   **Format:** "Visual Monolith".
 *   **Content:** High-level diagrams (Kernel, Memory, Logic, Bridge). No deep implementation details.
+
+### 2. Search Patterns (`specs/search_patterns.md`)
+*   **Role:** Document the new semantic search and temporal folding capabilities.
+*   **Format:** Examples and usage guidelines.
+*   **Content:** How to leverage semantic intent translation and temporal folding for optimal results.
+
+### 3. Context Assembly Findings (`specs/context_assembly_findings.md`)
+*   **Role:** Document the critical findings from context assembly experiments showing retrieval layer bottlenecks.
+*   **Format:** Analysis and recommendations.
+*   **Content:** How retrieval layer optimization is more important than inference layer upgrades, with scaling recommendations for different model sizes.
+
+### 4. Testing Standards (`TESTING_STANDARDS.md`)
+*   **Role:** Document the comprehensive testing policy for the ECE project.
+*   **Format:** Standards and policies for testing approach.
+*   **Content:** Single point of truth for all testing through the comprehensive suite.
+
+### 5. Cleanup Reports (`CLEANUP_REPORT.md`)
+*   **Role:** Document codebase cleanup activities and improvements.
+*   **Format:** Summary of cleanup actions taken.
+*   **Content:** Details of test consolidation, duplicate file cleanup, and system improvements.
 
 ### 2. The Tracker (`specs/tasks.md`)
 *   **Role:** Current work queue.
@@ -59,9 +138,13 @@
 *   **Ghost Engine Stability:** CozoDB schema creation must handle FTS failures gracefully to prevent browser crashes (Standard 031)
 *   **Ghost Engine Initialization Flow:** Database initialization must complete before processing ingestion requests to prevent race conditions (Standard 032)
 *   **CozoDB Syntax Compliance:** All CozoDB queries must use proper syntax to ensure successful execution (Standard 033)
-*   **Node.js Monolith Migration:** System must migrate from Python/Browser Bridge to Node.js Monolith architecture (Standard 034)* **Cortex Upgrade**: Local inference via `node-llama-cpp` for GGUF support (Standard 038)
-* **Multi-Bucket Schema**: Memories support multiple categories via `buckets: [String]` (Standard 039)
-* **Cozo Syntax Hardening**: Avoid `unnest` and complex list queries in CozoDB (Standard 040)
+*   **Node.js Monolith Migration:** System must migrate from Python/Browser Bridge to Node.js Monolith architecture (Standard 034)
+*   **Cortex Upgrade**: Local inference via `node-llama-cpp` for GGUF support (Standard 038)
+*   **Multi-Bucket Schema**: Memories support multiple categories via `buckets: [String]` (Standard 039)
+*   **Cozo Syntax Hardening**: Avoid `unnest` and complex list queries in CozoDB (Standard 040)
+*   **Timed Background Execution**: Model development scripts must run with timers in background mode, directing output to logs (Standard 049)
+*   **CozoDB Pain Points Reference**: Comprehensive gotchas and lessons learned for CozoDB queries (Standard 053)
+*   **Unified Data Ingestion**: All data enters via context/ directory, API, or backup restore with automatic deduplication (QUICKSTART.md)
 ## LLM Protocol
 1. **Read-First:** Always read `specs/spec.md`, `SCRIPT_PROTOCOL.md`, AND `specs/standards/` before coding.
 2. **Drafting:** When asked to document, produce **Mermaid diagrams** and short summaries.
@@ -72,5 +155,11 @@
 7. **Cross-Reference:** When creating new standards, reference related existing standards to maintain consistency.
 8. **Detached Mode:** All LLM development scripts must run in detached mode (non-interactive) and log to files in the `logs/` directory with timestamped names (Standard 025).
 
+## Windows-Specific Considerations
+1. **Safe Shell Execution:** On Windows, use the SafeShellExecutor for running commands to avoid console window issues.
+2. **Command Output:** Due to Windows process creation behavior, command outputs may not appear in the current session when running background processes.
+3. **Native Modules:** Windows may require additional build tools for native Node.js modules. Consider using prebuilt binaries or installing Visual Studio Build Tools.
+4. **Path Handling:** Always use Node.js path utilities (`path.join`, `path.resolve`) for cross-platform compatibility.
+
 ---
-*Verified by Architecture Council. Edited by Humans Only.*
+*Verified by Architecture Council. Edits verified by Humans Only.*

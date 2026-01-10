@@ -6,12 +6,19 @@
   "bin": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "dev": "node src/index.js",
     "migrate": "node src/migrate_history.js",
     "read-all": "node src/read_all.js",
     "hydrate": "node src/hydrate.js",
-    "test": "node tests/suite.js",
+    "test": "node tests/comprehensive_suite.js",
+    "test:unit": "node tests/comprehensive_suite.js",
+    "test:integration": "node tests/comprehensive_suite.js",
+    "test:errors": "node tests/comprehensive_suite.js",
+    "test:all": "node tests/comprehensive_suite.js",
     "benchmark": "node tests/benchmark.js",
-    "build": "pkg ."
+    "build": "pkg .",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix"
   },
   "pkg": {
     "assets": [],
@@ -23,15 +30,18 @@
     "outputPath": "dist"
   },
   "dependencies": {
+    "axios": "^1.13.2",
     "body-parser": "^1.20.2",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",
-    "cozo-node": "^0.7.5",
+    "cozo-node": "^0.7.6",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "js-yaml": "^4.1.1",
     "node-llama-cpp": "^3.14.5"
   },
   "devDependencies": {
+    "eslint": "^8.56.0",
     "pkg": "^5.8.1"
   }
 }

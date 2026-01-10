@@ -5,7 +5,7 @@ REM Follows SCRIPT_PROTOCOL.md standards for detached execution
 echo Starting ECE_Core Engine with logging protocol...
 
 REM Create logs directory if it doesn't exist
-if not exist "..\logs" mkdir "..\logs"
+if not exist "logs" mkdir "logs"
 
 REM Check if server is already running by checking for the log file lock
 echo Checking for existing server instance...
@@ -32,8 +32,8 @@ choice /c yn /d y /t 3 > nul
 
 REM Verify the server is running by checking the log
 echo Checking server status...
-if exist "../logs/server.log" (
-    powershell -Command "Get-Content ../logs/server.log -Tail 5"
+if exist "..\logs\server.log" (
+    powershell -Command "Get-Content ..\logs\server.log -Tail 5"
 ) else (
     echo Warning: Log file not found. Server may not have started.
 )

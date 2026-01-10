@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Anchor Chat Cockpit</title>
     <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #00D4FF; --warn: #f59e0b; }
+        :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #00D4FF; --warn: #f59e0b; --brain: #a855f7; }
         body { background: var(--bg); color: var(--text); font-family: monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
         /* Layout */
@@ -18,6 +18,7 @@
         .msg { padding: 15px; border-radius: 8px; max-width: 80%; line-height: 1.5; }
         .msg.user { background: #334155; align-self: flex-end; }
         .msg.ai { background: #1e293b; border: 1px solid #475569; align-self: flex-start; }
+        .msg.ai.with-memory { border-color: var(--brain); box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
         
         .input-area { padding: 20px; background: #020617; border-top: 1px solid #334155; display: flex; gap: 10px; }
         textarea { flex: 1; background: #1e293b; color: white; border: 1px solid #475569; padding: 10px; border-radius: 6px; resize: none; font-family: inherit; }
@@ -31,15 +32,24 @@
 
         .bucket-chip { display: inline-block; padding: 4px 8px; background: #334155; font-size: 0.8em; border-radius: 12px; margin: 2px; cursor: pointer; border: 1px solid transparent; }
         .bucket-chip.active { background: var(--accent); color: black; }
+        
+        /* Brain Link Indicator */
+        .brain-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #0f172a; border-radius: 6px; margin-bottom: 10px; }
+        .brain-status.active { border: 1px solid var(--brain); }
+        .brain-status.inactive { border: 1px solid #475569; opacity: 0.6; }
+        .brain-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .brain-dot.active { background: var(--brain); animation: pulse 2s infinite; }
+        .brain-dot.inactive { background: #475569; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
     <div class="layout">
         <div class="sidebar">
-            <h3>📝 Manual Context</h3>
-            <textarea id="manual-context" style="flex: 1; background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 10px; resize: none; font-size: 0.8em; font-family: inherit;" placeholder="Paste large text chunks here to include them in the context..." oninput="document.getElementById('ctx-len').innerText=this.value.length"></textarea>
+            <h3>� Context</h3>
+            <textarea id="manual-context" style="flex: 1; background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 10px; resize: none; font-size: 0.8em; font-family: inherit;" placeholder="Paste context here. It will be sent before your message..." oninput="document.getElementById('ctx-len').innerText=this.value.length"></textarea>
             <div style="margin-top: 10px; font-size: 0.8em; color: #64748b;">
-                Context Length: <span id="ctx-len">0</span> chars
+                Context: <span id="ctx-len">0</span> chars
             </div>
         </div>
 
@@ -54,7 +64,7 @@
         </div>
 
         <div class="settings">
-            <h3>⚙️ Engine Room</h3>
+            <h3>⚙️ Settings</h3>
             
             <label>Model</label>
             <select id="model-select"></select>
@@ -63,7 +73,7 @@
             <input type="number" id="ctx-size" value="4096">
             
             <label>System Prompt</label>
-            <textarea id="sys-prompt" style="width: 100%; height: 80px; margin-bottom: 15px; font-size: 0.8em;">You are a helpful AI assistant connected to the Anchor Context Engine.</textarea>
+            <textarea id="sys-prompt" style="width: 100%; height: 60px; margin-bottom: 15px; font-size: 0.8em;">You are a conversational AI assistant. Answer questions directly and naturally. NEVER output JSON objects. NEVER output search queries or bucket classifications. Just have a normal conversation.</textarea>
             
             <button onclick="loadModel()">LOAD / RELOAD MODEL</button>
             <div id="status" style="margin-top: 10px; font-size: 0.8em; color: var(--accent);"></div>
@@ -83,23 +93,25 @@
             <input type="range" id="rep-pen" min="1" max="2" step="0.05" value="1.1" oninput="document.getElementById('rep-val').innerText=this.value">
 
             <label>Max Tokens</label>
-            <input type="number" id="max-tokens" value="1024">
+            <input type="number" id="max-tokens" value="4096">
         </div>
     </div>
 
     <script>
-        // 1. Initialization
         async function init() {
-            // Load Models
-            const mRes = await fetch('/v1/models');
-            const models = await mRes.json();
-            const sel = document.getElementById('model-select');
-            models.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m;
-                opt.innerText = m;
-                sel.appendChild(opt);
-            });
+            try {
+                const mRes = await fetch('/v1/models');
+                const models = await mRes.json();
+                const sel = document.getElementById('model-select');
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.innerText = m;
+                    sel.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Failed to load models:', e);
+            }
         }
 
         async function loadModel() {
@@ -139,21 +151,29 @@
             const txt = input.value.trim();
             if (!txt) return;
 
-            // Add User Msg
-            addMsg(txt, 'user');
+            // 1. Add user message (this should persist!)
+            const userDiv = document.createElement('div');
+            userDiv.className = 'msg user';
+            userDiv.innerText = txt;
+            document.getElementById('chat-history').appendChild(userDiv);
             input.value = '';
 
-            const loadingId = addMsg("Thinking...", 'ai');
-            const msgDiv = document.getElementById(loadingId);
-            msgDiv.innerText = ""; // Clear "Thinking..."
-            
-            // Construct Prompt with Manual Context
             const manualContext = document.getElementById('manual-context').value.trim();
-            let finalPrompt = txt;
             
+            // Construct prompt: Manual Context (if provided) → User Message
+            let finalPrompt = txt;
             if (manualContext) {
-                finalPrompt = `[CONTEXT START]\n${manualContext}\n[CONTEXT END]\n\n${txt}`;
+                finalPrompt = `${manualContext}\n\n---\nUser: ${txt}`;
             }
+
+            // 2. Add AI response placeholder
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'msg ai';
+            aiDiv.innerText = '💭 ...';
+            document.getElementById('chat-history').appendChild(aiDiv);
+            
+            const hist = document.getElementById('chat-history');
+            hist.scrollTop = hist.scrollHeight;
 
             try {
                 const res = await fetch('/v1/chat/completions', {
@@ -161,11 +181,11 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         messages: [{ role: 'user', content: finalPrompt }],
-                        temperature: document.getElementById('temp').value,
-                        topP: document.getElementById('topp').value,
-                        topK: document.getElementById('topk').value,
-                        repeatPenalty: document.getElementById('rep-pen').value,
-                        maxTokens: document.getElementById('max-tokens').value,
+                        temperature: parseFloat(document.getElementById('temp').value),
+                        topP: parseFloat(document.getElementById('topp').value),
+                        topK: parseInt(document.getElementById('topk').value),
+                        repeatPenalty: parseFloat(document.getElementById('rep-pen').value),
+                        maxTokens: parseInt(document.getElementById('max-tokens').value),
                         stream: true
                     })
                 });
@@ -173,15 +193,15 @@
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
-
+                let rawOutput = '';
+                
+                // 3. Stream tokens in real-time
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
                     
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n\n');
-                    
-                    // Keep the last partial line in the buffer
                     buffer = lines.pop();
 
                     for (const line of lines) {
@@ -192,23 +212,69 @@
                             try {
                                 const data = JSON.parse(dataStr);
                                 if (data.token) {
-                                    msgDiv.innerText += data.token;
-                                    // Scroll to bottom
-                                    const hist = document.getElementById('chat-history');
+                                    rawOutput += data.token;
+                                    // Show streaming output (strip think tags for display)
+                                    aiDiv.innerText = rawOutput.replace(/<think>[\s\S]*?<\/think>/gi, '')
+                                                              .replace(/<\/?think>/gi, '')
+                                                              .replace(/<\/?answer>/gi, '')
+                                                              .trim() || '💭 ...';
                                     hist.scrollTop = hist.scrollHeight;
-                                } else if (data.error) {
-                                    msgDiv.innerText += `\n[Error: ${data.error}]`;
                                 }
                             } catch (e) {
-                                console.error('Error parsing SSE:', e);
+                                console.error('SSE parse error:', e);
                             }
                         }
                     }
                 }
+                
+                // 4. Final processing - separate thinking and answer
+                processModelOutput(rawOutput, aiDiv);
 
             } catch (e) {
-                msgDiv.innerText += "\n[Network Error: " + e + "]";
+                aiDiv.innerText = "[Error: " + e.message + "]";
             }
+        }
+
+        function processModelOutput(fullText, aiDiv) {
+            // Check for search-intent JSON (stuck mode)
+            if (/^\s*\{\s*"query"/i.test(fullText.trim()) && fullText.includes('"strategy"')) {
+                aiDiv.innerText = "⚠️ Model output search JSON. Try reloading with a different prompt.";
+                aiDiv.style.color = "#f59e0b";
+                return;
+            }
+            
+            // Extract thinking block
+            const thinkMatch = fullText.match(/<think>([\s\S]*?)<\/think>/i);
+            const thinking = thinkMatch ? thinkMatch[1].trim() : null;
+            
+            // Get answer (everything after thinking, or whole text)
+            let answer = fullText;
+            if (thinkMatch) {
+                answer = fullText.replace(/<think>[\s\S]*?<\/think>/gi, '');
+            }
+            answer = answer.replace(/<\/?answer>/gi, '').trim();
+            
+            // If there's substantial thinking, show it in a separate box above
+            if (thinking && thinking.length > 50) {
+                // Insert thinking box BEFORE the answer
+                const thinkDiv = document.createElement('div');
+                thinkDiv.className = 'msg ai';
+                thinkDiv.style.opacity = '0.6';
+                thinkDiv.style.fontSize = '0.85em';
+                thinkDiv.style.borderLeft = '3px solid #a855f7';
+                thinkDiv.style.paddingLeft = '12px';
+                thinkDiv.innerHTML = '<strong style="color:#a855f7">💭 Thinking</strong><br><br>' + 
+                    thinking.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                
+                // Insert before the answer div
+                aiDiv.parentNode.insertBefore(thinkDiv, aiDiv);
+            }
+            
+            // Show the final answer
+            aiDiv.innerText = answer || "(No response)";
+            
+            // Scroll
+            document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
         }
 
         function addMsg(text, role) {
@@ -217,7 +283,6 @@
             div.innerText = text;
             div.id = 'msg-' + Date.now();
             document.getElementById('chat-history').appendChild(div);
-            // Scroll to bottom
             const hist = document.getElementById('chat-history');
             hist.scrollTop = hist.scrollHeight;
             return div.id;

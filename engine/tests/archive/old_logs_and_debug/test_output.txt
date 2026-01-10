@@ -1,0 +1,3 @@
+Starting database initialization...
+Database initialization completed successfully
+Error checking columns: Cannot find requested stored relation 'columns'

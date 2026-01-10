@@ -13,21 +13,26 @@ async function hydrate(db, filePath) {
     console.log(`💧 Hydrating Schema 2.0 from: ${filePath}`);
     
     try {
-        // 1. Force Re-Create Schema with new columns
-        // We drop the old table to ensure clean migration if needed, but :create if not exists is safer
-        // To force an upgrade, we rely on the user deleting context.db manually or we just run the create command
-        // Since we are changing columns, we must ensure the schema matches.
-        
-        const schema = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String]}';
+        // 1. Handle Schema with new columns
+        // Since :rm and :drop might not work reliably in all CozoDB versions,
+        // we'll try to work with the existing schema and handle missing columns gracefully
+
+        // Try to create the table, but if it exists with a different schema, continue with the existing one
         try {
+            await db.run(':rm memory');
+            console.log("Existing memory table removed for clean hydration...");
+            // Add a small delay to ensure the removal is fully processed
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Create the new table with the correct schema
+            const schema = ':create memory {id: String => timestamp: Int, content: String, source: String, type: String, hash: String, buckets: [String], tags: String, epochs: String}';
             await db.run(schema);
-        } catch (e) {
-            if (!e.message.includes('already exists') && !e.message.includes('conflicts with an existing one')) {
-                // If it exists but has wrong schema, we might need to drop it
-                console.log("Schema mismatch, attempting migration...");
-            }
+            console.log("Memory table created with correct schema...");
+        } catch (schemaError) {
+            // If schema creation fails due to conflict, continue with existing schema
+            console.log("Using existing memory table schema due to conflict:", schemaError.message);
         }
-        
+
         // FTS Update
         try {
             await db.run(`::fts create memory:content_fts {extractor: content, tokenizer: Simple, filters: [Lowercase]}`);
@@ -51,18 +56,20 @@ async function hydrate(db, filePath) {
             
             // Map legacy records to new format
             const values = batch.map(r => [
-                r.id, 
-                parseInt(r.timestamp), 
-                r.content, 
-                r.source, 
-                r.type,
-                r.hash || getHash(r.content),      // Backfill hash
-                Array.isArray(r.buckets) ? r.buckets : (r.bucket ? [r.bucket] : ['core']) // Handle multi-bucket
+                r.id || '',                                    // Ensure id exists
+                parseInt(r.timestamp) || Date.now(),          // Ensure timestamp exists
+                r.content || '',                              // Ensure content exists
+                r.source || '',                               // Ensure source exists
+                r.type || 'text',                             // Ensure type exists
+                r.hash || getHash(r.content || ''),           // Backfill hash
+                Array.isArray(r.buckets) ? r.buckets : (r.bucket ? [r.bucket] : ['core']), // Handle multi-bucket
+                r.tags || '',                                 // Backfill tags as empty string
+                JSON.stringify(r.epochs || [])               // Add epochs field with default empty array, ensuring it's a string
             ]);
-            
+
             const q = `
-                ?[id, timestamp, content, source, type, hash, buckets] <- $values
-                :put memory {id, timestamp, content, source, type, hash, buckets}
+                ?[id, timestamp, content, source, type, hash, buckets, tags, epochs] <- $values
+                :put memory {id, timestamp, content, source, type, hash, buckets, tags, epochs}
             `;
             
             console.log(`\n[Hydrate] Running batch ${processed} to ${processed + batch.length}...`);
@@ -70,6 +77,7 @@ async function hydrate(db, filePath) {
             processed += batch.length;
             process.stdout.write(`Progress: ${processed}/${records.length}`);
         }
+
         console.log("\n✅ Hydration & Upgrade Complete.");
 
     } catch (e) {
