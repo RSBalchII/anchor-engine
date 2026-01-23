@@ -97,8 +97,8 @@ async function runSuite() {
         assert(json.status === 'success', `Ingest failed: ${JSON.stringify(json)}`);
     });
 
-    // Brief pause for consistency (increased to 1500ms for FTS indexing/flush)
-    await new Promise(r => setTimeout(r, 1500));
+    // Brief pause for consistency (increased to 3000ms for FTS indexing/flush)
+    await new Promise(r => setTimeout(r, 3000));
 
     // ═══════════════════════════════════════════
     // SECTION 3: Retrieval
@@ -151,6 +151,49 @@ async function runSuite() {
         // Should NOT find results in wrong bucket
         const found = json.context && json.context.includes(testId);
         assert(!found, 'Should not find test memory in wrong bucket');
+    });
+
+    await test('Tag Filtering', async () => {
+        // Create tagged memory
+        const tagId = `tag_test_${Date.now()}`;
+        await fetch(`${BASE_URL}/v1/ingest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: `Tagged Memory ${tagId}`,
+                source: 'Test Suite',
+                tags: ['special_tag', 'verification']
+            })
+        });
+
+        // Wait for ingestion
+        await new Promise(r => setTimeout(r, 1500));
+
+        // Search with tag
+        const res = await fetch(`${BASE_URL}/v1/memory/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: tagId,
+                // In the new Search implementation, tags are inferred from hash or passed explicitly?
+                // The API supports 'tags' param if we updated it? 
+                // Wait, search.ts uses inferred tags from query string OR explicit args if mapped.
+                // But the API endpoint likely maps body.tags? 
+                // Looking at api.ts (not visible here), it usually passes body to service.
+                // Let's assume we pass tags in body or query string like "#special_tag".
+                query: `${tagId} #special_tag`
+            })
+        });
+        const json = await res.json();
+        assert(json.context && json.context.includes(tagId), 'Should find memory with correct tag');
+
+        // Validate result structure has tags/epochs
+        if (json.results && json.results.length > 0) {
+            const hit = json.results[0];
+            assert(Array.isArray(hit.tags), 'Tags should be array');
+            assert(hit.tags.includes('special_tag'), 'Tags should include injected tag');
+            assert(hit.epochs !== undefined, 'Epochs field should exist (even if null/empty string)');
+        }
     });
 
     // ═══════════════════════════════════════════
@@ -329,18 +372,27 @@ async function runSuite() {
 
     await test('Dreamer / Abstraction', async () => {
         // Trigger Dream again to process new atoms
-        const res = await fetch(`${BASE_URL}/v1/dream`, { method: 'POST' });
+        let res = await fetch(`${BASE_URL}/v1/dream`, { method: 'POST' });
+        let json = await res.json();
+
+        if (json.status === 'skipped') {
+            console.log('     └─ Dream skipped (locked). Retrying in 2s...');
+            await new Promise(r => setTimeout(r, 2000));
+            res = await fetch(`${BASE_URL}/v1/dream`, { method: 'POST' });
+            json = await res.json();
+        }
+
         assert(res.ok, 'Dream failed');
-        const json = await res.json();
 
         // Check "updated" or "analyzed" count
         if (json.analyzed > 0) {
             console.log(`     └─ Analyzed ${json.analyzed} memories.`);
         }
-        // Use Backup API to inspect for 'summary_node' if possible, or just trust the dream status.
-        // If we implement 'GET /v1/backup', we could check it.
-        // For now, status Verified.
-        assert(json.status === 'success', 'Dream status not success');
+
+        if (json.status !== 'success') {
+            console.log(`     [DEBUG] Dream Response:`, JSON.stringify(json));
+        }
+        assert(json.status === 'success', `Dream status not success: ${json.status} - ${json.message}`);
     });
 
     // ═══════════════════════════════════════════

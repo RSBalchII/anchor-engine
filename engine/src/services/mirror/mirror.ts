@@ -56,7 +56,13 @@ export async function createMirror() {
         const primaryBucket = bucketList.length > 0 ? bucketList[0] : 'general';
 
         // 1. Determine Root Bucket
-        const bucketName = (primaryBucket && primaryBucket !== 'general' && primaryBucket !== 'unknown') ? primaryBucket : 'general';
+        let bucketName = (primaryBucket && primaryBucket !== 'general' && primaryBucket !== 'unknown') ? primaryBucket : 'general';
+
+        // QUARANTINE OVERRIDE
+        const isQuarantined = tagList.includes('#manually_quarantined') || tagList.includes('#auto_quarantined');
+        if (isQuarantined) {
+            bucketName = 'quarantine';
+        }
 
         // 2. Determine Tag Path
         // Filter out the bucket name itself and 'inbox' to avoid redundancy

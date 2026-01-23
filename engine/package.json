@@ -11,7 +11,7 @@
         "migrate": "node src/migrate_history.js",
         "read-all": "node src/read_all.js",
         "hydrate": "node src/hydrate.js",
-        "test": "node tests/all_routes_and_services.js",
+        "test": "node tests/suite.js",
         "test:routes": "node tests/all_routes_and_services.js",
         "test:quick": "node tests/suite.js",
         "test:benchmark": "node tests/benchmark.js",

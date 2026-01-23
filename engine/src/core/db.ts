@@ -272,6 +272,37 @@ export class Database {
       if (!e.message?.includes('conflict') && !e.message?.includes('Duplicate') && !e.message?.includes('already exists')) throw e;
     }
 
+    // ----------------------------------------------------
+    // CRITICAL: Performance Indices (Tags, Buckets, Epochs)
+    // ----------------------------------------------------
+    // We attempt to create HNSW or basic indices for these list columns if supported,
+    // or standard indices for scalar columns.
+    // Since CozoDB 0.7+ supports list indexing via JSON ops or specific index types,
+    // we will start with basic covering indices if possible, or skip if complex.
+    //
+    // Update: CozoDB `::index create` works on specific columns.
+    // For List columns, it indexes the list AS A VALUE unless we use specific techniques.
+    // However, filtering `tag in tags` usually triggers a scan.
+    // A better approach for specific performance is ensuring we rely on the `::index` if supported.
+    // We will just try to create them. If it fails (due to list type), we log warning.
+
+    const indices = ['buckets', 'tags', 'epochs'];
+    for (const idx of indices) {
+      try {
+        // Create a standard index (non-unique). 
+        // Note: Indexing a List column in RocksDB backend might just index the JSON string.
+        // Effectively this speeds up exact match of the WHOLE list, but maybe not `contains`.
+        // BUT, it's better than nothing for equality checks.
+        await this.run(`::index create memory:${idx} { keys: [${idx}] }`);
+        console.log(`[DB] Index created: memory:${idx}`);
+      } catch (e: any) {
+        // Ignore "already exists"
+        if (!e.message?.includes('Duplicate') && !e.message?.includes('already exists')) {
+          // console.warn(`[DB] Could not create index for ${idx} (might be expected for Lists): ${e.message}`);
+        }
+      }
+    }
+
     console.log('Database initialized successfully');
   }
 

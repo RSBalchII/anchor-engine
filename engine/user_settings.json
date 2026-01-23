@@ -9,5 +9,18 @@
     "dreamer": {
         "enabled": true,
         "schedule": "0 3 * * *"
+    },
+    "search": {
+        "strategy": "hybrid",
+        "hide_years_in_tags": true,
+        "whitelist": [
+            "burnout",
+            "career",
+            "decision",
+            "pattern",
+            "impact",
+            "context",
+            "memory"
+        ]
     }
 }

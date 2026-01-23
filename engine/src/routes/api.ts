@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import { db } from '../core/db.js';
 
 // Import services and types
-import { executeSearch, iterativeSearch } from '../services/search/search.js';
+import { executeSearch, smartChatSearch } from '../services/search/search.js';
 import { dream } from '../services/dreamer/dreamer.js';
 import { getState, clearState } from '../services/scribe/scribe.js';
 import { listModels, loadModel, runStreamingChat } from '../services/llm/provider.js';
@@ -54,10 +54,10 @@ export function setupRoutes(app: Application) {
             type || 'text',
             hash,
             allBuckets,
-            [], // epochs (aligned with schema)
             tags,
+            [], // epochs
             'external',
-            new Array(384).fill(0.0)
+            new Array(768).fill(0.0)
           ]]
         }
       );
@@ -149,6 +149,121 @@ export function setupRoutes(app: Application) {
     }
   });
 
+  // GET List Quarantined Atoms
+  app.get('/v1/atoms/quarantined', async (_req: Request, res: Response) => {
+    try {
+      const query = `
+        ?[id, timestamp, content, source, buckets, tags, provenance, score] := 
+        *memory{id, timestamp, content, source, buckets, tags, provenance},
+        provenance = 'quarantine',
+        score = 0.0
+      `;
+      const result = await db.run(query);
+
+      const atoms = (result.rows || []).map((row: any[]) => ({
+        id: row[0],
+        timestamp: row[1],
+        content: row[2],
+        source: row[3],
+        buckets: row[4],
+        tags: row[5],
+        provenance: row[6],
+        score: row[7]
+      }));
+
+      // Sort by timestamp desc
+      atoms.sort((a: any, b: any) => b.timestamp - a.timestamp);
+
+      res.status(200).json(atoms);
+    } catch (e: any) {
+      console.error('[API] Failed to list quarantined atoms:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PUT Update Atom Content (Standard 073 - Edit in Place)
+  app.put('/v1/atoms/:id/content', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { content } = req.body;
+
+      if (!content) {
+        res.status(400).json({ error: 'Content required' });
+        return;
+      }
+
+      console.log(`[API] Updating Atom Content: ${id}`);
+
+      // We must preserve all other fields, BUT zero out embedding to signal re-index needed
+      const fullRecord = await db.run(`?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding] := *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding}, id = $id`, { id });
+
+      if (!fullRecord.rows || fullRecord.rows.length === 0) {
+        res.status(404).json({ error: 'Atom not found' });
+        return;
+      }
+
+      const row = fullRecord.rows[0];
+      const updatedRow = [...row];
+      updatedRow[2] = content; // Update Content
+
+      // Update Hash to match new content? 
+      // Technically yes, to ensure integrity.
+      updatedRow[7] = crypto.createHash('sha256').update(content).digest('hex');
+
+      // Zero Embedding (Force re-embed by embedding service later)
+      updatedRow[12] = new Array(384).fill(0.0);
+
+      await db.run(
+        `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding] <- $data 
+         :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding}`,
+        { data: [updatedRow] }
+      );
+
+      res.status(200).json({ status: 'success', message: `Atom ${id} updated.` });
+
+    } catch (e: any) {
+      console.error(`[API] Update Failed: ${e.message}`);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST Restore Atom (Un-Quarantine)
+  app.post('/v1/atoms/:id/restore', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      console.log(`[API] Restoring Atom: ${id}`);
+
+      const fullRecord = await db.run(`?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding] := *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding}, id = $id`, { id });
+
+      if (!fullRecord.rows || fullRecord.rows.length === 0) {
+        res.status(404).json({ error: 'Atom not found' });
+        return;
+      }
+
+      const row = fullRecord.rows[0];
+      const currentTags = row[10] as string[];
+
+      // Filter out quarantine tags
+      const newTags = currentTags.filter(t => t !== '#manually_quarantined' && t !== '#auto_quarantined');
+
+      const updatedRow = [...row];
+      updatedRow[10] = newTags;
+      updatedRow[11] = 'sovereign'; // Mark as Sovereign (Curated)
+
+      await db.run(
+        `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding] <- $data 
+         :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding}`,
+        { data: [updatedRow] }
+      );
+
+      res.status(200).json({ status: 'success', message: `Atom ${id} restored to Graph.` });
+
+    } catch (e: any) {
+      console.error(`[API] Restore Failed: ${e.message}`);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // POST Search endpoint (Standard UniversalRAG + Iterative Logic)
   app.post('/v1/memory/search', async (req: Request, res: Response) => {
     try {
@@ -164,21 +279,23 @@ export function setupRoutes(app: Application) {
       const allBuckets = bucketParam ? [...buckets, bucketParam] : buckets;
       const budget = (req.body as any).token_budget ? (req.body as any).token_budget * 4 : (body.max_chars || 20000);
 
-      // Use Iterative Back-off Search Strategy
-      const result = await iterativeSearch(
+      // Use Smart Search Strategy
+      const result = await smartChatSearch(
         body.query,
         allBuckets,
         budget
       );
 
       // Construct standard response
-      console.log(`[API] Search "${body.query}" -> Found ${result.results.length} results (Attempt ${result.attempt})`);
+      console.log(`[API] Search "${body.query}" -> Found ${result.results.length} results (Strategy: ${result.strategy})`);
 
       res.status(200).json({
         status: 'success',
         context: result.context,
         results: result.results,
-        attempt: result.attempt, // Report which strategy worked
+        strategy: result.strategy,
+        attempt: (result as any).attempt || 1,
+        split_queries: result.splitQueries || [],
         metadata: {
           engram_hits: 0,
           vector_latency: 0,
@@ -389,11 +506,12 @@ When you receive the search results, answer the user's question using that infor
         // Stream "Thinking" / Logic events
         res.write(`data: ${JSON.stringify({ type: 'tool', status: 'searching', query: userMsg.content, budget: 'Auto' })}\n\n`);
 
-        // 1. Iterative Search (Back-off)
-        const searchRes = await iterativeSearch(userMsg.content, [], 20000); // High budget for retrieval
+        // 1. Smart Multi-Query Search (Markovian Context)
+        const searchRes = await smartChatSearch(userMsg.content, [], 20000); // 20k chars budget
 
         if (searchRes.results.length > 0) {
-          const foundMsg = `Found ${searchRes.results.length} memories (Attempt ${searchRes.attempt}). Reading...`;
+          const strategyName = (searchRes as any).strategy || 'standard';
+          const foundMsg = `Found ${searchRes.results.length} memories (Strategy: ${strategyName}). Reading...`;
           res.write(`data: ${JSON.stringify({ type: 'tool_result', content: foundMsg, full_context: '[Reading Context...]' })}\n\n`);
 
           // 2. Summary (Reader Service)

@@ -11,6 +11,7 @@
 import { db } from '../../core/db.js';
 import { createHash } from 'crypto';
 import { composeRollingContext } from '../../core/inference/context_manager.js';
+import { config } from '../../config/index.js';
 import wink from 'wink-nlp';
 import model from 'wink-eng-lite-web-model';
 
@@ -163,7 +164,9 @@ function parseNaturalLanguage(query: string): string {
     const text = t.out().toLowerCase();
 
     // Whitelist specific domain words that might get misclassified or filtered
-    if (['burnout', 'career', 'decision', 'pattern', 'impact'].some(w => text.includes(w))) return true;
+    // Uses Config-based whitelist or falls back to defaults
+    const whitelist = config.SEARCH?.whitelist || ['burnout', 'career', 'decision', 'pattern', 'impact'];
+    if (whitelist.some((w: string) => text.includes(w))) return true;
 
     return tag === 'NOUN' || tag === 'PROPN' || tag === 'ADJ' || tag === 'VERB';
   }).out((nlp as any).its.text);
@@ -306,9 +309,19 @@ export async function executeSearch(
   const queryParts = query.split(/\s+/);
   const cleanQueryParts: string[] = [];
 
+  const KNOWN_BUCKETS = ['notebook', 'inbox', 'codebase', 'journal', 'archive', 'memories', 'external'];
+
   for (const part of queryParts) {
     if (part.startsWith('#')) {
-      scopeTags.push(part); // Keep the hash!
+      const term = part.substring(1).toLowerCase(); // Strip hash
+      if (KNOWN_BUCKETS.includes(term) || term.includes('inbox')) {
+        // It's a bucket!
+        if (!buckets) buckets = []; // Ensure array exists
+        buckets.push(term);
+      } else {
+        // It's a tag!
+        scopeTags.push(term);
+      }
     } else {
       cleanQueryParts.push(part);
     }
@@ -512,6 +525,15 @@ function formatResults(results: SearchResult[], maxChars: number): { context: st
   };
 }
 
+/**
+ * Helper to filter tags for display (User Request: Hide Year Numbers)
+ */
+export function filterDisplayTags(tags: string[]): string[] {
+  if (!config.SEARCH?.hide_years_in_tags) return tags;
+  // Remove if exactly 4 digits (approx year check)
+  return tags.filter(t => !/^\d{4}$/.test(t));
+}
+
 export function parseQuery(query: string): { phrases: string[]; temporal: string[]; buckets: string[]; keywords: string[]; } {
   const result = { phrases: [] as string[], temporal: [] as string[], buckets: [] as string[], keywords: [] as string[] };
   const phraseRegex = /"([^"]+)"/g;
@@ -587,4 +609,90 @@ export async function iterativeSearch(
   }
 
   return { ...results, attempt: 4 }; // Return empty result if all fail
+}
+
+/**
+ * Smart Chat Search (The "Markovian" Context Gatherer)
+ * Logic:
+ * 1. Try standard Iterative Search.
+ * 2. If Recall is Low (< 10 atoms), TRIGGER SPLIT.
+ * 3. Split Query into Top Entities (Rob, Life, etc.).
+ * 4. Run Parallel Searches for each entity.
+ * 5. Aggregate & Deduplicate.
+ */
+export async function smartChatSearch(
+  query: string,
+  buckets: string[] = [],
+  maxChars: number = 20000
+): Promise<{ context: string; results: SearchResult[]; strategy: string; splitQueries?: string[]; metadata?: any }> {
+  // 1. Initial Attempt
+  const initial = await iterativeSearch(query, buckets, maxChars);
+
+  // If we have enough results, returns immediately
+  if (initial.results.length >= 10) {
+    return { ...initial, strategy: 'standard' };
+  }
+
+  console.log(`[SmartSearch] Low Recall (${initial.results.length} results). Triggering Multi-Query Split...`);
+
+  // 2. Extract Entities for Split Search
+  const doc = nlp.readDoc(query);
+  // Get Proper Nouns (Entities) and regular Nouns
+  // We prioritize PROPN (High Value)
+  const entities = doc.tokens()
+    .filter((t: any) => t.out(nlp.its.pos) === 'PROPN')
+    .out(nlp.its.normal, nlp.as.freqTable)
+    .map((e: any) => e[0])
+    .slice(0, 3); // Top 3 Entities
+
+  // If no entities, try Nouns
+  if (entities.length === 0) {
+    const nouns = doc.tokens()
+      .filter((t: any) => t.out(nlp.its.pos) === 'NOUN')
+      .out(nlp.its.normal, nlp.as.freqTable)
+      .map((e: any) => e[0])
+      .slice(0, 3);
+    entities.push(...nouns);
+  }
+
+  if (entities.length === 0) {
+    // No entities to split on, return what we have
+    return { ...initial, strategy: 'shallow', splitQueries: [] };
+  }
+
+  console.log(`[SmartSearch] Split Entities: ${JSON.stringify(entities)}`);
+
+  // 3. Parallel Execution
+  // We run executeSearch for each entity independently
+  const parallelPromises = entities.map((entity: string) =>
+    executeSearch(entity, undefined, buckets, maxChars / entities.length) // Split budget? Or full budget?
+    // Let's iterate search? No, simple executeSearch is simpler.
+    // Use full budget per search, we will truncate at merge time.
+  );
+
+  const parallelResults = await Promise.all(parallelPromises);
+
+  // 4. Merge & Deduplicate
+  const mergedMap = new Map<string, SearchResult>();
+
+  // Add initial results first
+  initial.results.forEach(r => mergedMap.set(r.id, r));
+
+  // Add split results
+  parallelResults.forEach((res) => {
+    res.results.forEach(r => {
+      if (!mergedMap.has(r.id)) {
+        // Boost score slightly for multi-path discovery? 
+        // Or keep as is.
+        mergedMap.set(r.id, r);
+      }
+    });
+  });
+
+  const mergedResults = Array.from(mergedMap.values());
+  console.log(`[SmartSearch] Merged Total: ${mergedResults.length} atoms.`);
+
+  // 5. Re-Format
+  const formatted = formatResults(mergedResults, maxChars * 1.5);
+  return { ...formatted, strategy: 'split_merge', splitQueries: entities };
 }

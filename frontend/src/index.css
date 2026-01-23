@@ -171,3 +171,14 @@ body {
   overflow-x: auto;
   border: 1px solid var(--border-subtle);
 }
+
+/* Layouts */
+.search-grid {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  padding-bottom: 0.5rem; /* Scrollbar space */
+}

@@ -65,6 +65,13 @@ interface Config {
     MARKOVIAN: boolean;
   };
 
+  // Search Settings
+  SEARCH: {
+    strategy: string;
+    hide_years_in_tags: boolean;
+    whitelist: string[];
+  };
+
   // Models
   MODELS: {
     EMBEDDING_DIM: number;
@@ -135,6 +142,13 @@ const DEFAULT_CONFIG: Config = {
     MARKOVIAN: process.env['MARKOVIAN_ENABLED'] === 'true'
   },
 
+  // Search
+  SEARCH: {
+    strategy: "hybrid",
+    hide_years_in_tags: true,
+    whitelist: []
+  },
+
   // Models
   MODELS: {
     EMBEDDING_DIM: parseInt(process.env['LLM_EMBEDDING_DIM'] || "768"),
@@ -169,7 +183,22 @@ function loadConfig(): Config {
 
   let loadedConfig = { ...DEFAULT_CONFIG };
 
-  // 1. Try Loading user_settings.json (Highest Priority for User Overrides)
+  // 1. Try Loading sovereign.yaml (Legacy/System Config)
+  const configPath = process.env['SOVEREIGN_CONFIG_PATH'] ||
+    path.join(__dirname, '..', '..', 'sovereign.yaml') ||
+    path.join(__dirname, '..', 'config', 'default.yaml');
+
+  if (fs.existsSync(configPath)) {
+    try {
+      const configFile = fs.readFileSync(configPath, 'utf8');
+      const parsedConfig = yaml.load(configFile) as Partial<Config>;
+      loadedConfig = { ...loadedConfig, ...parsedConfig };
+    } catch (error) {
+      console.warn(`Failed to load config from ${configPath}:`, error);
+    }
+  }
+
+  // 2. Try Loading user_settings.json (Highest Priority for User Overrides)
   const userSettingsPath = path.join(__dirname, '..', '..', 'user_settings.json');
   if (fs.existsSync(userSettingsPath)) {
     try {
@@ -189,47 +218,16 @@ function loadConfig(): Config {
         if (userSettings.dreamer.batch_size) loadedConfig.DREAMER_BATCH_SIZE = userSettings.dreamer.batch_size;
       }
 
+      // Load Search Settings
+      if (userSettings.search) {
+        if (userSettings.search.strategy) loadedConfig.SEARCH.strategy = userSettings.search.strategy;
+        if (userSettings.search.hide_years_in_tags !== undefined) loadedConfig.SEARCH.hide_years_in_tags = userSettings.search.hide_years_in_tags;
+        if (userSettings.search.whitelist) loadedConfig.SEARCH.whitelist = userSettings.search.whitelist;
+      }
+
     } catch (e) {
       console.error(`[Config] Failed to parse user_settings.json:`, e);
     }
-  }
-
-  // 2. Try Loading sovereign.yaml (Legacy/System Config)
-  const configPath = process.env['SOVEREIGN_CONFIG_PATH'] ||
-    path.join(__dirname, '..', '..', 'sovereign.yaml') ||
-    path.join(__dirname, '..', 'config', 'default.yaml');
-
-  if (fs.existsSync(configPath)) {
-    try {
-      const configFile = fs.readFileSync(configPath, 'utf8');
-      const parsedConfig = yaml.load(configFile) as Partial<Config>;
-      // We merge yaml ON TOP of defaults, but user_settings should ideally win.
-      // However, since we already loaded user_settings into loadedConfig, 
-      // simple spread would overwrite IF sovereign.yaml has keys.
-      // But typically sovereign.yaml is missing.
-      // To be safe: Merge YAML first, then re-apply user_settings (or just trust user didn't make both).
-      loadedConfig = { ...loadedConfig, ...parsedConfig };
-
-      // Re-apply user_settings to be sure (Simplified logic above was slightly out of order for strict priority)
-      // Re-reading user settings is cheap enough or we could have done it second.
-      // Let's stick to the flow: Defaults -> YAML -> User Settings.
-      // ... (Redoing correct order below)
-    } catch (error) {
-      console.warn(`Failed to load config from ${configPath}:`, error);
-    }
-  }
-
-  // CORRECT ORDER RE-APPLICATION:
-  if (fs.existsSync(userSettingsPath)) {
-    try {
-      const userSettings = JSON.parse(fs.readFileSync(userSettingsPath, 'utf8'));
-      if (userSettings.llm) {
-        if (userSettings.llm.chat_model) loadedConfig.MODELS.MAIN.PATH = userSettings.llm.chat_model;
-        if (userSettings.llm.gpu_layers !== undefined) loadedConfig.MODELS.MAIN.GPU_LAYERS = userSettings.llm.gpu_layers;
-        if (userSettings.llm.ctx_size !== undefined) loadedConfig.MODELS.MAIN.CTX_SIZE = userSettings.llm.ctx_size;
-        if (userSettings.llm.task_model) loadedConfig.MODELS.ORCHESTRATOR.PATH = userSettings.llm.task_model;
-      }
-    } catch (e) { }
   }
 
   return loadedConfig;

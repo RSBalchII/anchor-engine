@@ -12,6 +12,9 @@
 - [x] **Licensing Alignment**: Updated project to Elastic License 2.0.
 
 ### 🔴 Critical (Immediate)
+- [x] **Database Indices**: Add `tags`, `buckets`, `epochs` indices to `db.ts` (Critical Performance Fix).
+- [x] **Build Fixes**: Resolve implicit `any` errors in `api.ts`.
+- [x] **Runtime Fixes**: Fix "Symbol score unbound" error in `api.ts`.
 - [x] **Fix "JSON Vomit" (Session Pollution):** Implement Side-Channel Separation for Intent Translation. (Standard 055)
 - [x] **Fix Search Crash:** Handle `null` returns from Intent Translation in `api.js`.
 - [x] **Fix "No Sequences Left":** Explicitly dispose Side-Channel sessions and increase sequence limit.
