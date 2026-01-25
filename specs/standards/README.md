@@ -28,7 +28,7 @@ Node.js Monolith, CozoDB, Termux, Hardware limits, and system architecture decis
 - [032-ghost-engine-initialization-flow.md](032-ghost-engine-initialization-flow.md) - Database initialization race condition prevention
 - [034-nodejs-monolith-migration.md](034-nodejs-monolith-migration.md) - Migration to Node.js monolith architecture
 - [048-epochal-historian-recursive-decomposition.md](048-epochal-historian-recursive-decomposition.md) - Epochal Historian & Recursive Decomposition
-- [051-service-module-path-resolution.md](051-service-module-path-resolution.md) - Service Module Path Resolution
+- [051-service-module-path-resolution.md](10-ARCH/051-service-module-path-resolution.md) - **[ESM]** Service Module Path Resolution & Native Loading
 - [057-enterprise-library-architecture.md](057-enterprise-library-architecture.md) - Enterprise Library Architecture (Logical Notebooks/Cartridges)
 - [060-worker-system.md](060-worker-system.md) - High-performance worker architecture
 
@@ -89,3 +89,4 @@ Extensions, Ports, APIs, and all interface-related concerns.
 - [018-streaming-cli-client-responsive-ux.md](018-streaming-cli-client-responsive-ux.md) - Responsive UX for streaming CLI clients
 - [026-ghost-engine-connection-management.md](026-ghost-engine-connection-management.md) - Ghost Engine connection management
 - [058-universal-rag-api.md](058-universal-rag-api.md) - Standard Unified RAG Endpoint
+- [074-atomic-frontend-architecture.md](074-atomic-frontend-architecture.md) - Atomic Frontend Architecture & Glassmorphism System

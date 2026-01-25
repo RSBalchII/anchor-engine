@@ -23,22 +23,26 @@ interface IngestOptions {
 function determineProvenance(source: string, type?: string): 'internal' | 'external' | 'system' {
   const normalizedSource = source.replace(/\\/g, '/');
 
-  // 1. Explicit Trusted Inbox
-  if (normalizedSource.includes('internal-inbox/') || normalizedSource.includes('/sovereign/') || type === 'user') { // Keep /sovereign/ path check for backward compat if needed, or remove? User said "vs the word sovereign". I'll keep the path check but return 'internal'.
+  // 1. Explicit Trusted Inbox (or default 'inbox' folder)
+  // Matches "inbox/..." or ".../inbox/..."
+  if (normalizedSource.includes('/inbox/') || normalizedSource.startsWith('inbox/') ||
+    normalizedSource.includes('/internal-inbox/') || normalizedSource.startsWith('internal-inbox/') ||
+    normalizedSource.includes('/sovereign/') ||
+    type === 'user') {
     return 'internal';
   }
 
   // 2. Explicit External Inbox
-  if (normalizedSource.includes('external-inbox/') || normalizedSource.includes('web_scrape') || normalizedSource.includes('news_agent') || type === 'external') {
+  // Matches "external-inbox/..." or ".../external-inbox/..."
+  if (normalizedSource.includes('/external-inbox/') || normalizedSource.startsWith('external-inbox/') ||
+    normalizedSource.includes('web_scrape') ||
+    normalizedSource.includes('news_agent') ||
+    type === 'external') {
     return 'external';
   }
 
-  // 3. Main Inbox Fallback (Treat as Internal for manual user drops)
-  if (normalizedSource.includes('/inbox/')) {
-    return 'internal';
-  }
-
-  // Default to external for unknown sources
+  // Default to external only if it didn't match the explicitly internal folders above
+  // Note: We flipped the order to prioritize the known 'inbox' check which was failing before (falling through to default)
   return 'external';
 }
 

@@ -14,10 +14,6 @@ import yaml from 'js-yaml';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import dotenv from 'dotenv';
-// .env is in the ECE_Core root, 3 levels up from engine/src/config
-dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
-
 // Define configuration interface
 interface Config {
   // Core
@@ -98,48 +94,48 @@ interface Config {
 // Default configuration
 const DEFAULT_CONFIG: Config = {
   // Core
-  PORT: parseInt(process.env['PORT'] || "3000"),
-  HOST: process.env['HOST'] || "0.0.0.0",
-  API_KEY: process.env['API_KEY'] || "ece-secret-key",
-  LOG_LEVEL: process.env['LOG_LEVEL'] || "INFO",
-  OVERLAY_PORT: parseInt(process.env['OVERLAY_PORT'] || "3001"),
+  PORT: 3000,
+  HOST: "0.0.0.0",
+  API_KEY: "ece-secret-key",
+  LOG_LEVEL: "INFO",
+  OVERLAY_PORT: 3001,
 
   // Tuning
   DEFAULT_SEARCH_CHAR_LIMIT: 524288,
   DREAM_INTERVAL_MS: 3600000, // 60 minutes
-  SIMILARITY_THRESHOLD: parseFloat(process.env['SIMILARITY_THRESHOLD'] || "0.8"),
+  SIMILARITY_THRESHOLD: 0.8,
   TOKEN_LIMIT: 1000000,
-  DREAMER_BATCH_SIZE: parseInt(process.env['DREAMER_BATCH_SIZE'] || "5"),
+  DREAMER_BATCH_SIZE: 5,
 
-  VECTOR_INGEST_BATCH: parseInt(process.env['VECTOR_INGEST_BATCH'] || "50"),
+  VECTOR_INGEST_BATCH: 50,
 
   // Extrapolated Settings
-  WATCHER_DEBOUNCE_MS: parseInt(process.env['WATCHER_DEBOUNCE_MS'] || "2000"),
-  CONTEXT_RELEVANCE_WEIGHT: parseFloat(process.env['CONTEXT_RELEVANCE_WEIGHT'] || "0.7"),
-  CONTEXT_RECENCY_WEIGHT: parseFloat(process.env['CONTEXT_RECENCY_WEIGHT'] || "0.3"),
-  DREAMER_CLUSTERING_GAP_MS: parseInt(process.env['DREAMER_CLUSTERING_GAP_MS'] || "900000"), // 15 mins
+  WATCHER_DEBOUNCE_MS: 2000,
+  CONTEXT_RELEVANCE_WEIGHT: 0.7,
+  CONTEXT_RECENCY_WEIGHT: 0.3,
+  DREAMER_CLUSTERING_GAP_MS: 900000, // 15 mins
 
   // Infrastructure
   REDIS: {
-    ENABLED: process.env['REDIS_ENABLED'] === 'true',
-    URL: process.env['REDIS_URL'] || "redis://localhost:6379",
-    TTL: parseInt(process.env['REDIS_TTL'] || "3600")
+    ENABLED: false,
+    URL: "redis://localhost:6379",
+    TTL: 3600
   },
   NEO4J: {
-    ENABLED: process.env['NEO4J_ENABLED'] === 'true',
-    URI: process.env['NEO4J_URI'] || "bolt://localhost:7687",
-    USER: process.env['NEO4J_USER'] || "neo4j",
-    PASS: process.env['NEO4J_PASSWORD'] || "password"
+    ENABLED: false,
+    URI: "bolt://localhost:7687",
+    USER: "neo4j",
+    PASS: "password"
   },
 
   // Features
   FEATURES: {
-    CONTEXT_STORAGE: process.env['FEATURE_CONTEXT_STORAGE'] === 'true',
-    MEMORY_RECALL: process.env['FEATURE_MEMORY_RECALL'] === 'true',
-    CODA: process.env['FEATURE_CODA_ENABLED'] === 'true',
-    ARCHIVIST: process.env['FEATURE_ARCHIVIST_ENABLED'] === 'true',
-    WEAVER: process.env['FEATURE_WEAVER_ENABLED'] === 'true',
-    MARKOVIAN: process.env['MARKOVIAN_ENABLED'] === 'true'
+    CONTEXT_STORAGE: true,
+    MEMORY_RECALL: true,
+    CODA: true,
+    ARCHIVIST: true,
+    WEAVER: true,
+    MARKOVIAN: true
   },
 
   // Search
@@ -151,27 +147,23 @@ const DEFAULT_CONFIG: Config = {
 
   // Models
   MODELS: {
-    EMBEDDING_DIM: parseInt(process.env['LLM_EMBEDDING_DIM'] || "768"),
+    EMBEDDING_DIM: 768,
     MAIN: {
-      PATH: process.env['LLM_MODEL_PATH'] || "gemma-3-4b-it-abliterated-v2.i1-Q4_K_S.gguf",
-      CTX_SIZE: parseInt(process.env['LLM_CTX_SIZE'] || "4096"),
-      GPU_LAYERS: (() => {
-        console.log("DEBUG: Loading Config. Env LLM_GPU_LAYERS:", process.env['LLM_GPU_LAYERS']);
-        console.log("DEBUG: .env Path:", path.join(__dirname, '..', '..', '..', '.env'));
-        return parseInt(process.env['LLM_GPU_LAYERS'] || "33");
-      })()
+      PATH: "glm-edge-1.5b-chat.Q5_K_M.gguf", // Default from user_settings.json
+      CTX_SIZE: 8192, // Default from user_settings.json
+      GPU_LAYERS: 11 // Default from user_settings.json
     },
 
     ORCHESTRATOR: {
-      PATH: process.env['ORCHESTRATOR_MODEL_PATH'] || "Qwen3-4B-Function-Calling-Pro.gguf",
-      CTX_SIZE: parseInt(process.env['ORCHESTRATOR_CTX_SIZE'] || "8192"),
-      GPU_LAYERS: parseInt(process.env['ORCHESTRATOR_GPU_LAYERS'] || "0")
+      PATH: "Qwen3-4B-Function-Calling-Pro.gguf", // Default from user_settings.json
+      CTX_SIZE: 8192,
+      GPU_LAYERS: 0
     },
     VISION: {
-      PATH: process.env['VISION_MODEL_PATH'] || "",  // MUST BE SET IN .ENV
-      PROJECTOR: process.env['VISION_PROJECTOR_PATH'] || "", // MUST BE SET IN .ENV
+      PATH: "",  // MUST BE SET IN user_settings.json
+      PROJECTOR: "", // MUST BE SET IN user_settings.json
       CTX_SIZE: 2048,
-      GPU_LAYERS: parseInt(process.env['LLM_GPU_LAYERS'] || "33")
+      GPU_LAYERS: 11 // Default from user_settings.json
     }
   }
 };

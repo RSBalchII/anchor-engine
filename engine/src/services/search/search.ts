@@ -225,16 +225,30 @@ export async function tagWalkerSearch(
     const sanitizedQuery = sanitizeFtsQuery(query);
     if (!sanitizedQuery) return [];
 
+    // 0. Dynamic Atom Scaling (Standard 069 update)
+    // User Requirement: Scale atoms with token budget.
+    // Heuristic: 2k tokens -> ~10 atoms. 4k -> ~20 atoms. Min 5.
+    // Ratio: 70% Direct (Anchor), 30% Associative (Walk).
+    const tokenBudget = Math.floor(_maxChars / 4);
+    const avgTokensPerAtom = 200;
+    const targetAtomCount = Math.max(5, Math.ceil(tokenBudget / avgTokensPerAtom));
+
+    // Split 70/30
+    const anchorLimit = Math.ceil(targetAtomCount * 0.70);
+    const walkLimit = Math.max(2, Math.floor(targetAtomCount * 0.30)); // Ensure at least 2 for walk if possible
+
+    console.log(`[Search] Dynamic Scaling: Budget=${tokenBudget}t -> Target=${targetAtomCount} atoms (Anchor: ${anchorLimit}, Walk: ${walkLimit})`);
+
     // 1. Direct Search (The Anchor)
     const anchorQuery = `
             ?[id, content, source, timestamp, buckets, tags, epochs, provenance, score] := 
-            ~memory:content_fts{id | query: $query, k: 50, bind_score: fts_score},
+            ~memory:content_fts{id | query: $query, k: ${anchorLimit * 2}, bind_score: fts_score},
             *memory{id, content, source, timestamp, buckets, tags, epochs, provenance},
             ${provenance !== 'quarantine' ? "provenance != 'quarantine'," : "provenance = 'quarantine',"}
             score = 70.0 * fts_score
             ${buckets.length > 0 ? ', length(intersection(buckets, $buckets)) > 0' : ''}
             ${tags.length > 0 ? ', length(intersection(tags, $tags)) > 0' : ''}
-            :limit 20
+            :limit ${anchorLimit}
         `;
 
     const anchorResult = await db.run(anchorQuery, { query: sanitizedQuery, buckets, tags });
@@ -267,7 +281,7 @@ export async function tagWalkerSearch(
             ${provenance !== 'quarantine' ? "provenance != 'quarantine'," : "provenance = 'quarantine',"}
             ${tags.length > 0 ? 'length(intersection(tags, $tags)) > 0,' : ''} 
             score = 30.0
-            :limit 10
+            :limit ${walkLimit}
         `;
 
     const walkResult = await db.run(walkQuery, { anchorIds, tags });

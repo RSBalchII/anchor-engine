@@ -7,10 +7,55 @@
 
 console.log("[DB] Loading Config...");
 import { config } from "../config/index.js";
+import path from "path";
+import { fileURLToPath } from "url";
 console.log("[DB] Creating Require...");
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 console.log("[DB] Requiring cozo-node...");
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// HELPER: Resolves native binary paths based on environment
+const getNativePath = (filename: string) => {
+  // 1. Production Mode (Packaged Electron App)
+  // In Electron, external resources live in: resources/bin/
+  if (process.env['NODE_ENV'] === 'production' || (typeof process !== 'undefined' && (process as any).type === 'browser')) {
+    // Note: 'process.resourcesPath' is available in Electron Main process
+    // If in Node child process, you might need to pass this path via ENV
+    const basePath = (process as any).resourcesPath || (typeof process !== 'undefined' ? path.dirname((process as any).execPath) : '');
+    if (basePath) {
+      return path.join(basePath, 'resources', 'bin', filename);
+    }
+  }
+
+  // 2. Development Mode
+  // Relative path from this file to the binary
+  // Determine the correct path based on the platform
+  let platformBinary = filename;
+  if (filename.startsWith('cozo_node_') && !filename.includes(process.platform)) {
+    if (process.platform === 'win32') {
+      platformBinary = 'cozo_node_win32.node';
+    } else if (process.platform === 'darwin') {
+      platformBinary = 'cozo_node_darwin.node';
+    } else if (process.platform === 'linux') {
+      platformBinary = 'cozo_node_linux.node';
+    }
+  } else if (filename === 'cozo_lib.node') {
+    // Special handling for the renamed binary in development
+    if (process.platform === 'win32') {
+      platformBinary = 'cozo_node_win32.node';
+    } else if (process.platform === 'darwin') {
+      platformBinary = 'cozo_node_darwin.node';
+    } else if (process.platform === 'linux') {
+      platformBinary = 'cozo_node_linux.node';
+    }
+  }
+
+  return path.resolve(__dirname, '../../', platformBinary);
+};
+
 let cozoNode: any;
 let CozoDb: any;
 try {
@@ -25,8 +70,13 @@ try {
       `[DB] Standard module load failed. Attempting local binary override for platform: ${process.platform}...`,
     );
 
+    const nativePath = getNativePath('cozo_lib.node'); // Using the renamed binary from electron-builder config
+    console.log(`[DB] Loading Cozo from: ${nativePath}`);
+
+    // Reuse the existing require created at top of file which already has context
+    const native = require(nativePath);
+
     if (process.platform === "win32") {
-      const native = require("../../cozo_node_win32.node");
       cozoNode = {
         open_db: (engine: string, path: string, options: any) =>
           native.open_db(
@@ -62,7 +112,6 @@ try {
           }),
       };
     } else if (process.platform === "darwin") {
-      const native = require("../../cozo_node_darwin.node");
       cozoNode = {
         open_db: (engine: string, path: string, options: any) =>
           native.open_db(
@@ -98,7 +147,6 @@ try {
           }),
       };
     } else if (process.platform === "linux") {
-      const native = require("../../cozo_node_linux.node");
       cozoNode = {
         open_db: (engine: string, path: string, options: any) =>
           native.open_db(
@@ -205,7 +253,7 @@ export class Database {
             // Close just in case
             try {
               this.close();
-            } catch (c) {}
+            } catch (c) { }
 
             const fs = await import("fs");
             if (fs.existsSync("./context.db"))
@@ -264,13 +312,13 @@ export class Database {
           console.log("[DB] Removing indices...");
           try {
             await this.run("::remove memory:knn");
-          } catch (e) {}
+          } catch (e) { }
           try {
             await this.run("::remove memory:vec_idx");
-          } catch (e) {} // Legacy
+          } catch (e) { } // Legacy
           try {
             await this.run("::remove memory:content_fts");
-          } catch (e) {}
+          } catch (e) { }
         } catch (e: any) {
           console.log(`[DB] Index removal warning: ${e.message}`);
         }
@@ -409,7 +457,7 @@ export class Database {
           // Close existing connection
           try {
             this.close();
-          } catch (c) {}
+          } catch (c) { }
 
           // Give OS time to release file locks (Windows is slow)
           await new Promise((resolve) => setTimeout(resolve, 1000));

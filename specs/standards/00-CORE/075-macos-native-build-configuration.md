@@ -20,9 +20,32 @@ This occurs despite:
 
 The root cause is that node-gyp on macOS 15.2+ does not automatically detect or pass the SDK root path to the compiler, breaking standard library header resolution.
 
-## 2. Implementation Requirements
+## 2. Quick Reference (User-Facing)
 
-### 2.1 binding.gyp Configuration
+For developers encountering this issue, here are the recommended solutions:
+
+### 2.1 Automatic (Recommended)
+The SDKROOT export has been added to your `~/.zshrc` file. Open a new terminal, or source your profile:
+```bash
+source ~/.zshrc
+pnpm install
+```
+
+### 2.2 Manual per-session
+Source the provided script:
+```bash
+source ./set-sdk.sh
+pnpm install
+```
+
+### 2.3 One-time inline
+```bash
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk pnpm install
+```
+
+## 3. Implementation Requirements
+
+### 3.1 binding.gyp Configuration
 
 The `binding.gyp` file MUST include explicit C++ standard library include paths for macOS:
 
@@ -63,7 +86,7 @@ The `binding.gyp` file MUST include explicit C++ standard library include paths 
 2. `SDKROOT` setting in xcode_settings
 3. Proper C++17 flags with `-stdlib=libc++`
 
-### 2.2 Environment Configuration
+### 3.2 Environment Configuration
 
 The `SDKROOT` environment variable MUST be set before building:
 
@@ -90,7 +113,7 @@ echo "SDKROOT set to: $SDKROOT"
 
 3. **CI/CD pipelines** MUST set this variable before build steps
 
-### 2.3 Build Process
+### 3.3 Build Process
 
 The standard build workflow is:
 
@@ -105,9 +128,9 @@ SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk pnpm install
 source ./set-sdk.sh && pnpm install
 ```
 
-## 3. Verification
+## 4. Verification
 
-### 3.1 SDK Detection
+### 4.1 SDK Detection
 
 Verify SDK is properly installed:
 
@@ -124,7 +147,7 @@ xcrun --show-sdk-path
 ls /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/functional
 ```
 
-### 3.2 Compiler Validation
+### 4.2 Compiler Validation
 
 Test that the compiler can find standard headers:
 
@@ -133,7 +156,7 @@ echo '#include <functional>' | clang++ -x c++ -std=c++17 -stdlib=libc++ \
   -isysroot $(xcrun --show-sdk-path) -E - &>/dev/null && echo "OK"
 ```
 
-### 3.3 Build Success Indicators
+### 4.3 Build Success Indicators
 
 A successful build shows:
 
@@ -147,31 +170,31 @@ gyp info it worked if it ends with ok
 gyp info ok
 ```
 
-## 4. Platform Compatibility
+## 5. Platform Compatibility
 
-### 4.1 Affected Platforms
+### 5.1 Affected Platforms
 
 - **macOS 15.0+** (Sequoia): REQUIRED
 - **macOS 14.x** (Sonoma): Recommended
 - **macOS 13.x and earlier**: Optional (builds work without this fix)
 
-### 4.2 Tested Configurations
+### 5.2 Tested Configurations
 
 - macOS 26.2 (Sequoia 15.2) - Build 25C56
 - Node.js v24.12.0
 - node-gyp v12.1.0
 - Apple clang version 17.0.0
 
-### 4.3 Non-macOS Platforms
+### 5.3 Non-macOS Platforms
 
 This standard does NOT apply to:
 
 - **Linux**: Uses system-provided libstdc++/libc++
 - **Windows**: Uses MSVC toolchain with different configuration
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
-### 5.1 Command Line Tools Issues
+### 6.1 Command Line Tools Issues
 
 If build fails, reinstall Command Line Tools:
 
@@ -186,7 +209,7 @@ xcode-select --install
 xcode-select -p && xcrun --show-sdk-path
 ```
 
-### 5.2 Multiple Xcode Versions
+### 6.2 Multiple Xcode Versions
 
 If multiple Xcode versions exist, ensure correct toolchain:
 
@@ -198,7 +221,7 @@ sudo xcode-select --switch /Library/Developer/CommandLineTools
 xcode-select -p
 ```
 
-### 5.3 Environment Not Persisting
+### 6.3 Environment Not Persisting
 
 If SDKROOT is not persisting across sessions:
 
@@ -207,13 +230,13 @@ If SDKROOT is not persisting across sessions:
 3. Source the profile: `source ~/.zshrc`
 4. Verify: `echo $SDKROOT`
 
-## 6. Related Standards
+## 7. Related Standards
 
 - [074-native-module-acceleration.md](074-native-module-acceleration.md) - Native module architecture
 - [Standard 010: ARCH](../10-ARCH/) - System architecture decisions
 - [Standard 030: OPS](../30-OPS/) - Operations and deployment
 
-## 7. References
+## 8. References
 
 - **Issue Tracker**: macOS Sequoia C++ header resolution
 - **Date Identified**: January 24, 2026
@@ -221,7 +244,7 @@ If SDKROOT is not persisting across sessions:
 - **node-gyp Version**: 12.1.0
 - **Node.js Version**: v24.12.0
 
-## 8. Compliance
+## 9. Compliance
 
 All native modules in the ECE_Core project MUST:
 
@@ -231,7 +254,7 @@ All native modules in the ECE_Core project MUST:
 - ✅ Test on latest macOS versions before release
 - ✅ Gracefully degrade if native module fails to build
 
-## 9. Future Considerations
+## 10. Future Considerations
 
 - Monitor node-gyp updates for automatic SDK detection improvements
 - Consider pre-built binaries for common platforms

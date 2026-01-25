@@ -97,26 +97,38 @@ pnpm install
 
 ### 2. Configuration
 
-Copy the example configuration:
+The configuration is now managed through `engine/user_settings.json`. You can customize settings by editing this file:
 
-```bash
-cp .env.example .env
+```json
+{
+    "llm": {
+        "model_dir": "../../models",
+        "chat_model": "glm-edge-1.5b-chat.Q5_K_M.gguf",
+        "task_model": "Qwen3-4B-Function-Calling-Pro.gguf",
+        "gpu_layers": 11,
+        "ctx_size": 8192
+    },
+    "dreamer": {
+        "enabled": true,
+        "schedule": "0 3 * * *"
+    },
+    "search": {
+        "strategy": "hybrid",
+        "hide_years_in_tags": true,
+        "whitelist": [
+            "burnout",
+            "career",
+            "decision",
+            "pattern",
+            "impact",
+            "context",
+            "memory"
+        ]
+    }
+}
 ```
 
-Ensure your `.env` is configured for **Tag-Walker Mode** (Embeddings Disabled):
-
-```env
-# Core
-PORT=3000
-
-# Models (Chat Only)
-LLM_MODEL_PATH=Qwen3-4B-Instruct.gguf
-LLM_CTX_SIZE=4096
-LLM_GPU_LAYERS=33
-
-# Tech Debt Removal (Disable Embeddings)
-EMBEDDING_GPU_LAYERS=0
-```
+The system will use sensible defaults if `user_settings.json` is not present or if specific settings are missing.
 
 ### 3. Run Engine (One-Click)
 Windows users can simply run the included batch script to build and launch everything:

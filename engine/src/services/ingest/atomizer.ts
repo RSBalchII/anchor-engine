@@ -1,19 +1,45 @@
 import { createRequire } from 'module';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
+
+// HELPER: Resolves native binary paths based on environment
+const getNativePath = (filename: string) => {
+    // 1. Production Mode (Packaged Electron App)
+    // In Electron, external resources live in: resources/bin/
+    if (process.env['NODE_ENV'] === 'production' || (typeof process !== 'undefined' && (process as any).type === 'browser')) {
+        // Note: 'process.resourcesPath' is available in Electron Main process
+        // If in Node child process, you might need to pass this path via ENV
+        const basePath = (process as any).resourcesPath || (typeof process !== 'undefined' ? path.dirname((process as any).execPath) : '');
+        if (basePath) {
+            return path.join(basePath, 'resources', 'bin', filename);
+        }
+    }
+
+    // 2. Development Mode
+    // Relative path from this file to the binary
+    return path.resolve(__dirname, '../../../build/Release', filename);
+};
 
 // --- NATIVE MODULE LOADING ---
 let native: any = null;
 try {
-    // Try release build first
-    native = require('../../../build/Release/ece_native.node');
-    console.log('[Atomizer] Loaded Native Accelerator (C++17) 🚀');
+    const nativePath = getNativePath('ece_native.node');
+    const { createRequire } = require('module');
+    native = createRequire(__filename)(nativePath);
+    console.log('[Atomizer] Native Iron Lung engaged 🫁');
 } catch (e) {
     try {
         // Try debug build or other path
-        native = require('../../../build/Debug/ece_native.node');
-    } catch (e2) {
-        console.warn('[Atomizer] running in JS-Only mode (Native module not found).');
+        const debugPath = getNativePath('ece_native.node').replace('Release', 'Debug');
+        const { createRequire } = require('module');
+        native = createRequire(__filename)(debugPath);
+        console.log('[Atomizer] Loaded Native Accelerator (Debug Build)');
+    } catch (e2: any) {
+        console.warn('[Atomizer] Legacy Mode. Native path failed:', e2.message);
     }
 }
 

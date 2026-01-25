@@ -1,5 +1,4 @@
 // engine/src/index.ts
-import "dotenv/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "path";
@@ -7,6 +6,7 @@ import { fileURLToPath } from "url";
 
 // Fix module load error by using explicit relative path or even require
 import { db } from "./core/db.js";
+import { config } from "./config/index.js";
 
 import { setupRoutes } from "./routes/api.js";
 
@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app: express.Express = express();
-const PORT = parseInt(process.env["PORT"] || "3000", 10);
+const PORT = config.PORT;
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));

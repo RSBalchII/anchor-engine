@@ -17,6 +17,17 @@ We replace the Vector Layer with a **Graph-Based Associative Retrieval** protoco
 | **Index** | HNSW Index (Heavy) | Inverted Index (Light) |
 | **Logic** | "Find nearest neighbors in embedding space" | "Traverse edges: Atom -> Tag -> Atom" |
 
+### Dynamic Atom Scaling
+To maximize context relevance within a variable `tokenBudget`, the engine dynamically calculates the target number of atoms to retrieve.
+
+*   **Formula**: `TargetAtoms = Floor(TokenBudget / AvgTokensPerAtom)`
+*   **Defaults**:
+    *   `AvgTokensPerAtom` ≈ 200 tokens
+    *   `MinimumAtoms` = 5
+*   **Distribution**:
+    *   **Anchors (70%)**: High-precision matches from FTS/Tag Search.
+    *   **Walkers (30%)**: Serendipitous discoveries via graph traversal.
+
 ### The Algorithm (70/30 Split)
 
 #### Phase 1: Iterative Anchor Search (Precision First)

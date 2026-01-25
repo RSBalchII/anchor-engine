@@ -44,9 +44,9 @@ A heuristic algorithm designed to strip JSON wrappers and execution logs from "C
 *   **Problem**: When LLMs generate code, they often wrap it in JSON logs (`"response_content": "def foo()..."`). Ingesting this as "code" corrupts the search index with meta-noise.
 *   **Solution**:
     1.  **Mask Code Blocks**: Preserve ` ``` ` content.
-    2.  **Purge Keys**: Remove `response_content`, `timestamp`: `...`, `type`: `...`.
-    3.  **Unescape**: Fix `\n` and `\"` artifacts.
-    4.  **Unmask**: Restore the code blocks.
+    2.  **Purge Keys**: Regex removal of keys like `response_content`, `timestamp`, `type` to prevent metadata leakage.
+    3.  **Unescape**: Decode escaped characters (`\n`, `\"`, `\t`) to restore readability.
+    4.  **Unmask**: Restore the code blocks and trim whitespace.
 
 ### 3.2 Project Root Extraction (Auto-Tagging)
 Context is derived from the filesystem path, not just the content.
