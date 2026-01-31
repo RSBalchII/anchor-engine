@@ -1,8 +1,8 @@
-# Documentation Policy (Root Coda)
+# Documentation Policy (Root Coda) - LLM Developer Directory
 
-**Status:** Active | **Authority:** Human-Locked
+**Status:** Active | **Authority:** Human-Locked | **Domain:** LLM-First Development
 
-## Core Philosophy
+## Core Philosophy for LLM Developers
 1. **Code is King:** Code is the only source of truth. Documentation is a map, not the territory.
 2. **Synchronous Testing:** EVERY feature or data change MUST include a matching update to the Test Suite.
 3. **Visuals over Text:** Prefer Mermaid diagrams to paragraphs.
@@ -10,18 +10,39 @@
 5. **Pain into Patterns:** Every major bug must become a Standard.
 6. **LLM-First Documentation:** Documentation must be structured for LLM consumption and automated processing.
 7. **Change Capture:** All significant system improvements and fixes must be documented in new Standard files.
+8. **Modular Architecture:** Each component must be documented in isolation for LLM comprehension.
+9. **API-First Design:** All interfaces must be clearly defined with examples.
+10. **Self-Documenting Code:** Complex logic must include inline documentation explaining intent.
 
-## User-Facing Documentation
+## LLM Developer Documentation Directory
 
-### `QUICKSTART.md` (Root) — **PRIMARY USER GUIDE**
+### `QUICKSTART.md` (Root) — **USER WORKFLOW GUIDE**
 *   **Role:** First-time user onboarding and daily workflow reference.
 *   **Content:** Data ingestion methods, deduplication logic, backup/restore, search patterns.
-*   **Audience:** New users, daily reference for workflow.
-*   **Authority:** Canonical guide for how users interact with ECE.
+*   **Audience:** End users.
+*   **Authority:** Canonical guide for user interaction with ECE.
 
-### `README.md` (Root)
-*   **Role:** Project overview, installation, and quick start.
+### `README.md` (Root) — **PROJECT OVERVIEW FOR HUMANS**
+*   **Role:** Project overview, installation, and quick start for humans.
 *   **Content:** What ECE is, how to install, link to QUICKSTART.md.
+
+### `SPEC.md` (specs/) — **SYSTEM ARCHITECTURE MAP**
+*   **Role:** High-level system architecture for LLM developers.
+*   **Content:** Core components, data flow, interfaces.
+*   **Audience:** LLM developers, system architects.
+*   **Authority:** Single source of architectural truth.
+
+### `STANDARDS/` (specs/standards/) — **IMPLEMENTATION RULES**
+*   **Role:** Detailed implementation standards for LLM developers.
+*   **Content:** Technical specifications, protocols, interfaces.
+*   **Audience:** LLM developers implementing features.
+*   **Authority:** Binding rules for code implementation.
+
+### `TYPES/` (src/types/) — **DATA STRUCTURE DEFINITIONS**
+*   **Role:** All system data structures for LLM comprehension.
+*   **Content:** Interfaces, type definitions, schemas.
+*   **Audience:** LLM developers working with data structures.
+*   **Authority:** Source of truth for data contracts.
 
 ## Data Ingestion Standards
 
@@ -70,88 +91,182 @@ metadata:
 3. **Corpus Detection:** Files with `project_structure:` + `files:` array are extracted
 4. **Temporal Folding:** Search shows latest version, history timestamps collapsed
 
-## Structure
+## System Architecture for LLM Developers
 
-### 1. The Blueprint (`specs/spec.md`)
-*   **Role:** The single architectural source of truth.
-*   **Format:** "Visual Monolith".
-*   **Content:** High-level diagrams (Kernel, Memory, Logic, Bridge). No deep implementation details.
+### 1. Core Architecture (`specs/spec.md`)
+*   **Role:** System blueprint for LLM developers.
+*   **Format:** Visual architecture diagrams and component relationships.
+*   **Content:** Kernel, Memory, Logic, Bridge components with interface definitions.
+*   **LLM Focus:** Component boundaries and data flow for autonomous development.
 
-### 2. Search Patterns (`specs/search_patterns.md`)
-*   **Role:** Document the new semantic search and temporal folding capabilities.
-*   **Format:** Examples and usage guidelines.
-*   **Content:** How to leverage semantic intent translation and temporal folding for optimal results.
+### 2. Search Architecture (`specs/search_patterns.md`)
+*   **Role:** Semantic search implementation guide for LLM developers.
+*   **Format:** Algorithm specifications and interface definitions.
+*   **Content:** Tag-Walker protocol, semantic intent translation, temporal folding implementation.
+*   **LLM Focus:** Search algorithm internals for enhancement and debugging.
 
-## CozoDB Integration Challenges & Solutions
+### 3. Atomic Architecture (`specs/standards/081-atomic-taxonomy.md`)
+*   **Role:** Data model specification for LLM developers.
+*   **Format:** Taxonomy definitions and relationship mappings.
+*   **Content:** Compound/Molecule/Atom hierarchy, coordinate systems, relationship protocols.
+*   **LLM Focus:** Data structure manipulation and relationship discovery.
 
-### Issue Description
-During development, we encountered significant challenges integrating CozoDB with the ECE_Core project, particularly around the native module loading and ES module compatibility.
+### 4. Native Module Integration (`specs/standards/074-native-module-acceleration.md`)
+*   **Role:** Performance module integration guide for LLM developers.
+*   **Format:** API contracts and fallback protocols.
+*   **Content:** C++ module interfaces, error handling, graceful degradation patterns.
+*   **LLM Focus:** Performance optimization and system stability patterns.
 
-### Root Cause
-The `cozo-node` package is a native addon that exports functions directly rather than a class. When importing in an ES module environment, the import syntax needs to be adjusted to handle the CommonJS module correctly.
+### 5. Ingestion Pipeline (`specs/standards/059-reliable-ingestion.md`)
+*   **Role:** Data processing pipeline specification for LLM developers.
+*   **Format:** Flow diagrams and validation checkpoints.
+*   **Content:** Atomization, sanitization, fingerprinting, deduplication processes.
+*   **LLM Focus:** Data transformation and quality assurance protocols.
 
-### Solution Implemented
-Instead of trying to instantiate a `CozoDb` class, we now use the individual functions exported by the module:
+## LLM Developer Reference Patterns
+
+### Performance Optimization Patterns
+*   **Native Acceleration**: Use C++ modules for performance-critical paths
+*   **Zero-Copy Operations**: Use string_view to minimize memory allocation
+*   **Batch Processing**: Group operations to reduce overhead
+*   **Caching Strategies**: Implement strategic caching for repeated operations
+
+### Error Handling Patterns
+*   **Graceful Degradation**: Systems continue operating when components fail
+*   **Fallback Chains**: Multiple implementation strategies for reliability
+*   **Circuit Breakers**: Prevent cascading failures in distributed operations
+* **Defensive Programming**: Validate inputs and handle edge cases
+
+### Data Processing Patterns
+*   **Atomic Operations**: Ensure data consistency during transformations
+*   **Idempotency**: Operations produce same result when applied multiple times
+*   **Eventual Consistency**: Systems converge to consistent state over time
+*   **Data Hygiene**: Clean and validate data at ingestion points
+
+## LLM Developer Quick References
+
+### Common API Endpoints
+*   `POST /v1/ingest` - Content ingestion with atomic processing
+*   `POST /v1/memory/search` - Tag-Walker semantic search
+*   `GET /health` - System health and component status
+*   `GET /monitoring/metrics` - Performance metrics and system resources
+*   `GET /v1/models` - Available LLM models and capabilities
+
+### Key Data Structures
+*   **Compound**: Document-level entity with full content and metadata
+*   **Molecule**: Semantic segment with byte coordinates and relationship data
+*   **Atom**: Atomic semantic unit with entity recognition and tagging
+*   **Tag-Walker**: Graph traversal protocol for associative retrieval
+*   **SimHash**: Fingerprinting algorithm for deduplication
+
+### Native Module Functions
+*   `fingerprint(content)` - Generate SimHash for content
+*   `atomize(content, strategy)` - Split content into semantic molecules
+*   `cleanse(content)` - Remove artifacts and normalize content
+*   `distance(hash1, hash2)` - Compute similarity between fingerprints
+
+## CozoDB Integration for LLM Developers
+
+### Integration Architecture
+The `cozo-node` package is a native addon that provides direct access to CozoDB's graph-relational-vector-fts engine. For LLM developers, understanding the function-based interface is critical:
+
 - `open_db()` - Creates a database instance and returns a database ID
 - `query_db()` - Executes queries against a database using its ID
 - `close_db()` - Closes the database connection
 
-### Key Learnings
-1. Native modules in Node.js environments can have compatibility issues between CommonJS and ES modules
-2. The `cozo-node` package exports functions directly, not a class
-3. Proper error handling is essential when working with native modules
-4. The database ID system requires careful management to prevent memory leaks
+### LLM Developer Considerations
+1. **Function-Based Interface**: Unlike class-based databases, CozoDB uses individual functions with database IDs
+2. **Native Module Handling**: Proper error handling and fallback mechanisms are essential
+3. **Memory Management**: Database connections require explicit cleanup to prevent leaks
+4. **Query Patterns**: CozoDB uses Datalog queries with FTS extensions for semantic search
 
-### Testing Approach
-Created `test-cozo.js` to verify the native module functionality independently before integrating into the main codebase.
+### Recommended Patterns for LLM Developers
+- Always implement try/catch blocks around database operations
+- Use database ID management for connection pooling
+- Implement proper cleanup in finally blocks
+- Handle native module failures gracefully with fallbacks
 
-### Prevention Measures
-- Always test native module integrations in isolation first
-- Verify the actual export structure of third-party modules
-- Implement proper cleanup routines for database connections
-- Add comprehensive error handling for native module failures
+### Testing Approach for LLM Developers
+- Test database operations in isolation before integration
+- Verify query patterns work with expected data structures
+- Implement connection management tests
+- Validate error handling paths
 
-## NER Standardization (CPU-First Discovery)
+## NER Implementation for LLM Developers
 
-### Issue Description
-The "Teacher" component uses local AI to discover tags without calling the expensive LLM. Initially, we attempted to use GLiNER (Zero-Shot NER), but encountered significant compatibility issues with the `transformers.js` library and ONNX runtime.
+### Local Discovery Architecture
+The "Teacher" component implements CPU-first entity discovery to reduce LLM API costs. For LLM developers, the BERT-based NER approach provides:
 
-### Root Cause
-1.  **Unsupported Architecture:** GLiNER uses a custom architecture not natively supported by standard `transformers.js` pipelines.
-2.  **Model Availability:** The ONNX community builds for GLiNER are fragmented and often failed to download or run reliably.
-3.  **Dependency Hell:** Attempting to force GLiNER support triggered complex native dependency chains (Sharp/libvips) that are unstable on Windows.
+- **Native Support**: Works with standard `token-classification` pipeline
+- **Stability**: No custom inference logic required
+- **Reliability**: Part of Hugging Face ecosystem with consistent availability
 
-### Solution Implemented
-Switched the "Teacher" to a standard **BERT-based Named Entity Recognition (NER)** model (`Xenova/bert-base-NER`).
+### LLM Developer Implementation Guidelines
+*   **Primary Model**: `Xenova/bert-base-NER` (Quantized ONNX)
+*   **Fallback Model**: `Xenova/bert-base-multilingual-cased-ner-hrl`
+*   **Failsafe**: Main LLM via "Tag Infection" prompts
 
-**Benefits:**
-*   **Native Support:** Works out-of-the-box with `token-classification` pipeline.
-*   **Stability:** No custom inference logic or "hacky" dependency overrides needed.
-*   **Reliability:** The model is a staple of the Hugging Face ecosystem and extremely unlikely to disappear.
+### Entity Classification for LLM Developers
+- **Person Entities**: Names, titles, roles
+- **Place Entities**: Locations, addresses, geographic features
+- **Technical Terms**: Code, frameworks, technical concepts
+- **Dates**: Temporal references, calendar dates
+- **Concepts**: Abstract ideas, topics, themes
 
-### Standard 070: Local Discovery
-*   **Primary:** `Xenova/bert-base-NER` (Quantized ONNX)
-*   **Fallback:** `Xenova/bert-base-multilingual-cased-ner-hrl`
-*   **Failsafe:** Main LLM (Orchestrator) via "Tag Infection" prompts.
+## Native Module Development for LLM Developers
 
-## Native Module Best Practices
+### Core Principles for LLM Developers
+1. **Graceful Degradation**: Services must continue operating when native modules fail
+2. **Platform Compatibility**: Test across all target platforms before deployment
+3. **Error Handling**: Implement comprehensive fallback mechanisms
+4. **Performance Optimization**: Use native modules for performance-critical operations
 
-### Core Principles
-1. **Graceful Degradation**: Services should continue to function when native modules are unavailable
-2. **Platform Compatibility**: Always test on target platforms before deployment
-3. **Error Handling**: Implement fallback mechanisms for missing dependencies
-4. **Documentation**: Record integration challenges and solutions for future reference
+### LLM Developer Implementation Patterns
+- Use WASM/JavaScript fallbacks for critical functionality
+- Implement comprehensive error handling around native calls
+- Provide clear error messages for debugging
+- Document platform-specific requirements
+- Test both native and fallback code paths
 
-### Implementation Guidelines
-- Use WASM/JavaScript alternatives when possible to avoid native compilation issues
-- Implement try/catch blocks around native module operations
-- Provide meaningful error messages and fallback behaviors
-- Document platform-specific installation requirements
-- Test error conditions and fallback paths regularly
+### Performance Considerations for LLM Developers
+- Native modules provide 2-3x performance improvement over JavaScript
+- Use native modules for CPU-intensive operations (atomization, fingerprinting)
+- Implement proper memory management to prevent leaks
+- Consider zero-copy operations where possible (string_view in C++)
 
-### Key Learnings from Recent Issues
-- Native modules can cause platform-specific issues that impact system stability
-- Graceful error handling is essential for robust systems
-- Proper documentation of integration challenges helps future development
-- Fallback mechanisms ensure core functionality remains available
-- Always verify the actual export structure of third-party modules before integration
+### Debugging Native Module Issues for LLM Developers
+- Check platform-specific binary availability
+- Verify native module loading paths
+- Test fallback implementations when native modules unavailable
+- Monitor memory usage patterns with native modules
+- Validate function signatures and parameter types
+
+## Monitoring & Diagnostics for LLM Developers
+
+### System Health Architecture
+The monitoring system provides comprehensive visibility into system operations:
+
+- **Health Endpoints**: `/health`, `/health/database`, `/health/native`
+- **Performance Metrics**: `/monitoring/metrics`, `/monitoring/performance`
+- **Resource Monitoring**: `/monitoring/resources`, `/monitoring/system`
+- **Request Tracing**: `/monitoring/traces`, `/monitoring/spans`
+
+### LLM Developer Monitoring Tools
+*   **Structured Logging**: Context-aware logging with performance metrics
+*   **Performance Counters**: Operation timing and resource usage tracking
+*   **Request Tracing**: Distributed tracing for request flow analysis
+*   **Real-time Dashboard**: Visual monitoring of system metrics
+
+### Key Monitoring Patterns for LLM Developers
+- **Performance Baselines**: Establish normal operation metrics
+- **Anomaly Detection**: Identify performance deviations
+- **Resource Utilization**: Monitor memory, CPU, and disk usage
+- **Error Tracking**: Capture and analyze system errors
+- **Throughput Monitoring**: Track operations per second
+
+### Diagnostic Implementation for LLM Developers
+*   **Trace Context**: Propagate request context through all operations
+*   **Performance Tags**: Add semantic tags to operations for analysis
+*   **Health Checks**: Implement component-specific health verification
+*   **Resource Tracking**: Monitor memory and CPU usage patterns
+*   **Error Correlation**: Link errors to specific request flows

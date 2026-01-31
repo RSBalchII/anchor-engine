@@ -78,8 +78,39 @@ To ensure graph connectivity even when users fail to tag notes manually, the **D
 To audit and browse the graph without database tools, the engine projects its internal state onto the filesystem.
 
 1. **Structure**: `@bucket/#tag/[Source_Name]_[PathHash].md`
-2. **Bundling**: Atoms are bundled by source and tag to prevent file explosion. 
+2. **Bundling**: Atoms are bundled by source and tag to prevent file explosion.
 3. **Pagination**: Each bundle is limited to **100 atoms** (approx. 150-300KB) to ensure high readability and fast loading.
 4. **Sync Trigger**: Mirror synchronizes immediately after every successful ingestion and during every Dreamer cycle.
 5. **Wipe Policy**: The `mirrored_brain` directory is explicitly wiped before synchronization.
 6. **Navigation**: Uses `## [ID] Snippet` headers and horizontal rules to separate atoms within a bundle.
+
+## Updated Tag-Walker Protocol Implementation
+
+### Enhanced Semantic Category Integration
+The Tag-Walker protocol now incorporates semantic categories from Standard 084:
+
+*   **Semantic Category Filtering**: Queries can filter by semantic categories (`#Relationship`, `#Narrative`, `#Technical`, etc.)
+*   **Entity Co-occurrence Detection**: When searching for relationships, the system prioritizes molecules containing multiple entities
+*   **Relationship Narrative Discovery**: The protocol can identify relationship patterns across domains
+
+### Bright Node Protocol
+The enhanced search system implements the "Bright Node Protocol" for graph-based reasoning:
+
+*   **Purpose**: Selective graph illumination for reasoning models
+*   **Features**: `getBrightNodes` for focused graph traversal, `getStructuredGraph` for reasoning model input
+*   **Relationship Mapping**: Identifies relationships between nodes based on shared attributes
+
+### Context Inflation Protocol (Standard 085)
+*   **Purpose**: Inflate separate molecules into coherent windows
+*   **Mechanism**: Combines adjacent molecules into contextually meaningful segments
+*   **Benefit**: Improves coherence of retrieved information
+
+### Provenance Boosting
+*   **Internal Content Boost**: Sovereign data receives 2-3x retrieval boost
+*   **External Content Weighting**: External data treated as supporting evidence only
+*   **Trust Hierarchy**: Implements "Trust Score" for different data sources
+
+### Active Cleansing Protocol
+*   **SimHash Deduplication**: Uses Hamming Distance to identify near-duplicates
+*   **Threshold**: < 3 bits difference considered duplicate
+*   **Merge Strategy**: Merges tags/buckets for duplicate atoms

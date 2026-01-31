@@ -14,7 +14,11 @@ Data is no longer stored as arbitrary "chunks" but as structured chemical entiti
 *   **Properties:**
     *   `compound_body`: The full text content.
     *   `molecular_signature`: SimHash of the entire content (for file-level deduplication).
-*   **Analogy:** A "Page" in a book.
+    *   `path`: File path for provenance tracking.
+    *   `timestamp`: Creation/modification time.
+    *   `provenance`: Source classification ('internal', 'external', 'quarantine').
+    *   `molecules`: Array of molecule IDs contained in this compound.
+    *   `atoms`: Array of atom IDs aggregated from all molecules.
 
 ### 2.2 Molecules (Type: `fragment`)
 *   **Definition:** The logical arrangement of atoms. Equivalent to a **sentence** or a discrete thought.
@@ -22,13 +26,24 @@ Data is no longer stored as arbitrary "chunks" but as structured chemical entiti
 *   **Properties:**
     *   `content`: The sentence text.
     *   `sequence`: Positional index within the Compound.
-    *   `tags`: Derived concepts.
+    *   `compound_id`: Reference to parent compound.
+    *   `start_byte`: Starting byte position in the compound.
+    *   `end_byte`: Ending byte position in the compound.
+    *   `type`: Content type ('prose', 'code', 'data').
+    *   `numeric_value`: Optional numeric value for data molecules.
+    *   `numeric_unit`: Optional unit for numeric values.
+    *   `molecular_signature`: SimHash for deduplication.
+    *   `atoms`: Array of atom IDs present in this molecule.
 *   **Granularity:** Retrieval targets Molecules, not Compounds. This reduces context window pollution (e.g., retrieving just the relevant function definition, not the whole file).
 
 ### 2.3 Atoms (Type: `concept`)
 *   **Definition:** The fundamental unit of meaning. Equivalent to a keyword, entity, or tag.
 *   **Role:** The connective tissue (Edges/Vertices) that links Molecules.
-*   **Examples:** `#Project:ECE`, `#SimHash`, `IngestionService`.
+*   **Properties:**
+    *   `label`: The semantic value (e.g., `#Project:ECE`, `#SimHash`).
+    *   `type`: Classification ('concept', 'entity', 'keyword', 'system').
+    *   `weight`: Importance score (0-1).
+    *   `embedding`: Optional semantic vector representation.
 
 ## 2.4 Visual Representation
 
@@ -83,8 +98,9 @@ By storing data as Molecules, we unlock a "Universal Data API."
 
 ## 5. Persistence Strategy
 *   **Table `compounds`**: Stores full file bodies (for reconstruction).
-*   **Table `molecules`** (formerly `memory` fragment rows): Stores searchable sentences.
+*   **Table `molecules`** (formerly `memory` fragment rows): Stores searchable sentences with byte coordinates.
 *   **Table `atoms`**: Stores global entities.
+*   **Table `atom_edges`**: Stores relationships between atoms and molecules.
 
 ## 6. Processing Flow
 
@@ -141,3 +157,43 @@ flowchart TD
 
     X --> Y[CozoDB Tables:<br/>- compounds table<br/>- molecules table<br/>- atoms table<br/>- atom_edges table]
 ```
+
+## 7. Semantic Category System (Standard 084 Integration)
+The atomic taxonomy integrates with the semantic category system from Standard 084:
+
+*   **Relationship Category**: Applied when 2+ person entities appear in the same molecule
+*   **Narrative Category**: Applied when person + time reference appear in the same molecule
+*   **Technical Category**: Applied when technical terms appear in the same molecule
+*   **Location Category**: Applied when location references appear in the same molecule
+*   **Industry Category**: Applied when industry-specific terms appear
+*   **Emotional Category**: Applied when high sentiment variance content is detected
+*   **Temporal Category**: Applied when time-based sequences are present
+*   **Causal Category**: Applied when cause-effect relationships are identified
+
+## 8. Entity Co-occurrence Detection
+The system implements "Tag Emergence" where semantic tags emerge from the interaction of entities within semantic molecules:
+
+- **Relationship Detection**: When 2+ person entities appear in the same molecule → `#Relationship` tag
+- **Narrative Detection**: When person + time reference appear → `#Narrative` tag
+- **Technical Detection**: When technical terms appear → `#Technical` tag
+- **Location Detection**: When location references appear → `#Location` tag
+
+## 9. Relationship Narrative Discovery
+The system can identify relationship patterns by detecting when entities appear together:
+
+```
+Input: "Rob and Jade went to the park yesterday"
+Process:
+  - Detect entities: ["Rob", "Jade"]
+  - Detect relationship indicator: "and"
+  - Detect time reference: "yesterday"
+  - Apply tags: #Relationship, #Narrative
+Output: Molecule tagged with relationship and narrative semantics
+```
+
+## 10. Universal Application
+The same architecture works across domains:
+- **Personal Domain**: Alice/Bob relationship narratives
+- **Industrial Domain**: CO2/Sequestration/Oil industry relationships
+- **Technical Domain**: Code component relationships
+- **Research Domain**: Academic concept relationships

@@ -121,7 +121,7 @@ The system implements "Tag Emergence" where semantic tags emerge from the intera
 ### 1. The Core (Node.js/C++ Hybrid Monolith)
 The engine runs as a single, efficient Node.js process with high-performance C++ native modules for critical path operations:
 
-1.  **Ingestion (The Refiner)**:
+1.  **Ingestion (The AtomizerService)**:
     * **Atomizer**: Splits text/code into logical units (accelerated with C++ native module).
     * **Key Assassin**: Surgically removes JSON artifacts from code (Data Hygiene) (accelerated with C++ native module).
     * **Fingerprint (SimHash)**: Generates locality-sensitive hashes for fuzzy deduplication (C++ native module).
@@ -180,6 +180,19 @@ The `ResourceManager` provides memory optimization and monitoring:
 * **Features**: Memory monitoring, garbage collection triggers, performance optimization
 * **Location**: `src/utils/resource-manager.ts`
 
+### 7. Atomic Architecture (V4)
+The system implements a complete atomic taxonomy:
+
+* **Compounds**: Document-level entities with full content and metadata
+* **Molecules**: Semantic segments with byte coordinates and relationship data
+* **Atoms**: Atomic semantic units with entity recognition and tagging
+* **Universal Data API**: Precise, sentence-level retrieval and manipulation
+
+### 8. Context Inflation Protocol (Standard 085)
+* **Purpose**: Inflate separate molecules into coherent windows
+* **Mechanism**: Combines adjacent molecules into contextually meaningful segments
+* **Benefit**: Improves coherence of retrieved information
+
 ## The Application Layer
 * **API**: RESTful interface at `http://localhost:3000/v1/`.
 * **Frontend**: Focused Single-Column React + Vite dashboard.
@@ -191,15 +204,18 @@ The `ResourceManager` provides memory optimization and monitoring:
 
 ### Core Standards Implemented:
 - **Standard 074**: Native Module Acceleration (The "Iron Lung" Protocol)
-- **Standard 075**: macOS Native Build Configuration (Sequoia SDK Fix)
+- **Standard 075**: Build System & Cross-Platform Deployment
 - **Standard 076**: TypeScript Compilation and ES Module Compatibility
 - **Standard 051**: Service Module Path Resolution
 - **Standard 058**: UniversalRAG API
 - **Standard 059**: Reliable Ingestion (The "Ghost Data" Protocol)
 - **Standard 065**: Graph-Based Associative Retrieval (Semantic-Lite)
+- **Standard 073**: CozoDB Integration for Graph-Relational-Vector-FTS Engine
 - [Standard 069: Intelligent Query Expansion Protocol](standards/069-intelligent-query-expansion.md)
+- [Standard 081: Atomic Taxonomy (V4) & Universal Data API](standards/081-atomic-taxonomy.md)
 - [Standard 082: Universal Topology (Text/Data Unification)](standards/082-universal-topology.md)
 - [Standard 083: Resilient Database Protocol (Auto-Purge)](standards/083-resilient-database.md)
+
 ## Documentation Standards
 
 1. **Code is King**: Code is the only source of truth. Documentation is a map, not the territory.
