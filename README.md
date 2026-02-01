@@ -1,32 +1,185 @@
-# ECE_Core## 🧠 Sovereign Context Engine
+# ECE_Core - 🧠 Sovereign Context Engine (LLM Developer Edition)
 
-> **A Headless, Local-First Context Engine & Knowledge Graph**
+> **The Browser Paradigm for AI Memory**: Just as web browsers allow any device to access the internet by loading only needed content, ECE allows any device to process massive AI context by retrieving only relevant "atoms" for current thought.
 
-The Sovereign Context Engine (ECE) is a background service that acts as a "second brain" for your local environment. It manages memory, reasoning, and context retrieval without locking you into a specific interface.
+> **The Semantic Shift**: The ECE now implements Standard 084 - transforming from a keyword indexer to a semantic graph with relationship narrative discovery capabilities.
 
-### 🌟 Architecture: Single Brain, Dual Interface
-The engine runs as a headless kernel, accessible via:
+## 🚀 Quick Start for LLM Developers
 
-#### 🔧 Key Architectural Components:
-- **Semantic Shift Architecture (Standard 084)**: Context-first, stateless interaction model that grounds each response in relevant ECE data without session memory.
-- **Relationship Narrative Discovery**: Entity co-occurrence detection for identifying relationship patterns across domains.
-- **Intelligent Context Provision**: Automatic retrieval and injection of relevant knowledge graph data for each query.
-- **Semantic Taxonomy System**: High-level semantic categories (`#Relationship`, `#Narrative`, `#Technical`, etc.) instead of granular entity tags.
-- **Toggle-Enabled Features**: Save-to-graph and port 8080 routing for flexible deployment and integration.
-- **Universal Application**: Same architecture works for personal relationships (Rob/Jade) and industrial data (Oil/CO2/Seismic).
+### Prerequisites
+- Node.js 18+
+- Python 3.x (for native module compilation)
+- Build tools (Visual Studio Build Tools on Windows, Xcode on macOS)
 
-#### 🧠 Cognitive Architecture:
-- **Stateless Model Operation**: Each query gets fresh context from ECE search results instead of chat session history
-- **Entity Co-occurrence Detection**: Finds relationships when multiple entities appear in the same semantic molecule
-- **Semantic Category Emergence**: Tags emerge from entity interactions rather than keyword matching
-- **Narrative Arc Assembly**: Constructs relationship stories from entity co-occurrence patterns
-- **Relationship Historian**: Discovers relationship narratives across any domain (personal, industrial, technical)
-- **Universal Semantic Graph**: Same architecture works for personal relationships (Alice/Bob) and industrial data (CO2/Sequestration/Oil)
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/External-Context-Engine/ECE_Core.git
+cd ECE_Core
 
-1.  **GlassPanel UI** (Default): A focused web interface at `http://localhost:3000`.
-2.  **Neural Terminal**: A command-line chat tool (`npm run chat`).
+# Install dependencies
+pnpm install
 
-Both interfaces share the same persistent memory and R1 Reasoning capabilities.
+# Build the engine
+pnpm build
+```
+
+### Platform-Specific Setup (CRITICAL)
+**Important**: Due to the hybrid architecture, you need to place the CozoDB binary for your OS in the engine root:
+
+1. Locate the CozoDB binary after installation: `node_modules/.pnpm/cozo-node@*/native/`
+2. Copy the appropriate binary to the `engine/` folder:
+   - **Windows**: `engine/cozo_node_win32.node`
+   - **macOS**: `engine/cozo_node_darwin.node`
+   - **Linux**: `engine/cozo_node_linux.node`
+
+### Running the Engine
+```bash
+# Start the engine
+pnpm start
+
+# Health check
+curl http://localhost:3000/health
+```
+
+## 🌐 The Browser Paradigm for AI Memory
+
+ECE_Core implements what we call the "Browser Paradigm" for AI memory systems. Just as web browsers allow any machine to render the internet by downloading only the shards (HTML/CSS/JS) it needs for the current view, ECE allows any machine to process massive AI context by retrieving only the atoms required for the current thought.
+
+### Key Principles:
+- **Universal Compatibility**: Runs on any device from smartphones to servers
+- **Selective Loading**: Only load relevant "atoms" for current query instead of entire dataset
+- **Cross-Platform**: Consistent performance across different operating systems
+- **Local-First**: All data remains on user's device for privacy and sovereignty
+- **Decentralized Architecture**: No central authority or cloud dependency
+
+## 🔧 Architecture Overview (For LLM Developers)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Node.js Layer                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐   │
+│  │   API       │  │   Search    │  │   Ingestion      │   │
+│  │  Service    │  │  Service    │  │   Pipeline     │   │
+│  └─────────────┘  └─────────────┘  └──────────────────┘   │
+└─────────────┬──────────────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 N-API Boundary                            │
+└─────────────┬──────────────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   C++ Performance Layer                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐   │
+│  │  Atomizer   │  │ Key Assassin│  │   Fingerprint    │   │
+│  │             │  │             │  │    (SimHash)     │   │
+│  └─────────────┘  └─────────────┘  └──────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Components (For LLM Developers)
+
+1. **Node.js Shell**: Handles networking, OS integration, and orchestration
+2. **N-API Boundary**: Stable interface between JavaScript and C++
+3. **C++ Performance Layer**: Critical operations for speed and efficiency
+
+## 🎯 Core Features (For LLM Developers)
+
+### 1. Tag-Walker Protocol
+- Graph-based associative retrieval instead of vector search
+- Millisecond retrieval of millions of tokens
+- Deterministic results (no probabilistic failures)
+
+### 2. Data Atomization
+- Breaks content into semantic "atoms" (thought units)
+- Preserves meaning while enabling efficient retrieval
+- Supports both code and prose atomization
+
+### 3. SimHash Deduplication
+- 64-bit fingerprints for O(1) deduplication
+- Identifies near-duplicate content across large corpora
+- Reduces storage and processing requirements
+
+### 4. Bright Node Protocol
+- Selective graph illumination for reasoning
+- Only relevant nodes loaded into memory
+- Enables "Logic-Data Decoupling"
+
+## 📖 Usage Examples (For LLM Developers)
+
+### Searching Your Context
+```bash
+curl -X POST http://localhost:3000/v1/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "my project status",
+    "max_chars": 20000
+  }'
+```
+
+### Ingesting New Content
+```bash
+curl -X POST http://localhost:3000/v1/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Project update: Completed the initial design phase...",
+    "source": "project_notes",
+    "tags": ["#project", "#update"]
+  }'
+```
+
+### Getting Bright Nodes (Graph Structure)
+```bash
+curl -X POST http://localhost:3000/v1/memory/bright-nodes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "machine learning research",
+    "maxNodes": 30
+  }'
+```
+
+## 🏗️ Development (For LLM Developers)
+
+### Building Native Modules
+```bash
+# Build the native modules
+cd engine
+npm run build:native
+
+# Build everything
+npm run build:universal
+```
+
+### Running Tests
+```bash
+npm test
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Philosophy
+- **Simplicity**: Prefer simple solutions over complex ones
+- **Universality**: Code should run on any platform
+- **Privacy**: All data stays with the user
+- **Openness**: Transparent, auditable codebase
+
+## 📄 License
+
+Elastic License 2.0. Copyright (c) 2026 External Context Engine. See [LICENSE](LICENSE) for full terms.
+
+## 🙏 Acknowledgments
+
+- Inspired by the universal accessibility of web browsers
+- Built with the power of Node.js and C++ N-API
+- Designed for cognitive sovereignty and privacy
+
+---
+
+*Part of the Sovereign Context Protocol initiative to democratize AI memory systems.*
 
 ---
 
@@ -44,17 +197,6 @@ ECE_Core implements a **hybrid architecture** combining Node.js orchestration wi
 - **Windows**: Native modules functional; CozoDB requires binary placement at `C:\Users\ECE_Core\engine\cozo_node_prebuilt.node` for persistent storage
 - **Native Module Performance**: Consistent across all platforms (2.3x improvement achieved)
 
-## 🌐 The Browser Paradigm for AI Memory
-
-ECE_Core implements what we call the "Browser Paradigm" for AI memory systems. Just as web browsers allow any machine to render the internet by downloading only the shards (HTML/CSS/JS) it needs for the current view, ECE allows any machine to process massive AI context by retrieving only the atoms required for the current thought.
-
-### Key Principles:
-- **Universal Compatibility**: Runs on any device from smartphones to servers
-- **Selective Loading**: Only load relevant "atoms" for current query instead of entire dataset
-- **Cross-Platform**: Consistent performance across different operating systems
-- **Local-First**: All data remains on user's device for privacy and sovereignty
-- **Decentralized Architecture**: No central authority or cloud dependency
-
 ## 🌟 Overview
 
 The **ECE_Core** is a sovereign memory engine that transforms your local file system into a structured, queryable knowledge graph. Unlike traditional RAG systems that rely on heavy, probabilistic vector embeddings, ECE uses a **deterministic "Tag-Walker" protocol** to navigate your data.
@@ -71,7 +213,7 @@ It runs 100% locally, protecting your privacy while enabling "Deep Context" retr
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture (For LLM Developers)
 
 ### 1. The Core (Node.js/C++ Hybrid Monolith)
 The engine runs as a single, efficient Node.js process with high-performance C++ native modules for critical path operations:
@@ -129,7 +271,7 @@ The system has transitioned from a tool-using orchestrator to a high-fidelity **
 > [!NOTE]
 > Tool-calling capabilities (Search, Read, etc.) have been archived to maximize reasoning efficacy and UI simplicity. They remain available in the codebase for future re-integration.
 
-## 📊 Architecture Diagrams
+## 📊 Architecture Diagrams (For LLM Developers)
 
 To help visualize the complex architecture of ECE_Core, we've created several diagrams:
 
@@ -153,7 +295,7 @@ To help visualize the complex architecture of ECE_Core, we've created several di
 - [Tag-Walker Search Flow](./docs/api_flows_diagram.md#tag-walker-search-flow)
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (For LLM Developers)
 
 ### Prerequisites
 * Node.js >= 18.0.0
@@ -243,14 +385,15 @@ pnpm start
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Structure (For LLM Developers)
 
 * **`engine/`**: The neural center.
 * `src/core/`: Database (CozoDB) and Batch processors.
 * `src/services/ingest/`: Watchdog, AtomizerService, and Atomic Ingest.
 * `src/services/search/`: The **Atomic Tag-Walker** implementation.
 * `src/services/mirror/`: Filesystem projection logic.
-
+* `src/types/`: Type definitions for LLM developer reference.
+* `src/utils/`: Utility functions and managers.
 
 * **`frontend/`**: React dashboard.
 * **`desktop-overlay/`**: Electron app.
@@ -258,7 +401,7 @@ pnpm start
 
 ---
 
-## 📚 Documentation Standards
+## 📚 Documentation Standards (Per doc_policy.md)
 
 This project follows strict engineering standards documented in `specs/standards/`. Key references:
 
@@ -267,14 +410,26 @@ This project follows strict engineering standards documented in `specs/standards
 * **Standard 058**: [UniversalRAG API](./specs/standards/058_universal_rag_api.md)
 * **Standard 073**: [Data Hygiene Protocol (The Immune System)](./specs/standards/073-data-hygiene-protocol.md)
 
+### Core Documentation Principles:
+1. **Code is King**: Code is the only source of truth. Documentation is a map, not the territory.
+2. **Synchronous Testing**: EVERY feature or data change MUST include a matching update to the Test Suite.
+3. **Visuals over Text**: Prefer Mermaid diagrams to paragraphs.
+4. **Brevity**: Text sections must be <500 characters.
+5. **Pain into Patterns**: Every major bug must become a Standard.
+6. **LLM-First Documentation**: Documentation must be structured for LLM consumption and automated processing.
+7. **Change Capture**: All significant system improvements and fixes must be documented in new Standard files.
+8. **Modular Architecture**: Each component must be documented in isolation for LLM comprehension.
+9. **API-First Design**: All interfaces must be clearly defined with examples.
+10. **Self-Documenting Code**: Complex logic must include inline documentation explaining intent.
+
 ---
 
-## 🧰 Utility Tools
+## 🧰 Utility Tools (For LLM Developers)
 
 ### Codebase Scraper (`read_all.js`)
 **The Official Ingestion Bridge**
 
-Consolidate an entire project into a digestable corpus for the engine. 
+Consolidate an entire project into a digestable corpus for the engine.
 
 ```bash
 node read_all.js <path_to_project_root>
@@ -321,7 +476,7 @@ The engine automatically strips:
 
 ---
 
-## 🧠 Querying Best Practices
+## 🧠 Querying Best Practices (For LLM Developers)
 
 The **Tag-Walker** engine interprets intents differently than vector databases. Use these patterns for optimal results:
 
@@ -342,6 +497,30 @@ The **Tag-Walker** engine interprets intents differently than vector databases. 
 *   **Example**: `"How is Coda doing today?"`
 *   **Mechanism**: Uses **Wink-NLP** to extract the core intent (`Coda` + `Status`). It strips stop words ("How", "is", "doing") and executes a graph query on the entities.
 *   **Use Case**: Chatting with the system or asking about high-level status.
+
+---
+
+## LLM Developer Quick Reference
+
+### Common API Endpoints
+*   `POST /v1/ingest` - Content ingestion with atomic processing
+*   `POST /v1/memory/search` - Tag-Walker semantic search
+*   `GET /health` - System health and component status
+*   `GET /monitoring/metrics` - Performance metrics and system resources
+*   `GET /v1/models` - Available LLM models and capabilities
+
+### Key Data Structures
+*   **Compound**: Document-level entity with full content and metadata
+*   **Molecule**: Semantic segment with byte coordinates and relationship data
+*   **Atom**: Atomic semantic unit with entity recognition and tagging
+*   **Tag-Walker**: Graph traversal protocol for associative retrieval
+*   **SimHash**: Fingerprinting algorithm for deduplication
+
+### Native Module Functions
+*   `fingerprint(content)` - Generate SimHash for content
+*   `atomize(content, strategy)` - Split content into semantic molecules
+*   `cleanse(content)` - Remove artifacts and normalize content
+*   `distance(hash1, hash2)` - Compute similarity between fingerprints
 
 ---
 

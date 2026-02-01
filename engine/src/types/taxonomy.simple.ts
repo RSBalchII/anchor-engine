@@ -1,13 +1,8 @@
 /**
- * Semantic Category Taxonomy for ECE
+ * Simplified Semantic Category Taxonomy for ECE
  *
- * Implements Standard 084: Semantic Shift Architecture
- * Defines the constrained vocabulary for automatic tagging and semantic search.
- *
- * Categories are designed to:
- * 1. Prevent tag sprawl while enabling relationship narrative discovery
- * 2. Support the "Relationship Historian" pattern for cross-domain application
- * 3. Enable both human-understandable and LLM-processable semantic classification
+ * This file consolidates the repetitive SemanticCategory enum definitions
+ * into a single, clean enum without duplicate identifiers.
  */
 
 export enum SemanticCategory {

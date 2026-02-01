@@ -16,7 +16,7 @@ namespace ECE {
         size_t start = 0;
         int depth = 0;
         size_t last_split = 0;
-        
+
         // Tunables
         const size_t MIN_SIZE = 200; // Minimum characters per atom
         const size_t MAX_SIZE = 4000; // Hard limit
@@ -37,7 +37,7 @@ namespace ECE {
             // OR soft max limit reached
             bool is_newline = (c == '\n');
             bool at_zero_depth = (depth == 0);
-            
+
             if (is_newline && at_zero_depth && current_len > MIN_SIZE) {
                 atoms.emplace_back(content.substr(last_split, current_len + 1));
                 last_split = i + 1;
@@ -79,7 +79,7 @@ namespace ECE {
         std::vector<std::string> atoms;
         size_t len = content.size();
         size_t last_split = 0;
-        
+
         // Tunables
         const size_t TARGET_SIZE = 600; // Prefer ~600 chars
         const size_t MAX_SIZE = 1500;   // Hard limit
@@ -91,7 +91,7 @@ namespace ECE {
             if (current_len < TARGET_SIZE) continue;
 
             char c = content[i];
-            
+
             // Check for sentence/paragraph boundaries
             // We look for ". " or "\n\n"
             bool is_boundary = false;

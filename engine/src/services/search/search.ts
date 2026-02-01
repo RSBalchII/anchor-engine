@@ -1,5 +1,5 @@
 /**
- * Enhanced Search Service with Semantic Shift Architecture
+ * Enhanced Search Service with Semantic Shift Architecture (Standard 086 Compliant)
  *
  * Implements:
  * 1. Semantic Molecule Lookup - O(1) lookup for semantic categories
@@ -7,6 +7,8 @@
  * 3. Enhanced Tag-Walker Protocol - Graph-based associative retrieval with semantic category illumination
  * 4. Intelligent Query Expansion - GLM-assisted decomposition (Standard 069)
  * 5. Semantic Inference Protocol - Selective graph illumination for relationship narratives
+ * 6. Adaptive Query Processing - Natural language intent mapping with relaxed filtering (Standard 086)
+ * 7. Relationship Narrative Discovery - Entity co-occurrence detection for relationship patterns (Standard 087)
  */
 
 import { db } from '../../core/db.js';
@@ -992,11 +994,43 @@ export async function iterativeSearch(
 }
 
 /**
+ * Conversational Query Expansion (Standard 086)
+ * Expands natural language queries into semantic equivalents
+ */
+function expandConversationalQuery(query: string): string[] {
+  const expansions: string[] = [];
+
+  // Common conversational patterns
+  const patterns = [
+    { pattern: /what is the (latest|current|recent) (.+)/i, replacement: "$2" },
+    { pattern: /tell me about (.+)/i, replacement: "$1" },
+    { pattern: /how is (.+) doing/i, replacement: "$1" },
+    { pattern: /what's happening with (.+)/i, replacement: "$1" },
+    { pattern: /what do you know about (.+)/i, replacement: "$1" },
+    { pattern: /explain (.+)/i, replacement: "$1" },
+    { pattern: /describe (.+)/i, replacement: "$1" },
+    { pattern: /summarize (.+)/i, replacement: "$1" }
+  ];
+
+  for (const p of patterns) {
+    const match = query.match(p.pattern);
+    if (match) {
+      const expanded = query.replace(p.pattern, p.replacement).trim();
+      if (expanded && !expansions.includes(expanded)) {
+        expansions.push(expanded);
+      }
+    }
+  }
+
+  return expansions;
+}
+
+/**
  * Smart Chat Search (The "Markovian" Context Gatherer)
  * Logic:
  * 1. Try standard Iterative Search.
  * 2. If Recall is Low (< 10 atoms), TRIGGER SPLIT.
- * 3. Split Query into Top Entities (Rob, Life, etc.).
+ * 3. Split Query into Top Entities (Alice, Bob, etc.).
  * 4. Run Parallel Searches for each entity.
  * 5. Aggregate & Deduplicate.
  */

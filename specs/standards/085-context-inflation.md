@@ -1,75 +1,101 @@
+# Standard 085: Context Inflation Protocol (Semantic Window Assembly)
 
-# Standard 085: Context Inflation & Dynamic Density
+**Status:** Active | **Domain:** Retrieval & Presentation | **Category:** Context Assembly
 
-**Effective Date**: 2026-01-30
-**Status**: Active
-**Parent Standard**: [061-context-logic](./061-context-logic.md)
-**Related Standard**: [065-graph-associative-retrieval](./065-graph-associative-retrieval.md)
+## Core Problem
+The system retrieves semantic molecules individually, but users need coherent windows of context that maintain narrative flow and semantic continuity. Separate molecules need to be intelligently assembled into meaningful windows.
 
-## 1. Problem Statement: Atomic Disjointedness
-The "Atomic Search" architecture (extracting small molecules) successfully retrieves precise hits but often lacks sufficient surrounding context for the LLM to understand the *narrative flow*. This results in "fragmented hallucination" where the LLM invents connections between disjointed atoms.
+## The Challenge
+When the Tag-Walker retrieves individual semantic molecules, they may be fragments of larger semantic units. Presenting them as separate fragments can break narrative flow and reduce comprehension. The system needs to intelligently inflate separate molecules into coherent windows.
 
-## 2. Solution: Context Inflation
-"Context Inflation" is a post-search expansion layer that reconstructs the semantic neighborhood of a hit without retrieving the entire document.
+## The Solution: Context Inflation Protocol
 
-### 2.1 The Algorithm
-1.  **Grouping**: Search results (molecules) are grouped by their parent `compound_id`.
-2.  **Sorting**: Molecules within a compound are sorted by `start_byte`.
-3.  **Proximity Merging**:
-    *   If `(MoleculeB.start - MoleculeA.end) < MERGE_THRESHOLD` (Default: **500 chars**), they are considered part of the same "Context Window".
-    *   They are merged into a single window spanning from `MoleculeA.start` to `MoleculeB.end`.
-4.  **Padding**:
-    *   Apply `PADDING_CHARS` to the start and end of the window.
-    *   Clamp to document boundaries (0, length).
-5.  **Safety Capping**:
-    *   **Constraint**: No single window may exceed `MAX_WINDOW_SIZE`.
-    *   If a merged window (or even a single inflated molecule) exceeds this cap, strict truncation is applied at the limit.
+### 1. Semantic Window Assembly
+The system implements "Context Inflation" to combine separate semantic molecules into coherent windows:
+- Adjacent molecules from same source are combined
+- Temporal proximity molecules are grouped
+- Semantic similarity molecules are clustered
+- Narrative flow is preserved across molecule boundaries
 
-## 3. Dynamic Density Strategy (Adaptive Windowing)
-To maximize **Recall** within a fixed **Token Budget**, the system dynamically scales the `MAX_WINDOW_SIZE` and `PADDING_CHARS` based on the number of search hits.
+### 2. Inflation Strategies
+Different strategies for different content types:
 
-### 3.1 The Logic (Quantity First)
-We prioritize **Count (Recall)** over **Size (Detail)**, down to a "Minimum Viable" floor.
+#### Prose Inflation
+- Combine adjacent sentences/paragraphs from same document
+- Preserve narrative flow and story continuity
+- Maintain character/subject consistency
 
-```typescript
-MinViableSize = 150 chars (approx 50pad + 50content + 50pad)
+#### Code Inflation
+- Combine adjacent code blocks from same file
+- Preserve function/class context
+- Maintain variable scope relationships
 
-// 1. Can we fit EVERY result?
-MinTotalBudget = ResultsCount * MinViableSize
+#### Data Inflation
+- Combine related data points from same source
+- Preserve temporal relationships
+- Maintain categorical consistency
 
-if (MinTotalBudget > TotalBudget) {
-    // SQUEEZE: We have too many results.
-    // Truncate list to fit budget at minimal viable quality.
-    SafeCount = TotalBudget / MinViableSize
-    Results = Results.slice(0, SafeCount)
-    TargetWindowSize = MinViableSize
-} else {
-    // EXPAND: We can fit everyone. 
-    // Share budget equally.
-    TargetWindowSize = TotalBudget / ResultsCount
-}
-
-TargetPadding = (TargetWindowSize / 2) clamped to [50, 500]
+### 3. Byte Coordinate Inflation
+When molecules have byte coordinates, the system can intelligently fill gaps:
+```
+Molecule A: bytes 1000-1200
+Molecule B: bytes 1250-1400
+Gap: bytes 1201-1249 (likely metadata/comments)
+Inflate: Combine A + gap content + B for coherent window
 ```
 
-### 3.2 Constraints
-- **MIN_PADDING**: 50 chars (Ensures minimal context like `<50>search<50>`).
-- **MAX_PADDING**: 500 chars (Prevents bloat when few results found).
-- **MIN_WINDOW_CAP**: 200 chars (Absolute floor for a useful card).
-- **Static Fallback**: If no budget is provided, defaults to 2500 chars (safe max).
+## Implementation Requirements
 
-## 4. Architecture
-- **Service**: `ContextInflator` (Engine Service).
-- **Input**: List of `SearchResult` objects + `TotalBudget` (optional).
-- **Data Source**: Fetches raw content from CozoDB `compounds` table (specifically `compound_body` column).
-- **Output**: List of `SearchResult` objects with `is_inflated: true` and `content` replaced by the inflated slice (with visual markers `...`).
+### 1. Inflation Engine
+```typescript
+interface InflationResult {
+  window: string;           // Combined content
+  source: string;           // Original source identifier
+  start_byte: number;       // Start of window in original
+  end_byte: number;         // End of window in original
+  molecules: string[];      // Constituent molecules
+  inflation_strategy: string; // 'adjacent', 'temporal', 'semantic', etc.
+  coherence_score: number;  // 0.0-1.0 confidence in window coherence
+}
+```
 
-## 5. Integration
-Inflation occurs **after** search scoring/ranking but **before** the final Token Budgeting.
-*   **Semantic Search**: `src/services/semantic/semantic-search.ts`
-*   **Molecule Search**: `src/services/search/search.ts`
+### 2. Context Inflator Class
+```typescript
+class ContextInflator {
+  static inflate(molecules: SearchMolecule[], maxChars: number): InflationResult[]
+  private static applyInflationStrategy(molecules: SearchMolecule[], strategy: InflationStrategy): InflationResult[]
+  private static calculateCoherence(molecules: SearchMolecule[]): number
+  private static fillByteGaps(moleculeA: SearchMolecule, moleculeB: SearchMolecule): string
+}
+```
 
-## 6. Tuning History
-- **2026-01-30**: Implemented Dynamic Density.
-    - Added `totalBudget` param to `ContextInflator.inflate`.
-    - Logic: High result count -> Smaller windows (down to 200 chars). Low result count -> Larger windows (up to 2500 chars).
+### 3. Inflation Strategies
+- **Adjacent**: Molecules from same source with contiguous byte ranges
+- **Temporal**: Molecules with close timestamps and related content
+- **Semantic**: Molecules with high semantic similarity scores
+- **Narrative**: Molecules with shared entities and temporal progression
+
+## Performance Targets
+- Inflation Speed: <5ms per window assembly
+- Coherence Preservation: >90% of semantic relationships maintained
+- Character Budget Adherence: <5% over-budget assemblies
+- Memory Efficiency: <2x memory overhead during inflation
+
+## Validation Criteria
+1. Adjacent molecules from same source must be properly combined
+2. Byte-coordinate gaps must be intelligently filled
+3. Narrative flow must be preserved across molecule boundaries
+4. Character budget limits must be respected
+5. Semantic relationships must be maintained during inflation
+6. Performance metrics must remain within acceptable ranges
+
+## Compliance Verification
+- [ ] Context inflation engine implemented and tested
+- [ ] Multiple inflation strategies operational
+- [ ] Byte coordinate gap filling working correctly
+- [ ] Character budget enforcement validated
+- [ ] Narrative flow preservation verified
+- [ ] Performance benchmarks met
+
+## Change Capture
+This standard was created to implement the Context Inflation Protocol that enables the system to present coherent semantic windows instead of fragmented molecules, improving user comprehension and maintaining narrative continuity in retrieved results. The protocol addresses the gap between granular semantic retrieval and human-readable context presentation.

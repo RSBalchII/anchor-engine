@@ -26,7 +26,7 @@ The ECE implements a **Stateless Contextual Chat Protocol** that eliminates trad
 Where:
 - **Compound**: The source file (e.g., journal_entry.yaml)
 - **Molecule**: The text chunk with semantic meaning (e.g., paragraph/sentence)
-- **Atom**: The atomic entity within molecules (e.g., "Rob", "Jade", "Albuquerque")
+- **Atom**: The atomic entity within molecules (e.g., "Alice", "Bob", "Albuquerque")
 
 ### Semantic Category System
 
@@ -55,9 +55,9 @@ The system implements "Tag Emergence" where semantic tags emerge from the intera
 The system can identify relationship patterns by detecting when entities appear together:
 
 ```
-Input: "Rob and Jade went to the park yesterday"
+Input: "Alice and Bob went to the park yesterday"
 Process:
-  - Detect entities: ["Rob", "Jade"]
+  - Detect entities: ["Alice", "Bob"]
   - Detect relationship indicator: "and"
   - Detect time reference: "yesterday"
   - Apply tags: #Relationship, #Narrative
@@ -215,14 +215,22 @@ The system implements a complete atomic taxonomy:
 - [Standard 081: Atomic Taxonomy (V4) & Universal Data API](standards/081-atomic-taxonomy.md)
 - [Standard 082: Universal Topology (Text/Data Unification)](standards/082-universal-topology.md)
 - [Standard 083: Resilient Database Protocol (Auto-Purge)](standards/083-resilient-database.md)
+- [Standard 085: Context Inflation Protocol (Semantic Window Assembly)](standards/085-context-inflation.md)
+- [Standard 086: Tag-Walker Search Calibration (Natural Language Intent Mapping)](standards/086-tag-walker-calibration.md)
+- [Standard 087: Relationship Narrative Discovery (Entity Co-occurrence Detection)](standards/087-relationship-narrative.md)
 
-## Documentation Standards
+## Documentation Standards (Per doc_policy.md)
 
 1. **Code is King**: Code is the only source of truth. Documentation is a map, not the territory.
 2. **Synchronous Testing**: EVERY feature or data change MUST include a matching update to the Test Suite.
 3. **Visuals over Text**: Prefer Mermaid diagrams to paragraphs.
 4. **Brevity**: Text sections must be <500 characters.
 5. **Pain into Patterns**: Every major bug must become a Standard.
+6. **LLM-First Documentation**: Documentation must be structured for LLM consumption and automated processing.
+7. **Change Capture**: All significant system improvements and fixes must be documented in new Standard files.
+8. **Modular Architecture**: Each component must be documented in isolation for LLM comprehension.
+9. **API-First Design**: All interfaces must be clearly defined with examples.
+10. **Self-Documenting Code**: Complex logic must include inline documentation explaining intent.
 
 ## Build System
 
@@ -261,3 +269,39 @@ The architecture is designed for continuous evolution:
 - **Plugin Architecture**: Support for custom modules and extensions
 - **API Stability**: Backward compatibility maintained across versions
 - **Community Driven**: Open standards and extensible architecture
+
+## LLM Developer Quick Reference
+
+### Common API Endpoints
+*   `POST /v1/ingest` - Content ingestion with atomic processing
+*   `POST /v1/memory/search` - Tag-Walker semantic search
+*   `GET /health` - System health and component status
+*   `GET /monitoring/metrics` - Performance metrics and system resources
+*   `GET /v1/models` - Available LLM models and capabilities
+
+### Key Data Structures
+*   **Compound**: Document-level entity with full content and metadata
+*   **Molecule**: Semantic segment with byte coordinates and relationship data
+*   **Atom**: Atomic semantic unit with entity recognition and tagging
+*   **Tag-Walker**: Graph traversal protocol for associative retrieval
+*   **SimHash**: Fingerprinting algorithm for deduplication
+
+### Native Module Functions
+*   `fingerprint(content)` - Generate SimHash for content
+*   `atomize(content, strategy)` - Split content into semantic molecules
+*   `cleanse(content)` - Remove artifacts and normalize content
+*   `distance(hash1, hash2)` - Compute similarity between fingerprints
+
+### System Performance Characteristics
+*   **Distance Calculations**: 4.7M ops/sec (Batch/SIMD) - 8,000x improvement over legacy JS
+*   **Ingestion Pipeline**: Full pipeline (Cleanse → Fingerprint) at ~9ms
+*   **Memory Usage**: 30-50% reduction through efficient allocation patterns
+*   **Cross-Platform**: Consistent performance across Windows, macOS, Linux
+*   **Native Acceleration**: 2.3x faster code processing with C++ modules
+
+### Search Architecture Notes
+*   **Current Challenge**: Natural language query processing shows brittleness
+*   **Example Issue**: Query "What is the latest state of the ECE" returned 0 results
+*   **Solution**: Tag-Walker protocol requires calibration for natural language intent mapping
+*   **Implementation**: Standard 086 - Tag-Walker Search Calibration
+*   **Enhancement**: Standard 087 - Relationship Narrative Discovery (entity co-occurrence detection)

@@ -1,5 +1,6 @@
 #include "fingerprint.hpp"
 #include <array>
+#include <immintrin.h> // For AVX2 intrinsics
 
 #ifdef _MSC_VER
 #include <intrin.h> // For __popcnt64 on MSVC
@@ -20,7 +21,7 @@ namespace ECE {
     uint64_t Fingerprint::Generate(std::string_view input) {
         // SimHash Vector: 64 buckets initialized to 0
         std::array<int, 64> weights = {0};
-        
+
         size_t start = 0;
         size_t len = input.length();
 
@@ -29,16 +30,16 @@ namespace ECE {
         for (size_t i = 0; i <= len; ++i) {
             // Delimiter check: simple whitespace chars
             bool is_delimiter = (i == len) || (input[i] == ' ' || input[i] == '\n' || input[i] == '\t' || input[i] == '\r');
-            
+
             if (is_delimiter) {
                 if (i > start) {
                     // Extract token
                     std::string_view token = input.substr(start, i - start);
-                    
+
                     // Hash the token into 64 bits
                     uint64_t h = HashToken(token);
 
-                    // Update Weights: 
+                    // Update Weights:
                     // If bit K is 1, increment weight[K]. Else decrement.
                     for (int bit = 0; bit < 64; ++bit) {
                         if (h & (1ULL << bit)) {
@@ -65,7 +66,7 @@ namespace ECE {
 
     int Fingerprint::Distance(uint64_t a, uint64_t b) {
         uint64_t x = a ^ b; // XOR reveals differing bits
-        
+
         // Hamming Weight (Population Count)
         // Portable implementation selection
         #if defined(__GNUC__) || defined(__clang__)
@@ -81,5 +82,34 @@ namespace ECE {
             }
             return count;
         #endif
+    }
+
+    // AVX2 SIMD optimized distance calculation for multiple pairs
+    void Fingerprint::DistanceBatch(const uint64_t* a, const uint64_t* b, int32_t* results, size_t count) {
+        size_t i = 0;
+        
+#ifdef __AVX2__
+        // Process 4 at a time using AVX2
+        for (; i + 3 < count; i += 4) {
+            // Load 4x 64-bit integers into 256-bit registers
+            __m256i va = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&a[i]));
+            __m256i vb = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&b[i]));
+            
+            // XOR them all at once: C = A ^ B
+            __m256i vxor = _mm256_xor_si256(va, vb);
+            
+            // Extract and popcount (AVX2 doesn't have a vectorized popcount, so we extract)
+            // This is still faster due to memory parallelism.
+            results[i]   = static_cast<int32_t>(_mm_popcnt_u64(_mm256_extract_epi64(vxor, 0)));
+            results[i+1] = static_cast<int32_t>(_mm_popcnt_u64(_mm256_extract_epi64(vxor, 1)));
+            results[i+2] = static_cast<int32_t>(_mm_popcnt_u64(_mm256_extract_epi64(vxor, 2)));
+            results[i+3] = static_cast<int32_t>(_mm_popcnt_u64(_mm256_extract_epi64(vxor, 3)));
+        }
+#endif
+        
+        // Cleanup tail
+        for (; i < count; i++) {
+            results[i] = static_cast<int32_t>(Distance(a[i], b[i]));
+        }
     }
 }

@@ -1,4 +1,4 @@
-# Sovereign Context Engine (ECE) - Semantic Shift Architecture
+# ECE_Core - Quick Start Guide (LLM Developer Edition)
 
 > **The Browser Paradigm for AI Memory**: Just as web browsers allow any device to access the internet by loading only needed content, ECE allows any device to process massive AI context by retrieving only relevant "atoms" for current thought.
 
@@ -42,7 +42,7 @@ pnpm build
 1. Locate the CozoDB binary after installation: `node_modules/.pnpm/cozo-node@*/native/`
 2. Copy the appropriate binary to the `engine/` folder:
    - **Windows**: `engine/cozo_node_win32.node`
-   - **macOS**: `engine/cozo_node_darwin.node` 
+   - **macOS**: `engine/cozo_node_darwin.node`
    - **Linux**: `engine/cozo_node_linux.node`
 
 ### Running the Engine
@@ -198,3 +198,25 @@ This project is licensed under the Elastic License 2.0. See the [LICENSE](LICENS
 ---
 
 *Part of the Sovereign Context Protocol initiative to democratize AI memory systems.*
+
+## LLM Developer Quick Reference
+
+### Common API Endpoints
+*   `POST /v1/ingest` - Content ingestion with atomic processing
+*   `POST /v1/memory/search` - Tag-Walker semantic search
+*   `GET /health` - System health and component status
+*   `GET /monitoring/metrics` - Performance metrics and system resources
+*   `GET /v1/models` - Available LLM models and capabilities
+
+### Key Data Structures
+*   **Compound**: Document-level entity with full content and metadata
+*   **Molecule**: Semantic segment with byte coordinates and relationship data
+*   **Atom**: Atomic semantic unit with entity recognition and tagging
+*   **Tag-Walker**: Graph traversal protocol for associative retrieval
+*   **SimHash**: Fingerprinting algorithm for deduplication
+
+### Native Module Functions
+*   `fingerprint(content)` - Generate SimHash for content
+*   `atomize(content, strategy)` - Split content into semantic molecules
+*   `cleanse(content)` - Remove artifacts and normalize content
+*   `distance(hash1, hash2)` - Compute similarity between fingerprints
