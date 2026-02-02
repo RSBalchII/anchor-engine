@@ -41,7 +41,7 @@ export async function createMirror() {
     fs.mkdirSync(MIRRORED_BRAIN_PATH, { recursive: true });
 
     // Fetch atoms with sequence and provenance for proper bundling and re-hydration
-    const query = '?[id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance] := *memory{id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance}';
+    const query = 'SELECT id, timestamp, content, source_path as source, type, hash, buckets, tags, sequence, provenance FROM atoms';
     const result = await db.run(query);
 
     if (!result.rows || result.rows.length === 0) {
@@ -56,7 +56,25 @@ export async function createMirror() {
     const directoryGroups = new Map<string, Map<string, any[]>>();
 
     for (const row of result.rows) {
-        const [id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance] = row;
+        // Handle both array and object formats that PGlite might return
+        let id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance;
+
+        if (Array.isArray(row)) {
+            // Row is in array format [id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance]
+            [id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance] = row;
+        } else {
+            // Row is in object format {id, timestamp, content, source, type, hash, buckets, tags, sequence, provenance}
+            id = row.id;
+            timestamp = row.timestamp;
+            content = row.content;
+            source = row.source;
+            type = row.type;
+            hash = row.hash;
+            buckets = row.buckets;
+            tags = row.tags;
+            sequence = row.sequence;
+            provenance = row.provenance;
+        }
 
         const bucketList = (buckets as string[]) || [];
         const tagList = (tags as string[]) || [];

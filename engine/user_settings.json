@@ -1,5 +1,8 @@
 {
     "llm": {
+        "provider": "remote",
+        "remote_url": "http://100.74.174.76:8000/v1",
+        "remote_model": "gemma-2-27b-it",
         "model_dir": "../../models",
         "chat_model": "GLM-4.7-Flash.i1-Q4_K_S.gguf",
         "task_model": "Qwen3-4B-Function-Calling-Pro.gguf",

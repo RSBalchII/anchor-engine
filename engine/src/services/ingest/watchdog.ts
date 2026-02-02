@@ -78,11 +78,25 @@ async function processFile(filePath: string, event: string) {
         const content = buffer.toString('utf8');
 
         // 2. Check Source Table (Change Detection)
-        const sourceQuery = `?[path, hash] := *source{path, hash}, path = $path`;
-        const sourceResult = await db.run(sourceQuery, { path: relativePath });
+        const sourceQuery = `SELECT path, hash FROM sources WHERE path = $1`;
+        const sourceResult = await db.run(sourceQuery, [relativePath]);
 
-        if (sourceResult.rows && sourceResult.rows.length > 0) {
-            const [_path, existingHash] = sourceResult.rows[0];
+        // Handle potential null result
+        if (!sourceResult || !sourceResult.rows) {
+            console.log(`[Watchdog] No existing record for path: ${relativePath}`);
+        }
+
+        if (sourceResult && sourceResult.rows && sourceResult.rows.length > 0) {
+            const row = sourceResult.rows[0];
+            // Handle both array and object formats that PGlite might return
+            let existingHash;
+            if (Array.isArray(row)) {
+                // Row is in array format [path, hash]
+                existingHash = row[1];
+            } else {
+                // Row is in object format {path, hash}
+                existingHash = row.hash;
+            }
             if (existingHash === fileHash) {
                 console.log(`[Watchdog] File unchanged (hash match): ${relativePath}`);
                 return;
@@ -103,20 +117,20 @@ async function processFile(filePath: string, event: string) {
         // 4. CLEANUP (Full Refresh Strategy)
         // Find existing chunks for this file and wipe them to prevent ghosts
         // We look for anything linked to this source path
-        const existingQuery = `?[id] := *memory{id, source_id}, source_id = $sid`;
-        // Note: We use the compound ID as the source_id anchor for molecules? 
-        // Or atomic ingest sets source_id = compound.id.
-        // Wait, standard Refiner set source_id = MD5(path).
-        // Atomizer uses MD5(path+content) for compound ID.
-        // We should query by `source` column which is the PATH.
-
-        const pathQuery = `?[id] := *memory{id, source}, source = $src`;
-        const existingResult = await db.run(pathQuery, { src: relativePath });
+        const pathQuery = `SELECT id FROM atoms WHERE source_path = $1`;
+        const existingResult = await db.run(pathQuery, [relativePath]);
 
         if (existingResult.rows && existingResult.rows.length > 0) {
-            const idsToDelete = existingResult.rows.map((r: any) => r[0]);
+            const idsToDelete = existingResult.rows.map((r: any) => {
+                // Handle both array and object formats that PGlite might return
+                if (Array.isArray(r)) {
+                    return r[0]; // If array format, id is at index 0
+                } else {
+                    return r.id; // If object format, use id property
+                }
+            });
             console.log(`[Watchdog] Cleaning up ${idsToDelete.length} stale fragments...`);
-            await db.run(`?[id] <- $ids :delete memory {id}`, { ids: idsToDelete.map((id: string) => [id]) });
+            await db.run(`DELETE FROM atoms WHERE id = ANY($1)`, [idsToDelete]);
         }
 
         // 5. INGEST (Atomic)
@@ -136,14 +150,18 @@ async function processFile(filePath: string, event: string) {
 
         // 6. Update Source Table
         await db.run(
-            `?[path, hash, total_atoms, last_ingest] <- [[$path, $hash, $total, $last]] 
-             :put source {path, hash, total_atoms, last_ingest}`,
-            {
-                path: relativePath,
-                hash: fileHash,
-                total: topology.molecules.length, // Track molecules count
-                last: Date.now()
-            }
+            `INSERT INTO sources (path, hash, total_atoms, last_ingest)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (path) DO UPDATE SET
+               hash = EXCLUDED.hash,
+               total_atoms = EXCLUDED.total_atoms,
+               last_ingest = EXCLUDED.last_ingest`,
+            [
+                relativePath,
+                fileHash,
+                topology.molecules.length, // Track molecules count
+                Date.now()
+            ]
         );
 
         console.log(`[Watchdog] Sync Complete: ${relativePath}`);

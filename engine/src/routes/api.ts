@@ -64,34 +64,22 @@ export function setupRoutes(app: Application) {
       // Update Provenance + Add Tag
       // We use a transaction-like update: Read -> Modify -> Write
       // 1. Get current record
-      const check = await db.run(`?[tags] := *memory{id, tags}, id = $id`, { id });
+      const check = await db.run(
+        `SELECT tags FROM atoms WHERE id = $1`,
+        [id]
+      );
       if (!check.rows || check.rows.length === 0) {
         res.status(404).json({ error: 'Atom not found' });
         return;
       }
 
-      const currentTags = check.rows[0][0] as string[];
+      const currentTags = check.rows[0][0] as string[] || [];
       const newTags = [...new Set([...currentTags, '#manually_quarantined'])];
 
-      // 2. Update Record (CozoDB :put overwrites existing key)
-      const fullRecord = await db.run(`?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] := *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}, id = $id`, { id });
-
-      if (!fullRecord.rows || fullRecord.rows.length === 0) {
-        res.status(500).json({ error: 'Read-Modify-Write failed' });
-        return;
-      }
-
-      const row = fullRecord.rows[0];
-      // row indices: 0:id, ..., 10:tags, 11:provenance, 12:simhash, 13:embedding
-
-      const updatedRow = [...row];
-      updatedRow[10] = newTags;      // Update Tags
-      updatedRow[11] = 'quarantine'; // Update Provenance
-
+      // 2. Update Record
       await db.run(
-        `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data 
-         :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}`,
-        { data: [updatedRow] }
+        `UPDATE atoms SET tags = $1, provenance = $2 WHERE id = $3`,
+        [newTags, 'quarantine', id]
       );
 
       res.status(200).json({ status: 'success', message: `Atom ${id} quarantined.` });
@@ -105,11 +93,11 @@ export function setupRoutes(app: Application) {
   app.get('/v1/atoms/quarantined', async (_req: Request, res: Response) => {
     try {
       const query = `
-        ?[id, content, source, timestamp, buckets, tags, provenance, simhash, embedding] := 
-        *memory{id, content, source, timestamp, buckets, tags, provenance, simhash, embedding},
-        provenance = 'quarantine',
-        :order -timestamp
-        :limit 100
+        SELECT id, content, source_path, timestamp, buckets, tags, provenance, simhash, embedding
+        FROM atoms
+        WHERE provenance = 'quarantine'
+        ORDER BY timestamp DESC
+        LIMIT 100
       `;
       const result = await db.run(query);
 
@@ -144,7 +132,11 @@ export function setupRoutes(app: Application) {
       console.log(`[API] Updating Atom Content: ${id}`);
 
       // We must preserve all other fields, BUT zero out embedding to signal re-index needed
-      const fullRecord = await db.run(`?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] := *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}, id = $id`, { id });
+      const fullRecord = await db.run(
+        `SELECT id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding
+         FROM atoms WHERE id = $1`,
+        [id]
+      );
 
       if (!fullRecord.rows || fullRecord.rows.length === 0) {
         res.status(404).json({ error: 'Atom not found' });
@@ -152,7 +144,7 @@ export function setupRoutes(app: Application) {
       }
 
       const row = fullRecord.rows[0];
-      // row indices: 0:id, ..., 12:simhash, 13:embedding
+      // row indices: 0:id, 1:timestamp, 2:content, 3:source_path, 4:source_id, 5:sequence, 6:type, 7:hash, 8:buckets, 9:epochs, 10:tags, 11:provenance, 12:simhash, 13:embedding
       const updatedRow = [...row];
       updatedRow[2] = content; // Update Content
 
@@ -163,9 +155,8 @@ export function setupRoutes(app: Application) {
       updatedRow[13] = new Array(384).fill(0.1); // Index 13 is embedding now
 
       await db.run(
-        `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data 
-         :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}`,
-        { data: [updatedRow] }
+        `UPDATE atoms SET content = $1, hash = $2, embedding = $3 WHERE id = $4`,
+        [content, updatedRow[7], updatedRow[13], id]
       );
 
       res.status(200).json({ status: 'success', message: `Atom ${id} updated.` });
@@ -181,7 +172,11 @@ export function setupRoutes(app: Application) {
       const { id } = req.params;
       console.log(`[API] Restoring Atom: ${id}`);
 
-      const fullRecord = await db.run(`?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] := *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}, id = $id`, { id });
+      const fullRecord = await db.run(
+        `SELECT id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding
+         FROM atoms WHERE id = $1`,
+        [id]
+      );
 
       if (!fullRecord.rows || fullRecord.rows.length === 0) {
         res.status(404).json({ error: 'Atom not found' });
@@ -189,19 +184,14 @@ export function setupRoutes(app: Application) {
       }
 
       const row = fullRecord.rows[0];
-      const currentTags = row[10] as string[];
+      const currentTags = row[10] as string[] || [];
 
       // Filter out quarantine tags
       const newTags = currentTags.filter(t => t !== '#manually_quarantined' && t !== '#auto_quarantined');
 
-      const updatedRow = [...row];
-      updatedRow[10] = newTags;
-      updatedRow[11] = 'internal'; // Mark as Internal
-
       await db.run(
-        `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data 
-         :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}`,
-        { data: [updatedRow] }
+        `UPDATE atoms SET tags = $1, provenance = $2 WHERE id = $3`,
+        [newTags, 'internal', id]
       );
 
       res.status(200).json({ status: 'success', message: `Atom ${id} restored to Graph.` });
@@ -345,7 +335,7 @@ export function setupRoutes(app: Application) {
   // Get all buckets
   app.get('/v1/buckets', async (_req: Request, res: Response) => {
     try {
-      const result = await db.run('?[bucket] := *memory{buckets}, bucket in buckets');
+      const result = await db.run('SELECT DISTINCT unnest(buckets) as bucket FROM atoms WHERE buckets IS NOT NULL');
       const buckets = result.rows ? [...new Set(result.rows.map((row: any) => row[0]))].sort() : [];
       res.status(200).json(buckets);
     } catch (error) {
@@ -357,7 +347,7 @@ export function setupRoutes(app: Application) {
   // Get all tags
   app.get('/v1/tags', async (_req: Request, res: Response) => {
     try {
-      const result = await db.run('?[tag] := *memory{tags}, tag in tags');
+      const result = await db.run('SELECT DISTINCT unnest(tags) as tag FROM atoms WHERE tags IS NOT NULL');
       const tags = result.rows ? [...new Set(result.rows.map((row: any) => row[0]))].sort() : [];
       res.status(200).json(tags);
     } catch (error) {
@@ -602,26 +592,38 @@ export function setupRoutes(app: Application) {
           const userHash = crypto.createHash('sha256').update(objective).digest('hex');
 
           await db.run(
-            `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] <- $data
-             :insert memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding}`,
-            {
-              data: [[
-                `chat_${userTimestamp}_user`,
-                userTimestamp,
-                objective,
-                'chat_session',
-                `chat_${userTimestamp}`,
-                0,
-                'chat_user',
-                userHash,
-                ['inbox', 'personal'],
-                ['#chat', '#conversation'],
-                [],
-                'internal',
-                "0",
-                new Array(768).fill(0.1)
-              ]]
-            }
+            `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               timestamp = EXCLUDED.timestamp,
+               source_path = EXCLUDED.source_path,
+               source_id = EXCLUDED.source_id,
+               sequence = EXCLUDED.sequence,
+               type = EXCLUDED.type,
+               hash = EXCLUDED.hash,
+               buckets = EXCLUDED.buckets,
+               tags = EXCLUDED.tags,
+               epochs = EXCLUDED.epochs,
+               provenance = EXCLUDED.provenance,
+               simhash = EXCLUDED.simhash,
+               embedding = EXCLUDED.embedding`,
+            [
+              `chat_${userTimestamp}_user`,
+              userTimestamp,
+              objective,
+              'chat_session',
+              `chat_${userTimestamp}`,
+              0,
+              'chat_user',
+              userHash,
+              ['inbox', 'personal'],
+              ['#chat', '#conversation'],
+              [],
+              'internal',
+              "0",
+              new Array(768).fill(0.1)
+            ]
           );
 
           // Save AI response
@@ -629,26 +631,38 @@ export function setupRoutes(app: Application) {
           const aiHash = crypto.createHash('sha256').update(fullResponse).digest('hex');
 
           await db.run(
-            `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] <- $data
-             :insert memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding}`,
-            {
-              data: [[
-                `chat_${aiTimestamp}_ai`,
-                aiTimestamp,
-                fullResponse,
-                'chat_session',
-                `chat_${aiTimestamp}`,
-                1,
-                'chat_ai',
-                aiHash,
-                ['inbox', 'personal'],
-                ['#chat', '#conversation'],
-                [],
-                'internal',
-                "0",
-                new Array(768).fill(0.1)
-              ]]
-            }
+            `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               timestamp = EXCLUDED.timestamp,
+               source_path = EXCLUDED.source_path,
+               source_id = EXCLUDED.source_id,
+               sequence = EXCLUDED.sequence,
+               type = EXCLUDED.type,
+               hash = EXCLUDED.hash,
+               buckets = EXCLUDED.buckets,
+               tags = EXCLUDED.tags,
+               epochs = EXCLUDED.epochs,
+               provenance = EXCLUDED.provenance,
+               simhash = EXCLUDED.simhash,
+               embedding = EXCLUDED.embedding`,
+            [
+              `chat_${aiTimestamp}_ai`,
+              aiTimestamp,
+              fullResponse,
+              'chat_session',
+              `chat_${aiTimestamp}`,
+              1,
+              'chat_ai',
+              aiHash,
+              ['inbox', 'personal'],
+              ['#chat', '#conversation'],
+              [],
+              'internal',
+              "0",
+              new Array(768).fill(0.1)
+            ]
           );
 
           console.log(`[API] Chat saved to graph: User message and AI response`);

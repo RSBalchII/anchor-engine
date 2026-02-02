@@ -23,6 +23,11 @@ interface Config {
   LOG_LEVEL: string;
   OVERLAY_PORT: number;
 
+  // LLM Provider
+  LLM_PROVIDER: 'local' | 'remote';
+  REMOTE_LLM_URL: string;
+  REMOTE_MODEL_NAME: string;
+
   // Tuning
   DEFAULT_SEARCH_CHAR_LIMIT: number;
   DREAM_INTERVAL_MS: number;
@@ -99,6 +104,11 @@ const DEFAULT_CONFIG: Config = {
   API_KEY: "ece-secret-key",
   LOG_LEVEL: "INFO",
   OVERLAY_PORT: 3001,
+
+  // LLM Provider
+  LLM_PROVIDER: 'local',
+  REMOTE_LLM_URL: "http://localhost:8000/v1",
+  REMOTE_MODEL_NAME: "default",
 
   // Tuning
   DEFAULT_SEARCH_CHAR_LIMIT: 524288,
@@ -198,6 +208,10 @@ function loadConfig(): Config {
       console.log(`[Config] Loaded settings from ${userSettingsPath}`);
 
       if (userSettings.llm) {
+        if (userSettings.llm.provider) loadedConfig.LLM_PROVIDER = userSettings.llm.provider;
+        if (userSettings.llm.remote_url) loadedConfig.REMOTE_LLM_URL = userSettings.llm.remote_url;
+        if (userSettings.llm.remote_model) loadedConfig.REMOTE_MODEL_NAME = userSettings.llm.remote_model;
+
         if (userSettings.llm.chat_model) loadedConfig.MODELS.MAIN.PATH = userSettings.llm.chat_model;
         if (userSettings.llm.gpu_layers !== undefined) loadedConfig.MODELS.MAIN.GPU_LAYERS = userSettings.llm.gpu_layers;
         if (userSettings.llm.ctx_size !== undefined) loadedConfig.MODELS.MAIN.CTX_SIZE = userSettings.llm.ctx_size;

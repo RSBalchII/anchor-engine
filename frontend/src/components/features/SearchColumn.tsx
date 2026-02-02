@@ -172,7 +172,7 @@ export const SearchColumn = memo(({
                                     );
                                 }}
                             >
-                                {bucket.toUpperCase()}
+                                {(bucket || '').toUpperCase()}
                             </Button>
                         );
                     })}

@@ -153,11 +153,11 @@ export class TaxonomyManager {
       // This is a simplified version - in practice, you'd have a more sophisticated query
       // that looks for named entities in your content
       const result = await db.run(`
-        ?[entity, count] := *memory{content, tags}, 
-        entity = content, // This would be more complex in reality
-        count = count(entity)
-        :sort -count
-        :limit 50
+        SELECT content as entity, COUNT(*) as count
+        FROM atoms
+        GROUP BY content
+        ORDER BY count DESC
+        LIMIT 50
       `);
 
       const suggestions = result.rows.map((row: any[]) => ({

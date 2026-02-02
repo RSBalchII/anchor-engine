@@ -126,7 +126,7 @@ export class HealthCheckService {
   private async checkDatabaseHealth(): Promise<ComponentHealth> {
     try {
       // Try a simple query to test database connectivity
-      const result = await db.run('?[a] := a=1', {}); // Valid CozoDB query
+      const result = await db.run('SELECT 1 as a'); // Valid CozoDB query
 
       if (result && result.rows) {
         return {

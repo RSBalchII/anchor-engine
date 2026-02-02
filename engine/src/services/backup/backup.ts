@@ -53,13 +53,13 @@ export async function createBackup(): Promise<{ filename: string; stats: BackupS
 
         while (true) {
             const query = `
-                ?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] := 
-                *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding},
-                id > $lastId,
-                :order id
-                :limit 500
+                SELECT id, timestamp, content, source_path as source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding
+                FROM atoms
+                WHERE id > $1
+                ORDER BY id
+                LIMIT 500
             `;
-            const result = await db.run(query, { lastId: memoryLastId });
+            const result = await db.run(query, [memoryLastId]);
 
             if (!result.rows || result.rows.length === 0) break;
 
@@ -75,7 +75,7 @@ export async function createBackup(): Promise<{ filename: string; stats: BackupS
 
         // 2. Stream Source
         await write('  "source": [\n');
-        const sourceResult = await db.run('?[path, hash, total_atoms, last_ingest] := *source{path, hash, total_atoms, last_ingest}');
+        const sourceResult = await db.run('SELECT path, hash, total_atoms, last_ingest FROM sources');
         if (sourceResult.rows) {
             for (let i = 0; i < sourceResult.rows.length; i++) {
                 if (i > 0) await write(',\n');
@@ -87,7 +87,7 @@ export async function createBackup(): Promise<{ filename: string; stats: BackupS
 
         // 3. Stream Engrams
         await write('  "engrams": [\n');
-        const engramResult = await db.run('?[key, value] := *engrams{key, value}');
+        const engramResult = await db.run('SELECT key, value FROM engrams');
         if (engramResult.rows) {
             for (let i = 0; i < engramResult.rows.length; i++) {
                 if (i > 0) await write(',\n');
@@ -154,23 +154,51 @@ export async function restoreBackup(filename: string): Promise<BackupStats> {
         if (batch.length === 0) return;
 
         if (currentSection === 'memory') {
-            await db.run(
-                `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] <- $data
-                 :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding}`,
-                { data: batch }
-            );
+            for (const row of batch) {
+                await db.run(
+                    `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                     ON CONFLICT (id) DO UPDATE SET
+                       content = EXCLUDED.content,
+                       timestamp = EXCLUDED.timestamp,
+                       source_path = EXCLUDED.source_path,
+                       source_id = EXCLUDED.source_id,
+                       sequence = EXCLUDED.sequence,
+                       type = EXCLUDED.type,
+                       hash = EXCLUDED.hash,
+                       buckets = EXCLUDED.buckets,
+                       tags = EXCLUDED.tags,
+                       epochs = EXCLUDED.epochs,
+                       provenance = EXCLUDED.provenance,
+                       simhash = EXCLUDED.simhash,
+                       embedding = EXCLUDED.embedding`,
+                    row
+                );
+            }
             stats.memory_count += batch.length;
         } else if (currentSection === 'source') {
-            await db.run(
-                `?[path, hash, total_atoms, last_ingest] <- $data :put source {path, hash, total_atoms, last_ingest}`,
-                { data: batch }
-            );
+            for (const row of batch) {
+                await db.run(
+                    `INSERT INTO sources (path, hash, total_atoms, last_ingest)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (path) DO UPDATE SET
+                       hash = EXCLUDED.hash,
+                       total_atoms = EXCLUDED.total_atoms,
+                       last_ingest = EXCLUDED.last_ingest`,
+                    row
+                );
+            }
             stats.source_count += batch.length;
         } else if (currentSection === 'engrams') {
-            await db.run(
-                `?[key, value] <- $data :put engrams {key, value}`,
-                { data: batch }
-            );
+            for (const row of batch) {
+                await db.run(
+                    `INSERT INTO engrams (key, value)
+                     VALUES ($1, $2)
+                     ON CONFLICT (key) DO UPDATE SET
+                       value = EXCLUDED.value`,
+                    row
+                );
+            }
             stats.engram_count += batch.length;
         }
 

@@ -152,7 +152,7 @@ const MonitoringDashboard: React.FC = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">Status:</span>
               <span className={`font-medium ${getStatusColor(systemMetrics.status)}`}>
-                {systemMetrics.status.charAt(0).toUpperCase() + systemMetrics.status.slice(1)}
+                {(systemMetrics.status || '').charAt(0).toUpperCase() + (systemMetrics.status || '').slice(1)}
               </span>
             </div>
             <div className="flex justify-between">

@@ -74,56 +74,55 @@ export async function executeSemanticSearch(
     }
   }
 
-  // Build the search query to find semantic molecules using proper CozoDB FTS syntax
-  // Updated to include molecular coordinates from *molecules table for Context Inflation
-  let searchQuery = `?[id, content, source, timestamp, buckets, tags, epochs, provenance, simhash, score, compound_id, start_byte, end_byte] :=
-    ~memory:content_fts{id | query: $search_term, k: 50, bind_score: fts_score},
-    *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, simhash},
-    *molecules{id, compound_id, start_byte, end_byte},
-    score = fts_score`;
+  // Build the search query to find semantic molecules using proper SQL FTS syntax
+  // Updated to include molecular coordinates from molecules table for Context Inflation
+  let searchQuery = `SELECT a.id, a.content, a.source_path as source, a.timestamp, a.buckets, a.tags, a.epochs, a.provenance, a.simhash,
+         ts_rank(to_tsvector('english', a.content), plainto_tsquery('english', $1)) as score,
+         m.compound_id, m.start_byte, m.end_byte
+    FROM atoms a
+    LEFT JOIN molecules m ON a.id = m.id
+    WHERE to_tsvector('english', a.content) @@ plainto_tsquery('english', $1)`;
 
   // Build query filters and parameters
-  const filterClauses: string[] = [];
-  const queryParams: any = {};
+  const queryFilters: string[] = [];
+  const sqlParams: any[] = [query]; // Start with the main query parameter
+  let paramCounter = 1; // Start with $2 since $1 is already used
 
   // Add provenance filter
   if (provenance !== 'all') {
-    filterClauses.push(`provenance = $provenance`);
-    queryParams.provenance = provenance;
+    paramCounter++;
+    queryFilters.push(`a.provenance = $${paramCounter}`);
+    sqlParams.push(provenance);
   }
 
   // Add bucket filters if specified
   if (buckets && buckets.length > 0) {
-    filterClauses.push(`length(intersection(buckets, $buckets)) > 0`);
-    queryParams.buckets = buckets;
+    paramCounter++;
+    queryFilters.push(`EXISTS (
+      SELECT 1 FROM unnest(a.buckets) as bucket WHERE bucket = ANY($${paramCounter})
+    )`);
+    sqlParams.push(buckets);
   }
 
   // Add tag filters if specified
   if (scopeTags.length > 0) {
-    filterClauses.push(`length(intersection(tags, $tags)) > 0`);
-    queryParams.tags = scopeTags;
+    paramCounter++;
+    queryFilters.push(`EXISTS (
+      SELECT 1 FROM unnest(a.tags) as tag WHERE tag = ANY($${paramCounter})
+    )`);
+    sqlParams.push(scopeTags);
   }
 
-  // Add content search based on query terms
-  if (searchTerms.length > 0) {
-    const validTerms = searchTerms.filter(term => term.length > 0);
-    if (validTerms.length > 0) {
-      // Use all terms as the search query
-      const searchTerm = validTerms.join(' ');
-      queryParams.search_term = searchTerm;
-    }
+  // Combine all filter clauses with AND
+  if (queryFilters.length > 0) {
+    searchQuery += ` AND ${queryFilters.join(' AND ')}`;
   }
 
-  // Combine all filter clauses with commas
-  if (filterClauses.length > 0) {
-    searchQuery += `, ${filterClauses.join(', ')}`;
-  }
-
-  // Add ordering by FTS score and timestamp (newest first)
-  searchQuery += `\n:order -score, -timestamp`;
+  // Complete the query with ordering and limit
+  searchQuery += ` ORDER BY score DESC, timestamp DESC LIMIT 50`;
 
   try {
-    const result = await db.run(searchQuery, queryParams);
+    const result = await db.run(searchQuery, sqlParams);
     const rows = result.rows || [];
 
     // Process results and apply semantic scoring

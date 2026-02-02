@@ -114,7 +114,7 @@ export async function dream(): Promise<{ status: string; analyzed?: number; upda
     console.log('🌙 Dreamer: Starting self-organization cycle...');
 
     // 1. Get all memories that might benefit from re-categorization
-    const allMemoriesQuery = '?[id, content, buckets, timestamp] := *memory{id, content, buckets, timestamp}';
+    const allMemoriesQuery = 'SELECT id, content, buckets, timestamp FROM atoms';
     const allMemoriesResult = await db.run(allMemoriesQuery);
 
     if (!allMemoriesResult.rows || allMemoriesResult.rows.length === 0) {
@@ -122,20 +122,40 @@ export async function dream(): Promise<{ status: string; analyzed?: number; upda
     }
 
     // Filter memories that need attention
-    const memoriesToAnalyze = allMemoriesResult.rows.filter((row: any[]) => {
-      const [_, __, buckets, timestamp] = row;
+    const memoriesToAnalyze = allMemoriesResult.rows.filter((row: any) => {
+      // Handle both array and object formats that PGlite might return
+      let buckets: any, timestamp: any;
+
+      if (row && Array.isArray(row)) {
+        // Row is in array format [id, content, buckets, timestamp]
+        if (row.length >= 4) {
+          [, , buckets, timestamp] = row;
+        } else {
+          // Insufficient elements in array
+          buckets = [];
+          timestamp = 0;
+        }
+      } else if (row && typeof row === 'object') {
+        // Row is in object format {id, content, buckets, timestamp}
+        buckets = row.buckets;
+        timestamp = row.timestamp;
+      } else {
+        // Invalid row format
+        buckets = [];
+        timestamp = 0;
+      }
 
       // Always include memories with no buckets
-      if (!buckets || buckets.length === 0) return true;
+      if (!buckets || (Array.isArray(buckets) && buckets.length === 0)) return true;
 
       // Include memories with generic buckets
       const genericBuckets = ['core', 'misc', 'general', 'other', 'unknown'];
-      const hasOnlyGenericBuckets = buckets.every((bucket: string) => genericBuckets.includes(bucket));
+      const hasOnlyGenericBuckets = Array.isArray(buckets) && buckets.every((bucket: string) => genericBuckets.includes(bucket));
       if (hasOnlyGenericBuckets) return true;
 
       // Include memories that lack temporal tags
       const year = new Date(timestamp).getFullYear().toString();
-      if (!buckets.includes(year)) return true;
+      if (Array.isArray(buckets) && !buckets.includes(year)) return true;
 
       return false;
     });
@@ -159,7 +179,20 @@ export async function dream(): Promise<{ status: string; analyzed?: number; upda
       // 1. Prepare updates mapping in memory
       const updatesMap = new Map<string, string[]>();
       for (const row of batch) {
-        const [id, _content, currentBuckets, timestamp] = row;
+        // Handle both array and object formats that PGlite might return
+        let id: string, content: string, currentBuckets: any, timestamp: any;
+
+        if (Array.isArray(row)) {
+          // Row is in array format [id, content, buckets, timestamp]
+          [id, content, currentBuckets, timestamp] = row;
+        } else {
+          // Row is in object format {id, content, buckets, timestamp}
+          id = row.id;
+          content = row.content;
+          currentBuckets = row.buckets;
+          timestamp = row.timestamp;
+        }
+
         const temporalTags = generateTemporalTags(timestamp);
 
         let newSemanticTags: string[] = [];
@@ -185,28 +218,81 @@ export async function dream(): Promise<{ status: string; analyzed?: number; upda
       }
 
       // 2. Bulk fetch full data for the batch
-      const flatIds = batch.map(r => r[0]);
+      const flatIds = batch.map(r => {
+        // Handle both array and object formats that PGlite might return
+        if (Array.isArray(r)) {
+          return r[0]; // If array format, id is at index 0
+        } else {
+          return r.id; // If object format, use id property
+        }
+      });
+
       const fetchQuery = `
-        ?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] :=
-        id in $flatIds,
-        *memory{id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}
+        SELECT id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding
+        FROM atoms
+        WHERE id = ANY($1)
       `;
-      const fullDataResult = await db.run(fetchQuery, { flatIds });
+      const fullDataResult = await db.run(fetchQuery, [flatIds]);
 
       if (fullDataResult.rows && fullDataResult.rows.length > 0) {
         const finalUpdateData = fullDataResult.rows.map((row: any) => {
-          const id = row[0];
-          const newBuckets = updatesMap.get(id);
-          const updatedRow = [...row];
-          updatedRow[8] = newBuckets; // index 8 is buckets
-          return updatedRow;
+          let id: string;
+
+          if (Array.isArray(row)) {
+            id = row[0];  // First element is always the ID in our SELECT
+            const newBuckets = updatesMap.get(id);
+            const updatedRow = [...row];
+            updatedRow[8] = newBuckets; // index 8 is buckets
+            return updatedRow;
+          } else if (row && typeof row === 'object') {
+            // Handle object format
+            id = row.id;
+            const newBuckets = updatesMap.get(id);
+            // Return in the expected array format for the SQL update
+            return [
+              row.id,
+              row.timestamp,
+              row.content,
+              row.source_path,
+              row.source_id,
+              row.sequence,
+              row.type,
+              row.hash,
+              newBuckets, // Updated buckets
+              row.epochs,
+              row.tags,
+              row.provenance,
+              row.simhash,
+              row.embedding
+            ];
+          } else {
+            throw new Error(`Unexpected row format: ${typeof row}`);
+          }
         });
 
         // 3. Bulk Update
-        await db.run(`
-          ?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data
-          :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}
-        `, { data: finalUpdateData });
+        // Process each item in the batch individually to update atoms table
+        for (const item of finalUpdateData) {
+          await db.run(
+            `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               timestamp = EXCLUDED.timestamp,
+               source_path = EXCLUDED.source_path,
+               source_id = EXCLUDED.source_id,
+               sequence = EXCLUDED.sequence,
+               type = EXCLUDED.type,
+               hash = EXCLUDED.hash,
+               buckets = EXCLUDED.buckets,
+               epochs = EXCLUDED.epochs,
+               tags = EXCLUDED.tags,
+               provenance = EXCLUDED.provenance,
+               simhash = EXCLUDED.simhash,
+               embedding = EXCLUDED.embedding`,
+            item
+          );
+        }
 
         updatedCount += finalUpdateData.length;
       }
@@ -270,15 +356,15 @@ async function clusterAndSummarize(): Promise<void> {
     const { config } = await import('../../config/index.js');
     const limit = (config.DREAMER_BATCH_SIZE || 5) * 4; // Fetch 4x batch size for clustering context
 
-    // We look for memories that are NOT a child in 'parent_of'
-    // Cozo: `?[id] := *memory{id}, not *parent_of{child_id: id}`
-    // We look for memories that are NOT a child in 'parent_of'
-    // Cozo: `?[id] := *memory{id}, not *parent_of{child_id: id}`
+    // We look for memories that are NOT a child in 'parent_of' (using edges table)
     const unboundQuery = `
-            ?[id, timestamp, content, tags] := *memory{id, timestamp, content, tags},
-            not *parent_of{child_id: id},
-            :order timestamp
-    :limit ${limit}
+            SELECT id, timestamp, content, tags
+            FROM atoms
+            WHERE id NOT IN (
+                SELECT target_id FROM edges WHERE relation = 'parent_of'
+            )
+            ORDER BY timestamp
+            LIMIT ${limit}
     `;
     const result = await db.run(unboundQuery);
 
@@ -388,24 +474,33 @@ Atom Count: ${cluster.length}
 
       // Insert Summary Node
       await db.run(
-        `?[id, type, content, span_start, span_end, embedding] <- [[$id, $type, $content, $start, $end, $emb]]
-      :put summary_node { id, type, content, span_start, span_end, embedding }`,
-        {
-          id: episodeId,
-          type: 'episode',
-          content: episodeContent,
-          start: startTime,
-          end: endTime,
-          emb: new Array(384).fill(0.0) // Placeholder
-        }
+        `INSERT INTO summary_nodes (id, type, content, span_start, span_end, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (id) DO UPDATE SET
+           content = EXCLUDED.content,
+           span_start = EXCLUDED.span_start,
+           span_end = EXCLUDED.span_end,
+           embedding = EXCLUDED.embedding`,
+        [
+          episodeId,
+          'episode',
+          episodeContent,
+          startTime,
+          endTime,
+          new Array(384).fill(0.0) // Placeholder
+        ]
       );
 
       // Link Atoms to Episode (Parent_Of)
-      const edges = cluster.map(atom => [episodeId, atom.id, 1.0]);
-      await db.run(
-        `?[parent_id, child_id, weight] <- $edges :put parent_of { parent_id, child_id, weight }`,
-        { edges }
-      );
+      for (const atom of cluster) {
+        await db.run(
+          `INSERT INTO edges (source_id, target_id, weight, relation)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (source_id, target_id, relation) DO UPDATE SET
+             weight = EXCLUDED.weight`,
+          [episodeId, atom.id, 1.0, 'parent_of']
+        );
+      }
 
       console.log(`🌙 Dreamer: Created Episode ${episodeId} (Topics: ${topics.join(', ')})`);
     }

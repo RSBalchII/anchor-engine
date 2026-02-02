@@ -95,7 +95,7 @@ export class PathManager {
    * Get database path
    */
   public getDatabasePath(): string {
-    return path.resolve(this.basePath, 'context.db');
+    return path.resolve(this.basePath, 'context_data');
   }
 
   /**

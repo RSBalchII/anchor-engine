@@ -132,8 +132,8 @@ export class ContextInflator {
             // 3. Fetch Content for Windows
             for (const win of windows) {
                 try {
-                    const query = `?[body] := *compounds{id, compound_body: body}, id = $id`;
-                    const result = await db.run(query, { id: compoundId });
+                    const query = `SELECT compound_body FROM compounds WHERE id = $1`;
+                    const result = await db.run(query, [compoundId]);
 
                     if (result.rows && result.rows.length > 0) {
                         const fullBody = result.rows[0][0] as string;

@@ -35,27 +35,32 @@ export async function runDiscovery(sampleSize: number = 30): Promise<string[]> {
         // We use the '~' operator for "contains text", which is efficient enough for now.
         // We limit to sampleSize to keep it fast.
         query = `
-            ?[content] := *memory{content}, 
-            content ~ $seedTag 
-            :limit ${sampleSize}
+            SELECT content
+            FROM atoms
+            WHERE content ILIKE $1
+            LIMIT ${sampleSize}
         `;
         strategy = 'walker';
         console.log(`[Discovery] Teacher Mode (Walker): Expanding on seed tag '${seedTag}'...`);
     }
     // Strategy 2: The Explorer (Fallback / Initial Boot)
     else {
-        query = `?[content] := *memory{content} :limit ${sampleSize}`;
+        query = `SELECT content FROM atoms LIMIT ${sampleSize}`;
         strategy = 'explorer';
         console.log(`[Discovery] Teacher Mode (Explorer): Random Sampling ${sampleSize} atoms...`);
     }
 
     let result;
     try {
-        result = await db.run(query, { seedTag });
+        if (strategy === 'walker' && seedTag) {
+            result = await db.run(query, [`%${seedTag}%`]);
+        } else {
+            result = await db.run(query);
+        }
     } catch (e: any) {
         console.warn(`[Discovery] Query failed for strategy '${strategy}' (Seed: ${seedTag}):`, e.message);
         console.warn(`[Discovery] Falling back to safe Explorer mode.`);
-        query = `?[content] := *memory{content} :limit ${sampleSize}`;
+        query = `SELECT content FROM atoms LIMIT ${sampleSize}`;
         result = await db.run(query);
     }
 
@@ -69,7 +74,13 @@ export async function runDiscovery(sampleSize: number = 30): Promise<string[]> {
     }
 
     const sampledContent = result.rows.map((r: any) => {
-        const content = String(r[0]);
+        // Handle both array and object formats that PGlite might return
+        let content;
+        if (Array.isArray(r)) {
+            content = String(r[0]); // If array format, content is at index 0
+        } else {
+            content = String(r.content); // If object format, use content property
+        }
         // Truncate to keep BERT fast
         return content.length > 500 ? content.substring(0, 500) : content;
     }).join('\n---\n');

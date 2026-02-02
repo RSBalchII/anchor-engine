@@ -58,15 +58,17 @@ export interface SearchResult {
  */
 export async function getGlobalTags(limit: number = 50): Promise<string[]> {
   try {
-    // CozoDB aggregation syntax is restrictive in this environment.
-    // We fetch unique tags and rely on the list for grounding.
+    // Fetch unique tags from the tags table
     const query = `
-            ?[tag] := *memory{tags}, tag in tags :limit 500
-        `;
-    const result = await db.run(query);
+        SELECT DISTINCT unnest(tags) as tag
+        FROM atoms
+        WHERE tags IS NOT NULL
+        LIMIT $1
+    `;
+    const result = await db.run(query, [limit * 10]); // Get more than needed for filtering
     if (!result.rows) return [];
 
-    const uniqueTags = [...new Set((result.rows as string[][]).map((r: string[]) => r[0]))];
+    const uniqueTags = [...new Set(result.rows.map((r: any[]) => r[0]))];
     return uniqueTags.slice(0, limit) as string[];
   } catch (e) {
     console.error('[Search] Failed to fetch global tags:', e);
@@ -211,10 +213,8 @@ export async function createEngram(key: string, memoryIds: string[]): Promise<vo
   const normalizedKey = key.toLowerCase().trim();
   const engramId = createHash('md5').update(normalizedKey).digest('hex');
 
-  const insertQuery = `?[key, value] <- $data :put engrams {key, value}`;
-  await db.run(insertQuery, {
-    data: [[engramId, JSON.stringify(memoryIds)]]
-  });
+  const insertQuery = `INSERT INTO engrams (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+  await db.run(insertQuery, [engramId, JSON.stringify(memoryIds)]);
 }
 
 /**
@@ -224,8 +224,8 @@ export async function lookupByEngram(key: string): Promise<string[]> {
   const normalizedKey = key.toLowerCase().trim();
   const engramId = createHash('md5').update(normalizedKey).digest('hex');
 
-  const query = `?[value] := *engrams{key, value}, key = $engramId`;
-  const result = await db.run(query, { engramId });
+  const query = `SELECT value FROM engrams WHERE key = $1`;
+  const result = await db.run(query, [engramId]);
 
   if (result.rows && result.rows.length > 0) {
     return JSON.parse(result.rows[0][0] as string);
@@ -263,56 +263,46 @@ export async function tagWalkerSearch(
 
     console.log(`[Search] Dynamic Scaling: Budget=${tokenBudget}t -> Target=${targetAtomCount} atoms (Anchor: ${anchorLimit}, Walk: ${walkLimit})`);
 
-    // 1. Direct Search (The Anchor)
-    // 1. Direct Search (The Anchor)
-    const anchorQuery = `
-            ?[id, content, source, timestamp, buckets, tags, epochs, provenance, score, sequence, molecular_signature] := 
-            ~memory:content_fts{id | query: $query, k: ${anchorLimit * 2}, bind_score: fts_score},
-            *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, sequence, simhash, type},
-            type = 'fragment',
-            ${provenance !== 'quarantine' ? "provenance != 'quarantine'," : "provenance = 'quarantine',"}
-            score = 70.0 * fts_score,
-            molecular_signature = simhash
-            ${buckets.length > 0 ? ', length(intersection(buckets, $buckets)) > 0' : ''}
-            ${tags.length > 0 ? ', length(intersection(tags, $tags)) > 0' : ''}
-            :limit ${anchorLimit}
-        `;
-
-    // 1.5 Atomic Join (Universal Query)
-    // We default to joining molecules to get the pointer data.
-
-    // Build Filter Clauses
-    let filterClauses = '';
-    if (filters) {
-      if (filters.type) filterClauses += `, type = '${filters.type}'`;
-      if (filters.minVal !== undefined) filterClauses += `, numeric_value >= ${filters.minVal}`;
-      if (filters.maxVal !== undefined) filterClauses += `, numeric_value <= ${filters.maxVal}`;
-    }
-
-    const anchorQueryAtomic = `
-            ?[id, content, source, timestamp, buckets, tags, epochs, provenance, score, sequence, molecular_signature, start_byte, end_byte, type, numeric_value, numeric_unit, compound_id] := 
-            ~memory:content_fts{id | query: $query, k: ${anchorLimit * 2}, bind_score: fts_score},
-            *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, sequence, simhash},
-            *molecules{id, start_byte, end_byte, type, numeric_value, numeric_unit, compound_id},
-            provenance != 'quarantine',
-            score = 70.0 * fts_score,
-            molecular_signature = simhash
-            ${filterClauses}
-            ${buckets.length > 0 ? ', length(intersection(buckets, $buckets)) > 0' : ''}
-            ${tags.length > 0 ? ', length(intersection(tags, $tags)) > 0' : ''}
-            :limit ${anchorLimit}
+    // 1. Direct Search (The Anchor) - Using SQL instead of CozoDB datalog
+    let anchorQuery = `
+        SELECT a.id, a.content, a.source_path as source, a.timestamp,
+               a.buckets, a.tags, 'epoch_placeholder' as epochs, a.provenance,
+               70.0 * ts_rank(to_tsvector(a.content), plainto_tsquery($1)) as score,
+               a.sequence, a.simhash as molecular_signature
+        FROM atoms a
+        WHERE to_tsvector(a.content) @@ plainto_tsquery($1)
     `;
 
-    // Use Atomic Query if possible (try/catch to fallback if molecules Missing?)
-    // But we know it's there.
-    let anchorResult;
-    try {
-      anchorResult = await db.run(anchorQueryAtomic, { query: sanitizedQuery, buckets, tags });
-    } catch (e) {
-      // Fallback to legacy if molecules join fails (e.g. migration lag)
-      console.warn("[Search] Atomic Join failed, falling back to legacy memory search");
-      anchorResult = await db.run(anchorQuery, { query: sanitizedQuery, buckets, tags });
+    // Add provenance filter
+    let anchorParams: any[] = [sanitizedQuery];
+
+    if (provenance !== 'all') {
+      const provParamIdx = anchorParams.length + 1;
+      anchorQuery += ` AND a.provenance = $${provParamIdx}`;
+      anchorParams.push(provenance);
     }
+
+    // Add bucket and tag filters
+    if (buckets.length > 0) {
+      const bucketParamIdx = anchorParams.length + 1;
+      anchorQuery += ` AND EXISTS (
+        SELECT 1 FROM unnest(a.buckets) as bucket WHERE bucket = ANY($${bucketParamIdx})
+      )`;
+      anchorParams.push(buckets);
+    }
+    if (tags.length > 0) {
+      const tagParamIdx = anchorParams.length + 1;
+      anchorQuery += ` AND EXISTS (
+        SELECT 1 FROM unnest(a.tags) as tag WHERE tag = ANY($${tagParamIdx})
+      )`;
+      anchorParams.push(tags);
+    }
+
+    const limitParamIdx = anchorParams.length + 1;
+    anchorQuery += ` ORDER BY score DESC LIMIT $${limitParamIdx}`;
+    anchorParams.push(anchorLimit);
+
+    const anchorResult = await db.run(anchorQuery, anchorParams);
 
     if (!anchorResult.rows || anchorResult.rows.length === 0) return [];
 
@@ -342,48 +332,49 @@ export async function tagWalkerSearch(
       };
     });
 
-    // 2. The Walk (Associative Discovery)
+    // 2. The Walk (Associative Discovery) - Find related atoms through shared tags
     const anchorIds = anchors.map((a: any) => a.id);
 
-    const walkQuery = `
-            ?[id, content, source, timestamp, buckets, tags, epochs, provenance, score, sequence, molecular_signature] := 
-            *memory{id: anchor_id, tags: anchor_tags},
-            anchor_id in $anchorIds,
-            tag in anchor_tags,
-            *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, sequence, simhash, type},
-            type = 'fragment',
-            tag in tags,
-            id != anchor_id,
-            ${provenance !== 'quarantine' ? "provenance != 'quarantine'," : "provenance = 'quarantine',"}
-            molecular_signature = simhash,
-            ${tags.length > 0 ? 'length(intersection(tags, $tags)) > 0,' : ''} 
-            score = 30.0
-            :limit ${walkLimit}
-        `;
+    if (anchorIds.length === 0) return [];
 
-    const walkQueryAtomic = `
-            ?[id, content, source, timestamp, buckets, tags, epochs, provenance, score, sequence, molecular_signature, start_byte, end_byte, type, numeric_value, numeric_unit, compound_id] := 
-            *memory{id: anchor_id, tags: anchor_tags},
-            anchor_id in $anchorIds,
-            tag in anchor_tags,
-            *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, sequence, simhash},
-            *molecules{id, start_byte, end_byte, type, numeric_value, numeric_unit, compound_id},
-            tag in tags,
-            id != anchor_id,
-            provenance != 'quarantine',
-            molecular_signature = simhash,
-            ${filterClauses}
-            ${tags.length > 0 ? 'length(intersection(tags, $tags)) > 0,' : ''} 
-            score = 30.0
-            :limit ${walkLimit}
+    let walkQuery = `
+        SELECT DISTINCT a.id, a.content, a.source_path as source, a.timestamp,
+               a.buckets, a.tags, 'epoch_placeholder' as epochs, a.provenance,
+               30.0 as score, a.sequence, a.simhash as molecular_signature
+        FROM atoms a
+        JOIN atoms anchor_a ON EXISTS (
+          SELECT 1 FROM unnest(anchor_a.tags) as anchor_tag
+          JOIN unnest(a.tags) as shared_tag ON anchor_tag = shared_tag
+        )
+        WHERE anchor_a.id = ANY($1)  -- Related to anchor atoms
+          AND a.id != ALL($1)       -- Exclude anchor atoms themselves
     `;
 
-    let walkResult;
-    try {
-      walkResult = await db.run(walkQueryAtomic, { anchorIds, tags });
-    } catch (e) {
-      walkResult = await db.run(walkQuery, { anchorIds, tags });
+    // Add provenance filter - we'll add it as a parameter if needed
+    let walkParams: any[] = [anchorIds];
+
+    if (provenance !== 'all' && provenance !== 'quarantine') {
+      const provParamIdx = walkParams.length + 1;
+      walkQuery += ` AND a.provenance = $${provParamIdx}`;
+      walkParams.push(provenance);
+    } else if (provenance === 'quarantine') {
+      walkQuery += ` AND a.provenance = 'quarantine'`;
     }
+
+    // Add tag filters
+    if (tags.length > 0) {
+      const walkParamCount = walkParams.length + 1;
+      walkQuery += ` AND EXISTS (
+        SELECT 1 FROM unnest(a.tags) as tag WHERE tag = ANY($${walkParamCount})
+      )`;
+      walkParams.push(tags);
+    }
+
+    const walkLimitParamIdx = walkParams.length + 1;
+    walkQuery += ` LIMIT $${walkLimitParamIdx}`;
+    walkParams.push(walkLimit);
+
+    const walkResult = await db.run(walkQuery, walkParams);
 
     const neighbors = (walkResult.rows || []).map((row: any[]) => {
       const isAtomic = row.length > 11;
@@ -581,8 +572,8 @@ export async function executeSearch(
 
   if (engramResults.length > 0) {
     console.log(`[Search] Found ${engramResults.length} via Engram: ${cleanQuery}`);
-    const engramContextQuery = `?[id, content, source, timestamp, buckets, tags, epochs, provenance, simhash] := *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, simhash}, id in $ids`;
-    const engramContentResult = await db.run(engramContextQuery, { ids: engramResults });
+    const engramContextQuery = `SELECT id, content, source_path as source, timestamp, buckets, tags, epochs, provenance, simhash FROM atoms WHERE id = ANY($1)`;
+    const engramContentResult = await db.run(engramContextQuery, [engramResults]);
     if (engramContentResult.rows) {
       const realBucketsArray = Array.from(realBuckets);
       engramContentResult.rows.forEach((row: any[]) => {
@@ -827,15 +818,25 @@ export async function runTraditionalSearch(query: string, buckets: string[]): Pr
   const sanitizedQuery = sanitizeFtsQuery(query);
   if (!sanitizedQuery) return [];
 
-  let queryCozo = '';
+  let querySql = `
+    SELECT a.id,
+           ts_rank(to_tsvector(a.content), plainto_tsquery($1)) as score,
+           a.content, a.source_path as source, a.timestamp,
+           a.buckets, a.tags, 'epoch_placeholder' as epochs, a.provenance
+    FROM atoms a
+    WHERE to_tsvector(a.content) @@ plainto_tsquery($1)
+  `;
+
   if (buckets.length > 0) {
-    queryCozo = `?[id, score, content, source, timestamp, buckets, tags, epochs, provenance] := ~memory:content_fts{id | query: $q, k: 500, bind_score: score}, *memory{id, content, source, timestamp, buckets, tags, epochs, provenance}, length(intersection(buckets, $buckets)) > 0`;
-  } else {
-    queryCozo = `?[id, score, content, source, timestamp, buckets, tags, epochs, provenance] := ~memory:content_fts{id | query: $q, k: 500, bind_score: score}, *memory{id, content, source, timestamp, buckets, tags, epochs, provenance}`;
+    querySql += ` AND EXISTS (
+      SELECT 1 FROM unnest(a.buckets) as bucket WHERE bucket = ANY($2)
+    )`;
   }
 
+  querySql += ` ORDER BY score DESC`;
+
   try {
-    const result = await db.run(queryCozo, { q: sanitizedQuery, buckets });
+    const result = await db.run(querySql, buckets.length > 0 ? [sanitizedQuery, buckets] : [sanitizedQuery]);
     if (!result.rows) return [];
 
     return result.rows.map((row: any[]) => ({

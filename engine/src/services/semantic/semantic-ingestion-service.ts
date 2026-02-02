@@ -54,26 +54,38 @@ export class SemanticIngestionService {
 
         // Insert the semantic molecule into the database
         await db.run(
-          `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] <- $data
-           :insert memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding}`,
-          {
-            data: [[
-              id,
-              timestamp,
-              molecule.content,
-              source,
-              source, // source_id
-              0, // sequence
-              type || 'semantic_molecule',
-              hash,
-              allBuckets,
-              [...tags, ...molecule.semanticTags.map((tag: string) => tag.replace('#', ''))], // Convert semantic categories to tags
-              [], // epochs
-              molecule.provenance,
-              "0", // simhash (default)
-              new Array(768).fill(0.1) // Zero-stub for now
-            ]]
-          }
+          `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+           ON CONFLICT (id) DO UPDATE SET
+             content = EXCLUDED.content,
+             timestamp = EXCLUDED.timestamp,
+             source_path = EXCLUDED.source_path,
+             source_id = EXCLUDED.source_id,
+             sequence = EXCLUDED.sequence,
+             type = EXCLUDED.type,
+             hash = EXCLUDED.hash,
+             buckets = EXCLUDED.buckets,
+             tags = EXCLUDED.tags,
+             epochs = EXCLUDED.epochs,
+             provenance = EXCLUDED.provenance,
+             simhash = EXCLUDED.simhash,
+             embedding = EXCLUDED.embedding`,
+          [
+            id,
+            timestamp,
+            molecule.content,
+            source,
+            source, // source_id
+            0, // sequence
+            type || 'semantic_molecule',
+            hash,
+            allBuckets,
+            [...tags, ...molecule.semanticTags.map((tag: string) => tag.replace('#', ''))], // Convert semantic categories to tags
+            [], // epochs
+            molecule.provenance,
+            "0", // simhash (default)
+            new Array(768).fill(0.1) // Zero-stub for now
+          ]
         );
 
         // Also store the atomic entities separately if needed
@@ -82,26 +94,38 @@ export class SemanticIngestionService {
           const atomHash = crypto.createHash('sha256').update(entity).digest('hex');
           
           await db.run(
-            `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding] <- $data
-             :insert memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding}`,
-            {
-              data: [[
-                atomId,
-                timestamp,
-                entity, // The atomic entity value
-                `${source}_entities`,
-                id, // source_id points to the parent molecule
-                0, // sequence
-                'atomic_entity',
-                atomHash,
-                [...allBuckets, 'entities'], // Add to entities bucket
-                [`entity:${entity.toLowerCase()}`, ...molecule.semanticTags.map(tag => tag.replace('#', ''))], // Entity-specific and semantic tags
-                [], // epochs
-                'internal',
-                "0", // simhash
-                new Array(768).fill(0.1)
-              ]]
-            }
+            `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, tags, epochs, provenance, simhash, embedding)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               timestamp = EXCLUDED.timestamp,
+               source_path = EXCLUDED.source_path,
+               source_id = EXCLUDED.source_id,
+               sequence = EXCLUDED.sequence,
+               type = EXCLUDED.type,
+               hash = EXCLUDED.hash,
+               buckets = EXCLUDED.buckets,
+               tags = EXCLUDED.tags,
+               epochs = EXCLUDED.epochs,
+               provenance = EXCLUDED.provenance,
+               simhash = EXCLUDED.simhash,
+               embedding = EXCLUDED.embedding`,
+            [
+              atomId,
+              timestamp,
+              entity, // The atomic entity value
+              `${source}_entities`,
+              id, // source_id points to the parent molecule
+              0, // sequence
+              'atomic_entity',
+              atomHash,
+              [...allBuckets, 'entities'], // Add to entities bucket
+              [`entity:${entity.toLowerCase()}`, ...molecule.semanticTags.map((tag: string) => tag.replace('#', ''))], // Entity-specific and semantic tags
+              [], // epochs
+              'internal',
+              "0", // simhash
+              new Array(768).fill(0.1)
+            ]
           );
         }
       }

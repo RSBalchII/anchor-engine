@@ -82,10 +82,25 @@ Session State Summary:`;
 
         // 4. Persist to database with special ID
         const timestamp = Date.now();
-        const query = `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}`;
 
-        await db.run(query, {
-            data: [[
+        await db.run(
+            `INSERT INTO atoms (id, timestamp, content, source_path, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               timestamp = EXCLUDED.timestamp,
+               source_path = EXCLUDED.source_path,
+               source_id = EXCLUDED.source_id,
+               sequence = EXCLUDED.sequence,
+               type = EXCLUDED.type,
+               hash = EXCLUDED.hash,
+               buckets = EXCLUDED.buckets,
+               epochs = EXCLUDED.epochs,
+               tags = EXCLUDED.tags,
+               provenance = EXCLUDED.provenance,
+               simhash = EXCLUDED.simhash,
+               embedding = EXCLUDED.embedding`,
+            [
                 SESSION_STATE_ID,
                 timestamp,
                 summary.trim(),
@@ -100,8 +115,8 @@ Session State Summary:`;
                 'system', // provenance
                 '0', // simhash
                 new Array(768).fill(0.0) // embedding (stub)
-            ]]
-        });
+            ]
+        );
 
         console.log('✍️ Scribe: State updated successfully');
         return { status: 'updated', summary: summary.trim() };
@@ -119,8 +134,8 @@ Session State Summary:`;
  */
 export async function getState(): Promise<string | null> {
     try {
-        const query = '?[content] := *memory{id: mem_id, content}, mem_id == $id';
-        const res = await db.run(query, { id: SESSION_STATE_ID });
+        const query = 'SELECT content FROM atoms WHERE id = $1';
+        const res = await db.run(query, [SESSION_STATE_ID]);
 
         if (res.rows && res.rows.length > 0) {
             return res.rows[0][0] as string;
@@ -140,8 +155,8 @@ export async function getState(): Promise<string | null> {
  */
 export async function clearState(): Promise<ClearStateResult> {
     try {
-        const query = `?[id] <- [[$id]] :delete memory {id}`;
-        await db.run(query, { id: SESSION_STATE_ID });
+        const query = `DELETE FROM atoms WHERE id = $1`;
+        await db.run(query, [SESSION_STATE_ID]);
         console.log('✍️ Scribe: State cleared');
         return { status: 'cleared' };
     } catch (e: any) {

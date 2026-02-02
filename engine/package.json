@@ -54,7 +54,7 @@
         "cheerio": "^1.1.2",
         "chokidar": "^3.6.0",
         "cors": "^2.8.5",
-        "cozo-node": "^0.7.6",
+        "@electric-sql/pglite": "^0.1.1",
         "express": "^4.18.2",
         "got": "^14.6.6",
         "got-scraping": "^4.1.3",

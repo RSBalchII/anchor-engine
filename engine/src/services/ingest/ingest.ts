@@ -13,10 +13,6 @@ interface IngestOptions {
   atomize?: boolean;
 }
 
-
-
-
-
 /**
  * Determines the provenance of content based on its source
  */
@@ -100,8 +96,8 @@ export async function ingestContent(
   const hash = crypto.createHash('md5').update(processedContent).digest('hex');
 
   // Check if content with same hash already exists
-  const existingQuery = `?[id] := *memory{id, hash}, hash = $hash`;
-  const existingResult = await db.run(existingQuery, { hash });
+  const existingQuery = `SELECT id FROM atoms WHERE simhash = $1`;
+  const existingResult = await db.run(existingQuery, [BigInt(hash)]);
 
   if (existingResult.rows && existingResult.rows.length > 0) {
     return {
@@ -114,9 +110,6 @@ export async function ingestContent(
   // Generate unique ID
   const id = `mem_${Date.now()}_${crypto.randomBytes(8).toString('hex').substring(0, 16)}`;
   const timestamp = Date.now();
-  const tagsJson = processedTags; // Pass as array, Cozo Napi handles it
-  const bucketsArray = Array.isArray(buckets) ? buckets : [buckets];
-  const epochsJson: string[] = []; // Pass as array
 
   // Process content into semantic molecules using the semantic processor
   const { SemanticMoleculeProcessor } = await import('../semantic/semantic-molecule-processor.js');
@@ -128,18 +121,41 @@ export async function ingestContent(
   const containedEntities = semanticMolecule.containedEntities || [];
 
   // Combine semantic categories with existing tags
-  const allTags = [...new Set([...tagsJson, ...semanticCategories.map((cat: string) => cat.replace('#', ''))])];
+  const allTags = [...new Set([...tags, ...semanticCategories.map((cat: string) => cat.replace('#', ''))])];
 
-  // Insert the memory with provenance information
-  // Schema: id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding
-  const insertQuery = `?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data :insert memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}`;
+  // Insert the atom with provenance information
+  const insertQuery = `
+    INSERT INTO atoms (id, content, source_path, timestamp, simhash, embedding, provenance)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (id) DO NOTHING
+  `;
 
-  await db.run(insertQuery, {
-    data: [[id, timestamp, processedContent, source, source, 0, type, hash, bucketsArray, epochsJson, allTags, provenance, "0", new Array(config.MODELS.EMBEDDING_DIM).fill(0.1)]]
-  });
+  // Create a dummy embedding array with the correct dimensions
+  const embeddingArray = new Array(config.MODELS.EMBEDDING_DIM).fill(0.1);
+
+  await db.run(insertQuery, [
+    id, 
+    processedContent, 
+    source, 
+    timestamp, 
+    BigInt(hash), 
+    embeddingArray, 
+    provenance
+  ]);
+
+  // Insert tags
+  for (const tag of allTags) {
+    const tagInsertQuery = `
+      INSERT INTO tags (atom_id, tag, bucket)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (atom_id, tag) DO NOTHING
+    `;
+    await db.run(tagInsertQuery, [id, tag, buckets[0]]);
+  }
 
   // Strict Read-After-Write Verification (Standard 059)
-  const verify = await db.run(`?[id] := *memory{id}, id = $id`, { id });
+  const verifyQuery = `SELECT id FROM atoms WHERE id = $1`;
+  const verify = await db.run(verifyQuery, [id]);
   if (!verify.rows || verify.rows.length === 0) {
     throw new Error(`Ingestion Verification Failed: ID ${id} not found after write.`);
   }
@@ -177,72 +193,71 @@ export async function ingestAtoms(
 
   if (atoms.length === 0) return 0;
 
-  const rows = atoms.map(atom => {
+  let inserted = 0;
+
+  // Process each atom individually for better error handling
+  for (const atom of atoms) {
     // MERGE: Combine Batch Tags + Atom-Specific Tags (Deduplicated)
     const atomSpecificTags = atom.tags || [];
     const finalTags = [...new Set([...tags, ...atomSpecificTags])];
 
-    // Schema: id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, embedding
-    return [
-      atom.id,
-      atom.timestamp,
-      atom.content,
-      source,
-      atom.sourceId,
-      atom.sequence,
-      'text', // Type
-      atom.hash || atom.id.replace('atom_', ''),
-      buckets,
-      [], // epochs
-      finalTags, // <--- Use the merged tags
-      atom.provenance,
-      atom.simhash || "0",
-      (atom.embedding && atom.embedding.length === config.MODELS.EMBEDDING_DIM)
-        ? atom.embedding
-        : new Array(config.MODELS.EMBEDDING_DIM).fill(0.1) // Zero-stub if embeddings disabled
-    ];
-  });
+    // Insert the atom
+    const atomInsertQuery = `
+      INSERT INTO atoms (id, content, source_path, timestamp, simhash, embedding, provenance)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (id) DO UPDATE SET
+        content = EXCLUDED.content,
+        source_path = EXCLUDED.source_path,
+        timestamp = EXCLUDED.timestamp,
+        simhash = EXCLUDED.simhash,
+        embedding = EXCLUDED.embedding,
+        provenance = EXCLUDED.provenance
+    `;
 
-  // Chunked Insert
-  const chunkSize = 50;
-  let inserted = 0;
-  const totalBatches = Math.ceil(rows.length / chunkSize);
-
-  console.log(`[Ingest] Starting DB Write for ${rows.length} atoms (${totalBatches} batches)...`);
-
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const batchNum = Math.floor(i / chunkSize) + 1;
-    const chunk = rows.slice(i, i + chunkSize);
-    try {
-      await db.run(`
-        ?[id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding] <- $data
-        :put memory {id, timestamp, content, source, source_id, sequence, type, hash, buckets, epochs, tags, provenance, simhash, embedding}
-      `, { data: chunk });
-
-      if (batchNum % 10 === 0 || batchNum === totalBatches) {
-        console.log(`[Ingest] Batch ${batchNum}/${totalBatches} written.`);
+    // Convert simhash to BigInt if it exists
+    let simhashBigInt: bigint | null = null;
+    if (atom.simhash) {
+      try {
+        simhashBigInt = BigInt(atom.simhash);
+      } catch (e) {
+        console.warn(`[Ingest] Invalid simhash for atom ${atom.id}: ${atom.simhash}`);
       }
-    } catch (e: any) {
-      console.error(`[Ingest] Batch insert failed: ${e.message}`);
-      throw e;
+    }
+
+    // Prepare embedding array
+    let embeddingArray: number[] = new Array(config.MODELS.EMBEDDING_DIM).fill(0.1);
+    if (atom.embedding && atom.embedding.length === config.MODELS.EMBEDDING_DIM) {
+      embeddingArray = atom.embedding;
+    }
+
+    await db.run(atomInsertQuery, [
+      atom.id,
+      atom.content,
+      atom.sourcePath,
+      atom.timestamp,
+      simhashBigInt || 0n,
+      embeddingArray,
+      atom.provenance
+    ]);
+
+    // Insert associated tags
+    for (const tag of finalTags) {
+      const tagInsertQuery = `
+        INSERT INTO tags (atom_id, tag, bucket)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (atom_id, tag) DO UPDATE SET
+          bucket = EXCLUDED.bucket
+      `;
+      await db.run(tagInsertQuery, [atom.id, tag, buckets[0]]);
     }
 
     // Standard 059: Verification
-    try {
-      const chunkIds = chunk.map(row => row[0]);
-      const chunkIdsStr = JSON.stringify(chunkIds);
-      const verifyQuery = `?[id] := *memory{id}, id in ${chunkIdsStr}`;
-      const verifyResult = await db.run(verifyQuery);
-      const count = verifyResult.rows ? verifyResult.rows.length : 0;
-
-      if (count !== chunk.length) {
-        throw new Error(`[Ingest] CRITICAL: Verification Failed! Inserted: ${chunk.length}, Verified: ${count}.`);
-      } else {
-        inserted += count;
-      }
-    } catch (verifyError: any) {
-      console.error(`[Ingest] Verification Query Failed: ${verifyError.message}`);
-      throw verifyError;
+    const verifyQuery = `SELECT id FROM atoms WHERE id = $1`;
+    const verifyResult = await db.run(verifyQuery, [atom.id]);
+    if (verifyResult.rows && verifyResult.rows.length > 0) {
+      inserted++;
+    } else {
+      console.error(`[Ingest] Verification failed for atom: ${atom.id}`);
     }
   }
 

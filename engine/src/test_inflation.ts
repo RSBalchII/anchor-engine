@@ -14,10 +14,10 @@ async function testInflation() {
 
     // Insert dummy compound
     console.log("Inserting dummy compound...");
-    await db.run(`:put compounds {
-        id, compound_body, path, timestamp, provenance, molecular_signature, atoms, molecules, embedding
-    }`, {
-        data: [[
+    await db.run(
+        `INSERT INTO compounds (id, compound_body, path, timestamp, provenance, molecular_signature, atoms, molecules, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
             compoundId,
             body,
             'test/path',
@@ -27,8 +27,8 @@ async function testInflation() {
             [],
             [],
             new Array(384).fill(0.1)
-        ]]
-    });
+        ]
+    );
 
     // Create 2 fake search results (molecules) that are close
     // "fox" at ~20 and "dog" at ~40
@@ -59,7 +59,7 @@ async function testInflation() {
     }
 
     // Cleanup
-    await db.run(`:rm compounds {id}`, { data: [[compoundId]] });
+    await db.run(`DELETE FROM compounds WHERE id = $1`, [compoundId]);
 }
 
 testInflation().catch(console.error);

@@ -24,7 +24,7 @@ monitoringRouter.get('/health', async (_req: Request, res: Response) => {
     // Check database connectivity
     let dbStatus = 'unknown';
     try {
-      const result = await db.run('?[a] := a=1', {});
+      const result = await db.run('SELECT 1 as a');
       dbStatus = result && result.rows && result.rows.length > 0 ? 'healthy' : 'degraded';
     } catch (error) {
       dbStatus = 'unhealthy';
@@ -206,7 +206,7 @@ monitoringRouter.get('/db-health', async (_req: Request, res: Response) => {
     
     // Check connectivity
     try {
-      const result = await db.run('?[a] := a=1', {});
+      const result = await db.run('SELECT 1 as a');
       checks.connectivity = true;
       checks.basicQuery = result && result.rows && result.rows.length > 0;
     } catch (error) {
@@ -220,20 +220,24 @@ monitoringRouter.get('/db-health', async (_req: Request, res: Response) => {
       try {
         // Try to write
         await db.run(
-          `?[id, content, timestamp] := [[ $id, $content, $timestamp ]] :put memory {id, content, timestamp}`,
-          { id: testId, content: 'health check', timestamp: Date.now() }
+          `INSERT INTO atoms (id, content, source_path, timestamp, simhash, embedding, provenance)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             content = EXCLUDED.content,
+             timestamp = EXCLUDED.timestamp`,
+          [testId, 'health check', 'health_test', Date.now(), '0', new Array(768).fill(0.1), 'internal']
         );
         checks.writePermission = true;
-        
+
         // Try to read
         const readResult = await db.run(
-          `?[id, content] := *memory{id, content}, id = $id`,
-          { id: testId }
+          `SELECT id, content FROM atoms WHERE id = $1`,
+          [testId]
         );
         checks.readPermission = readResult && readResult.rows && readResult.rows.length > 0;
-        
+
         // Clean up test record
-        await db.run(`?[id] := id = $id :delete memory {id}`, { id: testId });
+        await db.run(`DELETE FROM atoms WHERE id = $1`, [testId]);
       } catch (error) {
         // Write/read failed
       }
@@ -243,7 +247,7 @@ monitoringRouter.get('/db-health', async (_req: Request, res: Response) => {
     if (checks.basicQuery) {
       const start = performance.now();
       for (let i = 0; i < 10; i++) {
-        await db.run('?[a] := a=1', {});
+        await db.run('SELECT 1 as a', []);
       }
       checks.performance = (performance.now() - start) / 10; // Average ms per query
     }
@@ -327,12 +331,16 @@ monitoringRouter.get('/ingestion-health', async (_req: Request, res: Response) =
     try {
       const testId = `ingest_health_${Date.now()}`;
       await db.run(
-        `?[id, content, timestamp] := [[ $id, $content, $timestamp ]] :put memory {id, content, timestamp}`,
-        { id: testId, content: 'ingestion health check', timestamp: Date.now() }
+        `INSERT INTO atoms (id, content, source_path, timestamp, simhash, embedding, provenance)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET
+           content = EXCLUDED.content,
+           timestamp = EXCLUDED.timestamp`,
+        [testId, 'ingestion health check', 'ingest_health_test', Date.now(), '0', new Array(768).fill(0.1), 'internal']
       );
-      
+
       // Clean up
-      await db.run(`?[id] := id = $id :delete memory {id}`, { id: testId });
+      await db.run(`DELETE FROM atoms WHERE id = $1`, [testId]);
       checks.databaseWrite = true;
     } catch (error) {
       // Database write failed
@@ -375,28 +383,28 @@ monitoringRouter.get('/search-health', async (_req: Request, res: Response) => {
     
     // Check if search index is accessible
     try {
-      const result = await db.run('?[id] := *memory{id} :limit 1', {});
+      const result = await db.run('SELECT id FROM atoms LIMIT 1', []);
       checks.searchIndex = result && result.rows && result.rows.length > 0;
     } catch (error) {
       // Index check failed
     }
-    
+
     // Test query processing
     if (checks.searchIndex) {
       try {
-        const result = await db.run('~memory:content_fts{id | query: "test", k: 1, bind_score: score}', {});
+        const result = await db.run('SELECT id, content, ts_rank(to_tsvector(\'english\', content), plainto_tsquery(\'english\', $1)) as score FROM atoms WHERE to_tsvector(\'english\', content) @@ plainto_tsquery(\'english\', $1) LIMIT 1', ['test']);
         checks.queryProcessing = result && result.rows && result.rows.length > 0;
       } catch (error) {
         // Query processing failed
       }
     }
-    
+
     // Performance test for search
     if (checks.queryProcessing) {
       const start = performance.now();
       for (let i = 0; i < 3; i++) {
         try {
-          await db.run('~memory:content_fts{id | query: "performance", k: 1, bind_score: score}', {});
+          await db.run('SELECT id, content, ts_rank(to_tsvector(\'english\', content), plainto_tsquery(\'english\', $1)) as score FROM atoms WHERE to_tsvector(\'english\', content) @@ plainto_tsquery(\'english\', $1) LIMIT 1', ['performance']);
         } catch (error) {
           // Ignore individual failures in performance test
         }
@@ -455,10 +463,10 @@ monitoringRouter.get('/status', async (_req: Request, res: Response) => {
     
     // Run all health checks in parallel
     const [dbHealth, nativeHealth, ingestHealth, searchHealth] = await Promise.allSettled([
-      db.run('?[a] := a=1', {}),
+      db.run('SELECT 1 as a', []),
       Promise.resolve({}), // Native modules check
-      db.run('?[id] := *memory{id} :limit 1', {}),
-      db.run('~memory:content_fts{id | query: "test", k: 1, bind_score: score}', {})
+      db.run('SELECT id FROM atoms LIMIT 1', []),
+      db.run('SELECT id, content, ts_rank(to_tsvector(\'english\', content), plainto_tsquery(\'english\', $1)) as score FROM atoms WHERE to_tsvector(\'english\', content) @@ plainto_tsquery(\'english\', $1) LIMIT 1', ['test'])
     ]);
     
     // Update component statuses

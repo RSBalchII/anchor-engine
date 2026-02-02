@@ -32,13 +32,14 @@ async function* atomStream(batchSize = 500) {
     while (true) {
         // Fetch next batch where ID > lastId
         const query = `
-            ?[id, content, tags] := *memory{id, content, tags},
-            id > $lastId,
-            :order id
-            :limit $limit
+            SELECT id, content, tags
+            FROM atoms
+            WHERE id > $1
+            ORDER BY id
+            LIMIT $2
         `;
 
-        const result = await db.run(query, { lastId, limit: batchSize });
+        const result = await db.run(query, [lastId, batchSize]);
         if (result.rows && result.rows.length > 0) {
             console.log(`[Infector] Stream fetched batch of ${result.rows.length} atoms...`);
         }
@@ -49,7 +50,19 @@ async function* atomStream(batchSize = 500) {
 
         // Yield one atom at a time (Functional Flow)
         for (const row of result.rows) {
-            const [id, content, tags] = row;
+            // Handle both array and object formats that PGlite might return
+            let id, content, tags;
+
+            if (Array.isArray(row)) {
+                // Row is in array format [id, content, tags]
+                [id, content, tags] = row;
+            } else {
+                // Row is in object format {id, content, tags}
+                id = row.id;
+                content = row.content;
+                tags = row.tags;
+            }
+
             lastId = id as string; // Move cursor for next batch
 
             yield {
@@ -143,10 +156,10 @@ export async function runInfectionLoop() {
             const maxAttempts = 3;
             while (attempts < maxAttempts) {
                 try {
-                    await db.run(`
-                        ?[id, tags] <- [[$id, $tags]]
-                        :update memory {id, tags}
-                    `, { id: atom.id, tags: newTags });
+                    await db.run(
+                        `UPDATE atoms SET tags = $1 WHERE id = $2`,
+                        [newTags, atom.id]
+                    );
 
                     infectedCount++;
                     if (infectedCount % 100 === 0) process.stdout.write(`.`);
