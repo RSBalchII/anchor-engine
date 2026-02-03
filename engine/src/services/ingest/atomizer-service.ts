@@ -139,20 +139,23 @@ export class AtomizerService {
     private sanitize(text: string, filePath: string = ''): string {
         let clean = text;
 
-        // 1. Remove BOM and Binary Trash
+        // 1. Fundamental Normalization
         clean = clean.replace(/^\uFEFF/, '').replace(/[\u0000\uFFFD]/g, '');
-        clean = clean.replace(/\r\n/g, '\n');
+        // Aggressive Newline Normalization: convert all \r\n and literal "\r\n" strings to real newlines
+        clean = clean.replace(/\\r\\n/g, '\n').replace(/\r\n/g, '\n');
 
         // 2. Enhanced Surgeon: Log Spam Removal
-        const beforeSurgeon = clean.length;
         clean = clean.replace(/(?:^|\s|\.{3}\s*)Processing '[^']+'\.{3}/g, '\n');
         clean = clean.replace(/(?:^|\s|\.{3}\s*)Loading '[^']+'\.{3}/g, '\n');
         clean = clean.replace(/(?:^|\s|\.{3}\s*)Indexing '[^']+'\.{3}/g, '\n');
         clean = clean.replace(/(?:^|\s|\.{3}\s*)Analyzing '[^']+'\.{3}/g, '\n');
-        clean = clean.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?\s*(?:AM|PM)?\s*[-:>]/g, '');
-        clean = clean.replace(/\[\d{4}-\d{2}-\d{2}.*?\]/g, ''); // [YYYY-MM-DD...]
+        
+        // Strip Log Timestamps (at start of lines)
+        clean = clean.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?\s*(?:AM|PM)?\s*[-:>]/gm, '');
+        
+        // Strip bracketed metadata like [2026-01-25...]
+        clean = clean.replace(/\[\d{4}-\d{2}-\d{2}.*?\]/g, ''); 
         clean = clean.replace(/\[[#=]{0,10}\s{0,10}\]\s*\d{1,3}%/g, ''); // [===] 100%
-        clean = clean.replace(/\n{3,}/g, '\n\n');
 
         // 2.5 PII Masking
         clean = clean.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
@@ -160,67 +163,32 @@ export class AtomizerService {
         clean = clean.replace(/sk-[a-zA-Z0-9]{32,}/g, 'sk-[REDACTED]');
 
         // --- DENSITY-AWARE SCRUBBER (Standard 073) ---
-        // Specifically targets "Ghost in the Machine" artifacts where the context engine
-        // re-indexes its own previous output dumps.
+        
+        // 1. Strip "Dirty Read" Source Headers & Recursive Metadata
+        // Matches: [Source: ...] or status: [Source: ...]
+        clean = clean.replace(/(?:status:\s*)?\[Source: .*?\](?:\s*\(Timestamp: .*?\))?/g, '');
 
-        // 1. Strip "Dirty Read" Source Headers (Context Injection Artifacts)
-        // Matches: [Source: inbox\1-19-2026.md] or [Source: ...] (Timestamp: ...)
-        // SAFETY: Use .*? to be non-greedy and avoid spanning massive blocks.
-        clean = clean.replace(/\[Source: .*?\](?:\s*\(Timestamp: .*?\))?/g, '');
+        // 2. Strip Logging/YAML/JSON Wrappers (Aggressive Pattern)
+        // This targets the keys and the quotes around them, but leaves the content.
+        const metaKeys = ['response_content', 'thinking_content', 'content', 'message', 'text', 'body', 'type', 'timestamp', 'source_path'];
+        metaKeys.forEach(key => {
+            // Match "key": " or key: |- or "key": |- etc.
+            const regex = new RegExp(`["']?${key}["']?\\s*:\\s*(?:\\|-?|")?`, 'g');
+            clean = clean.replace(regex, '');
+        });
 
-        // 2. Strip Logging/YAML Wrappers (Aggressive)
-        // Matches: "response_content": |-, response_content: |-, "content": ...
-        clean = clean.replace(/["']?response_content["']?:\s*\|-?\s*/g, '');
-        clean = clean.replace(/["']?content["']?:\s*\|-?\s*/g, '');
-        clean = clean.replace(/["']?thinking_content["']?:\s*""\s*/g, '');
-
-        // Matches: timestamp: "2026-..." (common in YAML logs)
-        clean = clean.replace(/["']?timestamp["']?:\s*"[^"]*"\s*/g, '');
-
-        // Matches: - type: "User" or - type: "Coda..."
-        clean = clean.replace(/- type:\s*"[^"]*"\s*/g, '');
+        // Strip trailing quotes and braces from JSON-like fragments
+        clean = clean.replace(/"\s*,\s*"/g, '\n');
+        clean = clean.replace(/"\s*}/g, '');
+        clean = clean.replace(/{\s*"/g, '');
 
         // 3. Strip LLM Role Markers
         clean = clean.replace(/<\|user\|>/g, '');
         clean = clean.replace(/<\|assistant\|>/g, '');
         clean = clean.replace(/<\|system\|>/g, '');
 
-
-        // 3. JSON Artifact Removal (The Key Assassin)
-        const isJsonLog = !/\.(ts|js|py|rs|go|java|cpp|h|c)$/.test(filePath) && (
-            clean.includes('"response_content":') ||
-            (clean.includes('"type":') && clean.includes('"Coda')) ||
-            clean.includes('"thinking_content":') ||
-            clean.includes('"message":') ||
-            clean.includes('"content":')
-        );
-
-        if (isJsonLog || filePath.endsWith('.json')) {
-            try {
-                // Try to extract content from JSON structures
-                const jsonRegex = /({[\s\S]*?})/g;
-                const matches = [...clean.matchAll(jsonRegex)];
-                if (matches.length > 0) {
-                    let extractedContent = '';
-                    for (const match of matches) {
-                        try {
-                            const obj = JSON.parse(match[1]);
-                            const contentFields = ['content', 'response_content', 'message', 'text', 'body', 'data'];
-                            for (const field of contentFields) {
-                                if (obj[field] && typeof obj[field] === 'string') {
-                                    extractedContent += obj[field] + '\n\n';
-                                    break;
-                                }
-                            }
-                        } catch (e) { continue; }
-                    }
-                    if (extractedContent) clean = extractedContent;
-                }
-            } catch (e) { /* Fallback */ }
-
-            // Fallback: The Key Assassin Logic
-            clean = this.cleanseJsonArtifacts(clean);
-        }
+        // 4. Final Polish
+        clean = clean.replace(/\n{3,}/g, '\n\n');
 
         return clean.trim();
     }
