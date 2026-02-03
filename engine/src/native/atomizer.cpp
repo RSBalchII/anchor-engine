@@ -3,14 +3,14 @@
 
 namespace ECE {
 
-    std::vector<std::string> Atomizer::Atomize(std::string_view content, const std::string& strategy) {
+    std::vector<std::string> Atomizer::Atomize(const std::string& content, const std::string& strategy) {
         if (strategy == "code") {
             return SplitCode(content);
         }
         return SplitProse(content);
     }
 
-    std::vector<std::string> Atomizer::SplitCode(std::string_view content) {
+    std::vector<std::string> Atomizer::SplitCode(const std::string& content) {
         std::vector<std::string> atoms;
         size_t len = content.size();
         size_t start = 0;
@@ -75,7 +75,7 @@ namespace ECE {
         return atoms;
     }
 
-    std::vector<std::string> Atomizer::SplitProse(std::string_view content) {
+    std::vector<std::string> Atomizer::SplitProse(const std::string& content) {
         std::vector<std::string> atoms;
         size_t len = content.size();
         size_t last_split = 0;

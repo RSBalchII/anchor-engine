@@ -9,7 +9,7 @@
 namespace ECE {
 
     // FNV-1a 64-bit Hash for Token Robustness
-    uint64_t Fingerprint::HashToken(std::string_view token) {
+    uint64_t Fingerprint::HashToken(const std::string& token) {
         uint64_t hash = 14695981039346656037ULL;
         for (char c : token) {
             hash ^= static_cast<uint64_t>(c);
@@ -18,7 +18,7 @@ namespace ECE {
         return hash;
     }
 
-    uint64_t Fingerprint::Generate(std::string_view input) {
+    uint64_t Fingerprint::Generate(const std::string& input) {
         // SimHash Vector: 64 buckets initialized to 0
         std::array<int, 64> weights = {0};
 
@@ -34,7 +34,7 @@ namespace ECE {
             if (is_delimiter) {
                 if (i > start) {
                     // Extract token
-                    std::string_view token = input.substr(start, i - start);
+                    std::string token = input.substr(start, i - start);
 
                     // Hash the token into 64 bits
                     uint64_t h = HashToken(token);

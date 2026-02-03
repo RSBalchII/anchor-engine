@@ -14,13 +14,13 @@ namespace ECE {
     class Atomizer {
     public:
         // Main Entry point
-        static std::vector<std::string> Atomize(std::string_view content, const std::string& strategy);
+        static std::vector<std::string> Atomize(const std::string& content, const std::string& strategy);
 
     private:
         // Strategy: "code" (Line-based + Bracket balancing)
-        static std::vector<std::string> SplitCode(std::string_view content);
+        static std::vector<std::string> SplitCode(const std::string& content);
         
         // Strategy: "prose" (Sentence/Paragraph based)
-        static std::vector<std::string> SplitProse(std::string_view content);
+        static std::vector<std::string> SplitProse(const std::string& content);
     };
 }

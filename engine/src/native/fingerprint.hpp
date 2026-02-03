@@ -8,7 +8,7 @@ namespace ECE {
     class Fingerprint {
     public:
         // Returns a 64-bit SimHash of the input text
-        static uint64_t Generate(std::string_view input);
+        static uint64_t Generate(const std::string& input);
 
         // Returns the Hamming Distance (0-64) between two hashes
         // Lower number = More similar
@@ -19,6 +19,6 @@ namespace ECE {
 
     private:
         // A simple, fast hashing function for individual tokens (FNV-1a)
-        static uint64_t HashToken(std::string_view token);
+        static uint64_t HashToken(const std::string& token);
     };
 }
