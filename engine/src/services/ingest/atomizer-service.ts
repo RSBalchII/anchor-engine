@@ -236,15 +236,16 @@ export class AtomizerService {
         let clean = text;
 
         // 1. Recursive Un-escape
-        if (native && native.cleanse) {
-            clean = native.cleanse(clean);
-        } else {
+        // DISABLED NATIVE CLEANSE due to stack overflow on deep nesting
+        // if (native && native.cleanse) {
+        //    clean = native.cleanse(clean);
+        // } else {
             let pass = 0;
             while (clean.includes('\\') && pass < 3) {
                 pass++;
                 clean = clean.replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
             }
-        }
+        // }
 
         // 2. Code Block Protection
         const codeBlocks: string[] = [];
