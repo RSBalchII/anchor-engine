@@ -23,139 +23,145 @@ export class AtomizerService {
         provenance: 'internal' | 'external'
     ): Promise<{ compound: Compound, molecules: Molecule[], atoms: Atom[] }> {
 
-        // 1. Sanitize (Iron Lung) - Chunked Strategy for Large Files
-        // Optimized port of Refiner's Key Assassin
-        // For very large files, we sanitize in chunks to avoid string length limits/OOM
-        const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
-        let cleanContent = '';
-        
-        if (content.length > CHUNK_SIZE * 2) {
-             // Generator approach for memory efficiency
-             for (const chunk of this.chunkedSanitize(content, sourcePath, CHUNK_SIZE)) {
-                 cleanContent += chunk;
-             }
-        } else {
-             cleanContent = this.sanitize(content, sourcePath);
-        }
-
-        // 2. Identification (Hash)
-        const compoundId = crypto.createHash('md5').update(cleanContent + sourcePath).digest('hex');
-        const timestamp = Date.now();
-
-        // 3. System Atoms (Project/File Level)
-        const systemAtoms = this.extractSystemAtoms(sourcePath);
-
-        // 4. Construct Compound ID
-        const fullCompoundId = `mem_${compoundId}`;
-
-        // 5. Molecular Fission (Semantic Splitting)
-        // Determine Type & Extract Data
-        const type = this.detectMoleculeType(cleanContent, sourcePath); // Determine main type
-
-        // Pass type to optimize splitting strategy
-        const moleculeParts = this.splitIntoMolecules(cleanContent, type);
-
-        // 5. Molecular Enrichment (Granular Tagging & Typing)
-        const molecules: Molecule[] = [];
-        const allAtomsMap = new Map<string, Atom>();
-
-        // Add System Atoms to global map
-        systemAtoms.forEach(a => allAtomsMap.set(a.id, a));
-
-        // Timestamp Context: Start with file timestamp (modification time)
-        // As we scan molecules, if we find a date in the content (e.g. log timestamp),
-        // we update this context so subsequent atoms inherit it.
-        let currentTimestamp = timestamp;
-
-        moleculeParts.forEach((part, idx) => {
-            const { content: text, start, end, timestamp: partTimestamp } = part;
-
-            // Update time context if this part has a specific timestamp
-            if (partTimestamp) {
-                currentTimestamp = partTimestamp;
-            }
-
-            // Scan for concepts in this specific molecule
-            const conceptAtoms = this.scanAtoms(text);
-
-            // Merge System Atoms (Inherited) + Local Concepts
-            const moleculeAtoms = [...systemAtoms, ...conceptAtoms];
-
-            // Add concepts to global map
-            conceptAtoms.forEach(a => allAtomsMap.set(a.id, a));
-
-            const molId = `mol_${crypto.createHash('md5').update(compoundId + idx + text).digest('hex').substring(0, 12)}`;
-
-            // Re-Determine Type locally (e.g. code block in markdown)
-            // Use the passed type as default, but refined per chunk if needed
-            const molType = (type === 'prose' && (text.includes('```') || text.includes('function') || text.includes('const '))) ? 'code' : type;
-
-            let numericVal: number | undefined = undefined;
-            let numericUnit: string | undefined = undefined;
-
-            if (molType === 'data') {
-                const data = this.extractNumericData(text);
-                if (data) {
-                    numericVal = data.value;
-                    numericUnit = data.unit;
+        try {
+            // 1. Sanitize (Iron Lung) - Chunked Strategy for Large Files
+            // Optimized port of Refiner's Key Assassin
+            // For very large files, we sanitize in chunks to avoid string length limits/OOM
+            const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+            let cleanContent = '';
+            
+            if (content.length > CHUNK_SIZE * 2) {
+                // Generator approach for memory efficiency
+                for (const chunk of this.chunkedSanitize(content, sourcePath, CHUNK_SIZE)) {
+                    cleanContent += chunk;
                 }
+            } else {
+                cleanContent = this.sanitize(content, sourcePath);
             }
 
-            molecules.push({
-                id: molId,
-                content: text,
-                atoms: moleculeAtoms.map(a => a.id),
-                sequence: idx,
-                compoundId: fullCompoundId,
+            // 2. Identification (Hash)
+            const compoundId = crypto.createHash('md5').update(cleanContent + sourcePath).digest('hex');
+            const timestamp = Date.now();
 
-                // Universal Coordinates
-                start_byte: start,
-                end_byte: end,
+            // 3. System Atoms (Project/File Level)
+            const systemAtoms = this.extractSystemAtoms(sourcePath);
 
-                // Metadata
-                type: molType,
-                numeric_value: numericVal,
-                numeric_unit: numericUnit,
-                molecular_signature: this.generateSimHash(text),
-                timestamp: currentTimestamp // Assign context-aware timestamp
+            // 4. Construct Compound ID
+            const fullCompoundId = `mem_${compoundId}`;
+
+            // 5. Molecular Fission (Semantic Splitting)
+            // Determine Type & Extract Data
+            const type = this.detectMoleculeType(cleanContent, sourcePath); // Determine main type
+
+            // Pass type to optimize splitting strategy
+            const moleculeParts = this.splitIntoMolecules(cleanContent, type);
+
+            // 5. Molecular Enrichment (Granular Tagging & Typing)
+            const molecules: Molecule[] = [];
+            const allAtomsMap = new Map<string, Atom>();
+
+            // Add System Atoms to global map
+            systemAtoms.forEach(a => allAtomsMap.set(a.id, a));
+
+            // Timestamp Context: Start with file timestamp (modification time)
+            // As we scan molecules, if we find a date in the content (e.g. log timestamp),
+            // we update this context so subsequent atoms inherit it.
+            let currentTimestamp = timestamp;
+
+            moleculeParts.forEach((part, idx) => {
+                const { content: text, start, end, timestamp: partTimestamp } = part;
+
+                // Update time context if this part has a specific timestamp
+                if (partTimestamp) {
+                    currentTimestamp = partTimestamp;
+                }
+
+                // Scan for concepts in this specific molecule
+                const conceptAtoms = this.scanAtoms(text);
+
+                // Merge System Atoms (Inherited) + Local Concepts
+                const moleculeAtoms = [...systemAtoms, ...conceptAtoms];
+
+                // Add concepts to global map
+                conceptAtoms.forEach(a => allAtomsMap.set(a.id, a));
+
+                const molId = `mol_${crypto.createHash('md5').update(compoundId + idx + text).digest('hex').substring(0, 12)}`;
+
+                // Re-Determine Type locally (e.g. code block in markdown)
+                // Use the passed type as default, but refined per chunk if needed
+                const molType = (type === 'prose' && (text.includes('```') || text.includes('function') || text.includes('const '))) ? 'code' : type;
+
+                let numericVal: number | undefined = undefined;
+                let numericUnit: string | undefined = undefined;
+
+                if (molType === 'data') {
+                    const data = this.extractNumericData(text);
+                    if (data) {
+                        numericVal = data.value;
+                        numericUnit = data.unit;
+                    }
+                }
+
+                molecules.push({
+                    id: molId,
+                    content: text,
+                    atoms: moleculeAtoms.map(a => a.id),
+                    sequence: idx,
+                    compoundId: fullCompoundId,
+
+                    // Universal Coordinates
+                    start_byte: start,
+                    end_byte: end,
+
+                    // Metadata
+                    type: molType,
+                    numeric_value: numericVal,
+                    numeric_unit: numericUnit,
+                    molecular_signature: this.generateSimHash(text),
+                    timestamp: currentTimestamp // Assign context-aware timestamp
+                });
             });
-        });
 
-        const allAtoms = Array.from(allAtomsMap.values());
+            const allAtoms = Array.from(allAtomsMap.values());
 
-        const compound: Compound = {
-            id: fullCompoundId,
-            compound_body: cleanContent,
-            molecules: molecules.map(m => m.id),
-            atoms: allAtoms.map(a => a.id),
-            path: sourcePath,
-            timestamp: timestamp, // Compound keeps file timestamp
-            provenance: provenance,
-            molecular_signature: this.generateSimHash(cleanContent)
-        };
+            const compound: Compound = {
+                id: fullCompoundId,
+                compound_body: cleanContent,
+                molecules: molecules.map(m => m.id),
+                atoms: allAtoms.map(a => a.id),
+                path: sourcePath,
+                timestamp: timestamp, // Compound keeps file timestamp
+                provenance: provenance,
+                molecular_signature: this.generateSimHash(cleanContent)
+            };
 
-        return {
-            compound,
-            molecules,
-            atoms: allAtoms
-        };
+            return {
+                compound,
+                molecules,
+                atoms: allAtoms
+            };
+        } catch (error: any) {
+            console.error(`[Atomizer] FATAL ERROR processing ${sourcePath}:`, error.message);
+            throw error;
+        }
     }
 
     private *chunkedSanitize(text: string, filePath: string, chunkSize: number): Generator<string> {
-        for (let i = 0; i < text.length; i += chunkSize) {
-            // Get chunk with slight overlap to avoid splitting keywords
-            // Overlap by 100 chars (safe for most tokens)
-            const chunk = text.substring(i, Math.min(text.length, i + chunkSize + 100));
-            // Only sanitize the non-overlapped part fully effectively, but for simple replacement
-            // we can sanitize the whole chunk. The overlap is mainly for context if we were doing parsing.
-            // For simple regex replacement, processing the chunk is generally safe enough provided we don't
-            // split a key we want to remove right in the middle.
-            // A safer approach for exact matching is tough without a parser.
-            // Given we are mostly stripping "Key: Value" lines, line-based buffering would be better.
+        let offset = 0;
+        while (offset < text.length) {
+            let end = Math.min(offset + chunkSize, text.length);
             
-            // Simplified: Just sanitize the chunk.
-            // Ideally we should align to newlines.
+            // Align to newline if not at the end
+            if (end < text.length) {
+                const nextNewline = text.indexOf('\n', end);
+                if (nextNewline !== -1 && nextNewline < end + 1000) { // Don't drift too far
+                    end = nextNewline + 1;
+                }
+            }
+            
+            const chunk = text.substring(offset, end);
             yield this.sanitize(chunk, filePath);
+            offset = end;
         }
     }
 
