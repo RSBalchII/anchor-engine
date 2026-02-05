@@ -23,7 +23,7 @@ Architectural standards governing system design and cognitive processing pattern
 
 ## Domain 10: ARCH (System Architecture)
 
-Node.js Monolith, CozoDB, Termux, Hardware limits, and system architecture decisions.
+Node.js Monolith, PGlite, Termux, Hardware limits, and system architecture decisions.
 
 ### Standards:
 
@@ -31,13 +31,14 @@ Node.js Monolith, CozoDB, Termux, Hardware limits, and system architecture decis
 - [004-wasm-memory-management.md](004-wasm-memory-management.md) - WASM memory management
 - [014-async-best-practices.md](014-async-await-best-practices.md) - Async/await patterns for system integration
 - [023-anchor-lite-simplification.md](023-anchor-lite-simplification.md) - Anchor Lite architectural simplification
-- [031-ghost-engine-stability-fix.md](031-ghost-engine-stability-fix.md) - CozoDB schema FTS failure handling
+- [031-ghost-engine-stability-fix.md](031-ghost-engine-stability-fix.md) - PGlite schema FTS failure handling
 - [032-ghost-engine-initialization-flow.md](032-ghost-engine-initialization-flow.md) - Database initialization race condition prevention
 - [034-nodejs-monolith-migration.md](034-nodejs-monolith-migration.md) - Migration to Node.js monolith architecture
 - [048-epochal-historian-recursive-decomposition.md](048-epochal-historian-recursive-decomposition.md) - Epochal Historian & Recursive Decomposition
 - [051-service-module-path-resolution.md](10-ARCH/051-service-module-path-resolution.md) - **[ESM]** Service Module Path Resolution & Native Loading
 - [057-enterprise-library-architecture.md](057-enterprise-library-architecture.md) - Enterprise Library Architecture (Logical Notebooks/Cartridges)
 - [060-worker-system.md](060-worker-system.md) - High-performance worker architecture
+- [085-pglite-implementation.md](085-pglite-implementation.md) - Migration from CozoDB to PGlite (PostgreSQL-compatible)
 
 ## Domain 20: DATA (Data, Memory, Filesystem)
 
@@ -52,17 +53,16 @@ Source of Truth, File Ingestion, Schemas, YAML Snapshots, and all data-related c
 - [024-context-ingestion-pipeline-fix.md](024-context-ingestion-pipeline-fix.md) - Context ingestion pipeline fixes
 - [029-consolidated-data-aggregation.md](029-consolidated-data-aggregation.md) - Consolidated data aggregation approach
 - [030-multi-format-output.md](030-multi-format-output.md) - JSON, YAML, and text output support
-- [033-cozodb-syntax-compliance.md](033-cozodb-syntax-compliance.md) - CozoDB syntax compliance requirements
-- [037-database-hydration-snapshot-portability.md](037-database-hydration-snapshot-portability.md) - Database hydration workflow
+- [033-pglite-syntax-compliance.md](033-pglite-syntax-compliance.md) - PGlite syntax compliance requirements
 - [052-schema-evolution-epochal-classification.md](052-schema-evolution-epochal-classification.md) - Schema Evolution & Epochal Classification
-- [053-cozodb-pain-points-reference.md](053-cozodb-pain-points-reference.md) - **🔥 CRITICAL**: CozoDB pain points and gotchas
+- [053-pglite-pain-points-reference.md](053-pglite-pain-points-reference.md) - **🔥 CRITICAL**: PGlite pain points and gotchas
 - [059-reliable-ingestion.md](059-reliable-ingestion.md) - Ghost Data Protocol for reliable ingestion
 - [061-context-logic.md](061-context-logic.md) - Advanced context window logic
-- [063-cozo-db-syntax.md](063-cozo-db-syntax.md) - CozoDB syntax reference
-- [064-cozodb-query-stability.md](064-cozodb-query-stability.md) - Query stability and error handling
+- [063-pglite-syntax-reference.md](063-pglite-syntax-reference.md) - PGlite syntax reference
+- [064-pglite-query-stability.md](064-pglite-query-stability.md) - Query stability and error handling
 - [065-graph-associative-retrieval.md](065-graph-associative-retrieval.md) - Tag-Walker: Bridge & Walk phases
 - [066-human-readable-mirror.md](066-human-readable-mirror.md) - Filesystem projection of graph data
-- [067-cozodb-query-sanitization.md](067-cozodb-query-sanitization.md) - Preventing injection and syntax errors
+- [067-pglite-query-sanitization.md](067-pglite-query-sanitization.md) - Preventing injection and syntax errors
 - [068-tag-infection-protocol.md](068-tag-infection-protocol.md) - Weak Supervision & Tag Infection
 - [069-intelligent-query-expansion.md](069-intelligent-query-expansion.md) - Semantic intent translation
 - [070-local-discovery.md](070-local-discovery.md) - Local Discovery & NER Standardization
@@ -97,3 +97,13 @@ Extensions, Ports, APIs, and all interface-related concerns.
 - [026-ghost-engine-connection-management.md](026-ghost-engine-connection-management.md) - Ghost Engine connection management
 - [058-universal-rag-api.md](058-universal-rag-api.md) - Standard Unified RAG Endpoint
 - [074-atomic-frontend-architecture.md](074-atomic-frontend-architecture.md) - Atomic Frontend Architecture & Glassmorphism System
+
+## Deprecated Standards (Historical Reference)
+
+The following standards have been deprecated as of the migration to PGlite (PostgreSQL-compatible) database:
+
+- [053-cozodb-pain-points-reference.md](053-cozodb-pain-points-reference.md) - **DEPRECATED**: Former CozoDB pain points and gotchas
+- [063-cozo-db-syntax.md](063-cozo-db-syntax.md) - **DEPRECATED**: Former CozoDB syntax reference
+- [064-cozodb-query-stability.md](064-cozodb-query-stability.md) - **DEPRECATED**: Former CozoDB query stability (now PGlite)
+- [067-cozodb-query-sanitization.md](067-cozodb-query-sanitization.md) - **DEPRECATED**: Former CozoDB query sanitization
+- [073-cozodb-integration.md](073-cozodb-integration.md) - **DEPRECATED**: Former CozoDB integration standard

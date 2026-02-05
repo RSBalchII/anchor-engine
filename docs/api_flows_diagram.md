@@ -1,145 +1,118 @@
-# ECE_Core API Flow Diagrams
+# API Flow Diagrams for ECE_Core
 
-## Ingestion API Flow
-
-```mermaid
-sequenceDiagram
-    participant Client as API Client
-    participant Router as Router
-    participant IS as Ingestion Service
-    participant AS as Atomizer Service
-    participant AIS as Atomic Ingest Service
-    participant DB as CozoDB
-    participant NM as Native Modules
-    
-    Client->>Router: POST /v1/ingest {content, source, type, buckets}
-    Router->>IS: Process ingestion request
-    IS->>AS: atomize(content, source, provenance)
-    AS->>NM: Sanitize & process content (native)
-    NM-->>AS: Processed content
-    AS->>AS: Create atomic topology (Compound/Molecules/Atoms)
-    AS-->>IS: Return atomic results
-    IS->>AIS: ingestResult(compound, molecules, atoms, buckets)
-    AIS->>DB: Persist to database tables
-    DB-->>AIS: Confirmation
-    AIS-->>IS: Ingestion complete
-    IS-->>Client: {status: "success", id: "..."}
-```
-
-## Search API Flow
+## Search Flow
 
 ```mermaid
 sequenceDiagram
-    participant Client as API Client
-    participant Router as Router
+    participant UI as User Interface
+    participant API as API Service
     participant SS as Search Service
-    participant NLP as NLP Service
-    participant DB as CozoDB
-    participant CI as Context Inflator
-    
-    Client->>Router: POST /v1/memory/search {query, buckets}
-    Router->>SS: executeSearch(query, buckets)
-    SS->>NLP: parseNaturalLanguage(query)
-    NLP-->>SS: Parsed tokens
-    SS->>SS: expandQuery(parsedQuery)
-    SS->>DB: FTS query on memory table
-    DB-->>SS: Anchor results
-    SS->>DB: Graph traversal for related results
-    DB-->>SS: Related results
-    SS->>CI: inflate(results)
-    CI->>DB: Fetch compound content for inflation
-    DB-->>CI: Content
-    CI-->>SS: Inflated results
-    SS-->>Client: {context, results, metadata}
+    participant DB as PGlite
+    participant TS as Tag-Walker Service
+
+    UI->>API: POST /v1/memory/search {query: "revenue optimization"}
+    API->>SS: executeSearch(query, buckets, maxChars)
+    SS->>TS: processQuery(query)
+    TS->>DB: FTS query on content
+    DB-->>TS: Initial results
+    TS->>TS: Apply Tag-Walker protocol
+    TS->>DB: Graph traversal for related atoms
+    DB-->>TS: Related results
+    TS-->>SS: Curated results
+    SS-->>API: Formatted response
+    API-->>UI: Search results with context
 ```
 
-## Chat API Flow
-
-```mermaid
-sequenceDiagram
-    participant Client as API Client
-    participant Router as Router
-    participant AR as Agent Runtime
-    participant IS as Inference Service
-    participant LW as LLM Workers
-    participant SS as Search Service
-    participant DB as CozoDB
-    
-    Client->>Router: POST /v1/chat/completions {messages, model}
-    Router->>AR: runLoop(objective)
-    AR->>SS: executeSearch(objective)
-    SS->>DB: Query for relevant context
-    DB-->>SS: Search results
-    SS-->>AR: contextBlock
-    AR->>IS: runStreamingChat(contextualMessages)
-    IS->>LW: Send prompt to worker
-    LW->>LW: Process with LLM
-    LW-->>IS: Stream tokens
-    IS-->>AR: Stream tokens
-    AR-->>Router: Stream tokens
-    Router-->>Client: Stream SSE response
-```
-
-## File Watch Ingestion Flow
+## Ingestion Flow
 
 ```mermaid
 sequenceDiagram
     participant FS as File System
-    participant WD as Watchdog Service
+    participant WD as Watchdog
+    participant IS as Ingestion Service
     participant AS as Atomizer Service
-    participant AIS as Atomic Ingest Service
-    participant DB as CozoDB
-    participant MS as Mirror Service
-    
-    FS-->>WD: File change detected
-    WD->>WD: Hash check & change detection
-    alt File changed
-        WD->>AS: processFile(filePath)
-        AS->>AS: sanitize(content)
-        AS->>AS: atomize(content, path, provenance)
-        AS->>AIS: ingestResult(compound, molecules, atoms, buckets)
-        AIS->>DB: Persist to database
-        DB-->>AIS: Confirmation
-        AIS-->>WD: Ingestion complete
-        WD->>MS: triggerMirror()
-        MS->>MS: Create mirror files
-        MS-->>WD: Mirror complete
-    end
+    participant DB as PGlite
+    participant NM as Native Modules
+
+    FS->>WD: File change detected
+    WD->>IS: Process file content
+    IS->>AS: atomizeContent(content)
+    AS->>NM: Native atomization (C++)
+    NM-->>AS: Processed molecules
+    AS-->>IS: Molecules with semantic tags
+    IS->>IS: Generate fingerprints (SimHash)
+    IS->>DB: Insert atoms/molecules with deduplication
+    DB-->>IS: Confirmation
+    IS-->>WD: Ingestion complete
 ```
 
-## Tag-Walker Search Flow
+## Chat Flow with Context Injection
 
 ```mermaid
 sequenceDiagram
-    participant Client as API Client
+    participant UI as Chat Interface
+    participant API as API Service
+    participant AR as Agent Runtime
     participant SS as Search Service
-    participant EL as Engram Lookup
-    participant FTS as FTS Search
-    participant TW as Tag-Walker
-    participant DB as CozoDB
-    participant CI as Context Inflator
-    
-    Client->>SS: tagWalkerSearch(query, buckets, tags)
-    
-    par Engram Lookup
-        SS->>EL: lookupByEngram(query)
-        EL-->>SS: engramResults
-    and FTS Search
-        SS->>FTS: CozoDB FTS query
-        FTS->>DB: ~memory:content_fts
-        DB-->>FTS: Anchor results
-        FTS-->>SS: anchorResults
-    end
-    
-    SS->>TW: Graph traversal for related results
-    TW->>DB: *memory{*} joins
-    DB-->>TW: Related results
-    TW-->>SS: neighborResults
-    
-    SS->>SS: Combine & deduplicate
-    SS->>CI: inflate(combinedResults)
-    CI->>DB: Fetch compound content
-    DB-->>CI: Content
-    CI-->>SS: Inflated results
-    SS-->>Client: Ranked results
+    participant DB as PGlite
+
+    UI->>API: POST /v1/chat/completions {messages: [...]}
+    API->>AR: Initialize agent with contextual messages
+    AR->>SS: Search for context related to query
+    SS->>DB: Execute Tag-Walker search
+    DB-->>SS: Relevant context atoms
+    SS-->>AR: Retrieved context
+    AR->>AR: Combine context with user query
+    AR->>API: Stream response tokens
+    API-->>UI: SSE stream of response
+```
+
+## Backup/Restore Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Admin Interface
+    participant API as API Service
+    participant BS as Backup Service
+    participant DB as PGlite
+    participant FS as File System
+
+    UI->>API: POST /v1/backup
+    API->>BS: createBackup()
+    BS->>DB: Export database content
+    DB-->>BS: Database dump
+    BS->>FS: Write to backups/ directory
+    FS-->>BS: Backup file created
+    BS-->>API: Backup confirmation
+    API-->>UI: Backup completed
+
+    UI->>API: POST /v1/backup/restore {filename: backup.sql}
+    API->>BS: restoreBackup(filename)
+    BS->>FS: Read backup file
+    FS-->>BS: Backup content
+    BS->>DB: Import database content
+    DB-->>BS: Restore confirmation
+    BS-->>API: Restore completed
+    API-->>UI: System restored
+```
+
+## Health Check Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Monitoring System
+    participant API as API Service
+    participant HS as Health Service
+    participant DB as PGlite
+    participant NM as Native Modules
+
+    UI->>API: GET /health
+    API->>HS: checkSystemHealth()
+    HS->>HS: Check service initialization state
+    HS->>DB: Test connectivity
+    DB-->>HS: Connection OK
+    HS->>NM: Test native module availability
+    NM-->>HS: Module status
+    HS-->>API: Health report
+    API-->>UI: System status (healthy/degraded starting)
 ```

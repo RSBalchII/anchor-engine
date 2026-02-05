@@ -88,37 +88,11 @@ rl.on('line', async (line) => {
     process.exit(0);
 });
 
-function handleCommand(cmd: string) {
-    const [command, ...args] = cmd.toLowerCase().split(' ');
 
-    switch (command) {
-        case '/help':
-            console.log(`
-  ${colors.bright}Commands:${colors.reset}
-    /help           Show this help
-    /exit, /quit    Exit the console
-    /clear          Clear screen
-    /status         Check system health (TODO)
-  
-  ${colors.bright}Usage:${colors.reset}
-    Simply type standard SQL queries to execute them against the live database.
-    Example: ${colors.green}SELECT * FROM atoms LIMIT 5;${colors.reset}
-      `);
-            break;
 
-        case '/exit':
-        case '/quit':
-            rl.close();
-            break;
 
-        case '/clear':
-            console.clear();
-            break;
 
-        default:
-            console.log(`${colors.red}Unknown command: ${command}${colors.reset}`);
-    }
-}
+let outputMode: 'table' | 'csv' | 'json' = 'table';
 
 async function executeSql(query: string) {
     try {
@@ -143,9 +117,15 @@ async function executeSql(query: string) {
             const duration = Date.now() - start;
 
             if (data.rows && data.rows.length > 0) {
-                // Format as table
-                console.table(data.rows);
-                console.log(`${colors.green}${data.row_count} rows in ${data.duration_ms}ms${colors.reset}`);
+                if (outputMode === 'table') {
+                    console.table(data.rows);
+                    console.log(`${colors.green}${data.row_count} rows in ${data.duration_ms}ms${colors.reset}`);
+                } else if (outputMode === 'json') {
+                    console.log(JSON.stringify(data.rows, null, 2));
+                } else if (outputMode === 'csv') {
+                    console.log(convertToCsv(data.rows));
+                    console.log(`${colors.green}${data.row_count} rows exported.${colors.reset}`);
+                }
             } else {
                 console.log(`${colors.yellow}No results returned. (${data.duration_ms}ms)${colors.reset}`);
             }
@@ -154,5 +134,69 @@ async function executeSql(query: string) {
     } catch (err: any) {
         console.error(`${colors.red}Connection Error: Is the Engine running?${colors.reset}`);
         console.error(err.message);
+    }
+}
+
+function convertToCsv(rows: any[]): string {
+    if (rows.length === 0) return '';
+    const headers = Object.keys(rows[0]);
+    const csvRows = rows.map(row => {
+        return headers.map(fieldName => {
+            const val = row[fieldName];
+            const safeVal = (val === null || val === undefined) ? '' : String(val);
+            // Escape quotes and wrap in quotes
+            const escaped = safeVal.replace(/"/g, '""');
+            return `"${escaped}"`;
+        }).join(',');
+    });
+    return [headers.join(','), ...csvRows].join('\n');
+}
+
+function handleCommand(cmd: string) {
+    const [command, ...args] = cmd.toLowerCase().split(' ');
+
+    switch (command) {
+        case '/help':
+            console.log(`
+  ${colors.bright}Commands:${colors.reset}
+    /help           Show this help
+    /exit, /quit    Exit the console
+    /clear          Clear screen
+    /table          Switch to Table output (Default)
+    /csv            Switch to CSV output
+    /json           Switch to JSON output
+  
+  ${colors.bright}Usage:${colors.reset}
+    Simply type standard SQL queries to execute them against the live database.
+    Example: ${colors.green}SELECT * FROM atoms LIMIT 5;${colors.reset}
+      `);
+            break;
+
+        case '/exit':
+        case '/quit':
+            rl.close();
+            break;
+
+        case '/clear':
+            console.clear();
+            break;
+
+        case '/csv':
+            outputMode = 'csv';
+            console.log(`${colors.green}Output mode set to CSV.${colors.reset}`);
+            break;
+
+        case '/json':
+            outputMode = 'json';
+            console.log(`${colors.green}Output mode set to JSON.${colors.reset}`);
+            break;
+
+        case '/table':
+            outputMode = 'table';
+            console.log(`${colors.green}Output mode set to Table.${colors.reset}`);
+            break;
+
+        default:
+            console.log(`${colors.red}Unknown command: ${command}${colors.reset}`);
     }
 }

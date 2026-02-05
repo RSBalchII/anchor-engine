@@ -24,7 +24,7 @@ ECE represents a shift from centralized AI memory systems to a "Browser Paradigm
 
 2. **Configuration**:
    - Set up your `user_settings.json` to customize behavior
-   - Place CozoDB binaries in the appropriate locations for your platform
+   - The system now uses PGlite (PostgreSQL-compatible) which requires no separate binary installation
    - Configure your notebook directories for content ingestion
 
 3. **First Run**:
@@ -110,7 +110,7 @@ This approach offers:
 1. **Node.js Layer**: Handles networking, OS integration, and orchestration
 2. **N-API Boundary**: Stable interface between JavaScript and C++
 3. **C++ Performance Layer**: Critical operations for speed and efficiency
-4. **CozoDB Storage**: Graph-vector database for knowledge persistence
+4. **PGlite Storage**: PostgreSQL-compatible database for knowledge persistence
 5. **Tag-Walker Protocol**: Graph-based retrieval instead of vector search
 
 ### Key Algorithms

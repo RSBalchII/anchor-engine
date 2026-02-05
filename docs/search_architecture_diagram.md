@@ -1,234 +1,206 @@
-# ECE_Core Search Architecture - Tag-Walker Protocol
+# Search Architecture Diagram for ECE_Core
 
-## Overview of Search Architecture
-
-```mermaid
-graph TB
-    subgraph "Query Input"
-        Q[Natural Language Query]
-        PT[Parse & Tokenize]
-        NL[NLP Processing]
-        QE[Query Expansion]
-    end
-    
-    subgraph "Search Strategies"
-        EN[Engram Lookup<br/>O(1) Access]
-        TW[Tag-Walker<br/>Graph Traversal]
-        FTS[Full-Text Search<br/>CozoDB FTS]
-        SM[Semantic Match<br/>Category Detection]
-    end
-    
-    subgraph "Database Queries"
-        QRY1[FTS Query<br/>~memory:content_fts]
-        QRY2[Graph Query<br/>*memory{*} joins]
-        QRY3[Engram Query<br/>*engrams{*}]
-        QRY4[Semantic Query<br/>Category filters]
-    end
-    
-    subgraph "Database Tables"
-        MEM[(memory table<br/>Main storage)]
-        MOL[(molecules table<br/>Molecular coords)]
-        ATOM[(atoms table<br/>Semantic units)]
-        EDGE[(atom_edges table<br/>Relationships)]
-        ENG[(engrams table<br/>Lexical sidecar)]
-    end
-    
-    subgraph "Results Processing"
-        FIL[Filter & Dedupe]
-        SCO[Score & Rank]
-        INFL[Context Inflation]
-        MERGE[Merge Results]
-    end
-    
-    subgraph "Output"
-        RES[Ranked Results]
-        CON[Context Assembly]
-        API[API Response]
-    end
-    
-    Q --> PT
-    PT --> NL
-    NL --> QE
-    
-    QE --> EN
-    QE --> TW
-    QE --> FTS
-    QE --> SM
-    
-    EN --> QRY3
-    TW --> QRY2
-    FTS --> QRY1
-    SM --> QRY4
-    
-    QRY1 --> MEM
-    QRY2 --> MEM
-    QRY2 --> MOL
-    QRY2 --> ATOM
-    QRY2 --> EDGE
-    QRY3 --> ENG
-    QRY4 --> MEM
-    
-    MEM --> FIL
-    MOL --> FIL
-    ATOM --> FIL
-    ENG --> FIL
-    
-    FIL --> SCO
-    SCO --> INFL
-    INFL --> MERGE
-    MERGE --> RES
-    RES --> CON
-    CON --> API
-```
-
-## Tag-Walker Protocol Flow
-
-```mermaid
-sequenceDiagram
-    participant Q as Query
-    participant P as Parser
-    participant E as Expander
-    participant T as Tag-Walker
-    participant DB as Database
-    participant R as Results
-    participant I as Inflator
-    
-    Q->>P: Natural language query
-    P->>E: Parse and extract keywords
-    E->>T: Expanded query with tags
-    T->>DB: FTS query for anchors
-    DB-->>T: Anchor results
-    T->>DB: Graph traversal for related
-    DB-->>T: Related results
-    T->>R: Raw results
-    R->>I: Results for inflation
-    I->>R: Inflated results
-    R-->>Q: Final ranked results
-```
-
-## Detailed Tag-Walker Algorithm
-
-```mermaid
-flowchart TD
-    A[Input Query] --> B{Parse Query<br/>Extract Tags & Keywords}
-    
-    B --> C[Generate Engram Key]
-    C --> D{Check Engram Cache}
-    
-    D -->|Hit| E[Retrieve Cached IDs]
-    D -->|Miss| F[Execute FTS Search]
-    
-    E --> G[Fetch Content by IDs]
-    F --> G
-    
-    G --> H{Apply Tag-Walker<br/>Graph Traversal}
-    
-    H --> I[Find Anchor Results<br/>Direct FTS matches]
-    H --> J[Find Related Results<br/>Tag-based traversal]
-    
-    I --> K[Apply Provenance Boosting]
-    J --> L[Apply Type-Based Scoring]
-    
-    K --> M[Combine & Deduplicate]
-    L --> M
-    
-    M --> N{Apply Context Inflation}
-    N --> O[Calculate Final Scores]
-    O --> P[Rank & Limit Results]
-    P --> Q[Return Ranked Results]
-```
-
-## Search Performance Architecture
-
-```mermaid
-graph LR
-    subgraph "Query Processing"
-        QP[Query Parser]
-        QE[Query Expander]
-        NF[Natural Language Filter]
-    end
-    
-    subgraph "Search Execution"
-        SA[Search Arbitrator]
-        S1[Strategy 1: Direct]
-        S2[Strategy 2: Graph Walk]
-        S3[Strategy 3: Semantic]
-        S4[Strategy 4: Engram]
-    end
-    
-    subgraph "Database Layer"
-        IDX[FTS Index]
-        GR[Graph Index]
-        VEC[Vector Index]
-        TAB[CozoDB Tables]
-    end
-    
-    subgraph "Results Processing"
-        SCP[Scoring Pipeline]
-        DDP[Deduplication]
-        INFL[Inflation Engine]
-        RANK[Ranking Engine]
-    end
-    
-    subgraph "Performance Metrics"
-        PM1[Query Latency]
-        PM2[Result Relevance]
-        PM3[Memory Usage]
-        PM4[Cache Hit Rate]
-    end
-    
-    QP --> QE
-    QE --> NF
-    NF --> SA
-    
-    SA --> S1
-    SA --> S2
-    SA --> S3
-    SA --> S4
-    
-    S1 --> IDX
-    S2 --> GR
-    S3 --> VEC
-    S4 --> TAB
-    
-    IDX --> SCP
-    GR --> SCP
-    VEC --> SCP
-    TAB --> SCP
-    
-    SCP --> DDP
-    DDP --> INFL
-    INFL --> RANK
-    
-    S1 --> PM1
-    S2 --> PM1
-    S3 --> PM2
-    S4 --> PM4
-    SCP --> PM3
-```
-
-## CozoDB Query Patterns
+## Tag-Walker Protocol Overview
 
 ```mermaid
 graph TD
-    subgraph "FTS Query Pattern"
-        FQ[~memory:content_fts{id | query: $query, k: 50, bind_score: fts_score}]
-        FM[*memory{id, content, source, timestamp, buckets, tags, epochs, provenance, simhash}]
+    subgraph "Query Processing"
+        A[User Query<br/>Natural Language]
+        B[Query Parser<br/>NLP Processing]
+        C[Query Expander<br/>Synonym Mapping]
     end
-    
-    subgraph "Graph Walk Pattern"
-        GQ[*memory{id: anchor_id, tags: anchor_tags}, anchor_id in $anchorIds]
-        GT[tag in anchor_tags, *memory{id, content, source, timestamp, buckets, tags, epochs, provenance, sequence, simhash, type}]
-        GF[tag in tags, id != anchor_id]
+
+    subgraph "Search Phases"
+        D[Phase 1: FTS Search<br/>PGlite GIN Index]
+        E[Phase 2: Tag-Walker<br/>Graph Traversal]
+        F[Phase 3: Context Inflation<br/>Molecular Coordinates]
     end
-    
-    subgraph "Join Pattern"
-        JP[*molecules{id, start_byte, end_byte, type, numeric_value, numeric_unit, compound_id}]
+
+    subgraph "Database Layer"
+        G[(PGlite Database)]
+        H[Atoms Table<br/>Content + FTS Index]
+        I[Tags Table<br/>Semantic Relationships]
+        J[Edges Table<br/>Atom Connections]
+        K[Engrams Table<br/>Lexical Sidecar]
     end
-    
-    FQ --> FM
-    GQ --> GT
-    GT --> GF
-    FM --> JP
-    GT --> JP
+
+    subgraph "Results Processing"
+        L[Result Scoring<br/>Relevance Ranking]
+        M[Duplicate Filtering<br/>SimHash Deduplication]
+        N[Response Assembly<br/>Context Window Formation]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    C --> E
+    C --> F
+
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H
+    G --> I
+    G --> J
+    G --> K
+
+    H --> L
+    I --> L
+    J --> L
+    K --> L
+
+    L --> M
+    M --> N
+```
+
+## Detailed Search Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as User Interface
+    participant API as API Service
+    participant SS as Search Service
+    participant TW as Tag-Walker Protocol
+    participant DB as PGlite Database
+    participant NS as Native Services
+
+    UI->>API: POST /v1/memory/search {query: "revenue optimization", buckets: ["inbox"], max_chars: 20000}
+    API->>SS: executeSearch(query, buckets, maxChars)
+    SS->>TW: processQuery(query)
+    TW->>DB: Execute FTS search on content
+    DB-->>TW: Initial results from GIN index
+    alt No Results Found
+        TW->>DB: Execute fuzzy fallback (OR logic)
+        DB-->>TW: Fallback results
+    end
+    TW->>TW: Apply Tag-Walker graph traversal
+    TW->>DB: Query related atoms via tags/edges
+    DB-->>TW: Graph traversal results
+    TW->>SS: Curated results with provenance
+    SS->>SS: Apply context inflation (molecular coordinates)
+    SS->>NS: Native processing for performance
+    NS-->>SS: Processed results
+    SS-->>API: Formatted response with context window
+    API-->>UI: Search results (limited by token budget)
+```
+
+## Smart Search Protocol (Standard 094)
+
+```mermaid
+graph TD
+    subgraph "Phase 1: Intelligent Parsing"
+        A[Input: "What do we know about revenue optimization summary"]
+        B[POS Tagging & Stopword Removal]
+        C[Output: "revenue optimization summary"]
+    end
+
+    subgraph "Phase 2: Strict Anchor Search"
+        D[GIN Index Query<br/>All terms must match]
+        E[PGlite FTS with 'simple' dictionary]
+        F[Strict AND logic: revenue & optimization & summary]
+    end
+
+    subgraph "Phase 3: Fuzzy Fallback"
+        G[Trigger: Zero results from Phase 2]
+        H[Logical OR query: revenue | optimization | summary]
+        I[Retrieve partial matches]
+    end
+
+    subgraph "Phase 4: Semantic Walk"
+        J[Use seed results as graph nodes]
+        K[Traverse related atoms via shared tags]
+        L[Pull in associated content]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F -->|Zero Results| G
+    G --> H
+    H --> I
+    F -->|Results Found| J
+    I -->|Results Found| J
+    J --> K
+    K --> L
+```
+
+## Performance Optimization Layers
+
+```mermaid
+graph LR
+    subgraph "Caching Layer"
+        CA[Query Cache<br/>Recent search results]
+        CB[Atom Cache<br/>Frequently accessed atoms]
+        CC[Embedding Cache<br/>Computed embeddings]
+    end
+
+    subgraph "Indexing Layer"
+        DA[GIN Index<br/>Full-Text Search]
+        DB[B-tree Indices<br/>Tags, Buckets, Timestamps]
+        DC[Hash Indices<br/>SimHash for deduplication]
+    end
+
+    subgraph "Processing Layer"
+        EA[Native Modules<br/>C++ Performance]
+        EB[Batch Processing<br/>SIMD Operations]
+        EC[Zero-Copy Operations<br/>std::string_view]
+    end
+
+    CA --> DA
+    CB --> DB
+    CC --> DC
+    DA --> EA
+    DB --> EB
+    DC --> EC
+```
+
+## Agent Integration Search Flow
+
+```mermaid
+sequenceDiagram
+    participant AH as Agent Harness
+    participant API as REST API
+    participant SS as Search Service
+    participant TW as Tag-Walker
+    participant DB as PGlite
+    participant AG as Agent Runtime
+
+    AH->>API: Query with context requirement
+    API->>SS: Retrieve relevant context
+    SS->>TW: Execute Tag-Walker search
+    TW->>DB: Query atoms with semantic matching
+    DB-->>TW: Retrieved context atoms
+    TW-->>SS: Curated results
+    SS-->>API: Formatted context
+    API->>AG: Combine context + agent logic
+    AG-->>API: Processed response
+    API-->>AH: Final response with agent reasoning
+```
+
+## Database Schema for Search
+
+```mermaid
+graph BT
+    subgraph "PGlite Tables"
+        AT[Atoms Table<br/>- id (TEXT)<br/>- content (TEXT)<br/>- source_path (TEXT)<br/>- timestamp (REAL)<br/>- buckets (TEXT[])<br/>- tags (TEXT[])<br/>- epochs (TEXT[])<br/>- simhash (TEXT)<br/>- embedding (TEXT)<br/>- provenance (TEXT)<br/>- payload (JSONB)]
+        
+        TT[Tags Table<br/>- atom_id (TEXT)<br/>- tag (TEXT)<br/>- bucket (TEXT)<br/>PRIMARY KEY (atom_id, tag)]
+        
+        ET[Edges Table<br/>- source_id (TEXT)<br/>- target_id (TEXT)<br/>- relation (TEXT)<br/>- weight (REAL)<br/>PRIMARY KEY (source_id, target_id, relation)]
+        
+        ST[Sources Table<br/>- path (TEXT)<br/>- hash (TEXT)<br/>- total_atoms (INTEGER)<br/>- last_ingest (REAL)<br/>PRIMARY KEY (path)]
+        
+        MT[Molecules Table<br/>- id (TEXT)<br/>- content (TEXT)<br/>- compound_id (TEXT)<br/>- sequence (INTEGER)<br/>- start_byte (INTEGER)<br/>- end_byte (INTEGER)<br/>- type (TEXT)<br/>- numeric_value (REAL)<br/>- numeric_unit (TEXT)<br/>- molecular_signature (TEXT)<br/>- embedding (TEXT)<br/>- timestamp (REAL)]
+        
+        CT[Compounds Table<br/>- id (TEXT)<br/>- compound_body (TEXT)<br/>- path (TEXT)<br/>- timestamp (REAL)<br/>- provenance (TEXT)<br/>- molecular_signature (TEXT)<br/>- atoms (TEXT)<br/>- molecules (TEXT)<br/>- embedding (TEXT)<br/>PRIMARY KEY (id)]
+    end
+
+    AT -.-> TT
+    AT -.-> ET
+    AT -.-> ST
+    AT -.-> MT
+    AT -.-> CT
 ```
