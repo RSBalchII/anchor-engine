@@ -304,7 +304,7 @@ function testWildcardSelect() {
       throw new Error(`Expected 'SELECT *' for default, got: ${sql2}`);
     }
     
-    // Test mixed fields with wildcard should handle properly
+    // Test regular field selection (non-wildcard) should quote fields
     const qb3 = new QueryBuilder(mockDb, 'users');
     qb3.select(['id', 'name']);
     const { sql: sql3 } = qb3.getSQL();
