@@ -45,6 +45,7 @@ export class QueryBuilder {
 
   constructor(db: DatabaseInterface, tableName: string) {
     this.db = db;
+    this.validateIdentifier(tableName, 'table name');
     this.options = {
       tableName,
       selectFields: [],
@@ -56,20 +57,29 @@ export class QueryBuilder {
   }
 
   /**
-   * Escape SQL identifier (table name, column name) to prevent SQL injection
-   * PostgreSQL identifiers are enclosed in double quotes, and any embedded double quotes
-   * must be doubled to escape them.
+   * Validates that an identifier (table/field name) contains only safe characters
+   * to prevent SQL injection attacks. Identifiers must contain only alphanumeric
+   * characters, underscores, and start with a letter or underscore.
    */
-  private escapeIdentifier(identifier: string): string {
-    // Replace any double quotes with two double quotes to escape them
-    const escaped = identifier.replace(/"/g, '""');
-    return `"${escaped}"`;
+  private validateIdentifier(identifier: string, contextName: string = 'identifier'): void {
+    // Allow alphanumeric characters and underscores, must start with letter or underscore
+    const safeIdentifierPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+    
+    if (!safeIdentifierPattern.test(identifier)) {
+      throw new Error(
+        `Invalid ${contextName}: "${identifier}". ` +
+        `Identifiers must contain only alphanumeric characters and underscores, ` +
+        `and must start with a letter or underscore.`
+      );
+    }
   }
 
   /**
    * Select specific fields from the table
    */
   select(fields: string[]): QueryBuilder {
+    // Validate all field names before storing them
+    fields.forEach(field => this.validateIdentifier(field, 'field name'));
     this.options.selectFields = fields;
     this.clearCache();
     return this;
@@ -79,6 +89,7 @@ export class QueryBuilder {
    * Add WHERE condition to the query
    */
   where(field: string, operator: string, value: any): QueryBuilder {
+    this.validateIdentifier(field, 'field name');
     this.options.whereConditions.push({ field, operator, value });
     this.clearCache();
     return this;
@@ -88,6 +99,7 @@ export class QueryBuilder {
    * Add ORDER BY clause to the query
    */
   orderBy(field: string, direction: 'ASC' | 'DESC' = 'ASC'): QueryBuilder {
+    this.validateIdentifier(field, 'field name');
     this.options.orderByClause = { field, direction };
     this.clearCache();
     return this;
