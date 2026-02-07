@@ -111,7 +111,12 @@ export class QueryBuilder {
     let sql = 'SELECT ';
     
     if (this.options.selectFields.length > 0) {
-      sql += this.options.selectFields.map(field => `"${field}"`).join(', ');
+      // Special-case '*' to avoid quoting the wildcard
+      if (this.options.selectFields.length === 1 && this.options.selectFields[0] === '*') {
+        sql += '*';
+      } else {
+        sql += this.options.selectFields.map(field => field === '*' ? '*' : `"${field}"`).join(', ');
+      }
     } else {
       sql += '*';
     }
