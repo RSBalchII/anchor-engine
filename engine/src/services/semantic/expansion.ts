@@ -5,7 +5,7 @@
  * 1. Synonym Ring - WordNet-lite mappings
  * 2. Phonetic Hash - Metaphone for typo tolerance (future)
  * 
- * Standard 095: Deterministic Semantic Expansion Protocol
+ * Deterministic Semantic Expansion Protocol (see project standards documentation)
  */
 
 import { readFileSync, existsSync } from 'fs';
@@ -32,9 +32,17 @@ let isLoaded = false;
  * Load the synonym ring from JSON file
  */
 export function loadSynonymRing(customPath?: string): boolean {
-    const defaultPath = join(__dirname, '../../../data/synonyms.json');
-    const ringPath = customPath || defaultPath;
+    const defaultPaths = [
+        // Source runtime: engine/src/services/semantic -> engine/data/synonyms.json
+        join(__dirname, '../../../data/synonyms.json'),
+        // Dist runtime: engine/dist/services/semantic -> engine/data/synonyms.json
+        join(__dirname, '../../data/synonyms.json'),
+    ];
 
+    const ringPath =
+        customPath ||
+        defaultPaths.find((p) => existsSync(p)) ||
+        defaultPaths[0];
     try {
         if (!existsSync(ringPath)) {
             console.warn(`[SemanticExpansion] Synonym ring not found at: ${ringPath}`);

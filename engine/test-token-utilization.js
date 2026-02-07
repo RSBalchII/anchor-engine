@@ -3,7 +3,6 @@
  */
 
 import { executeSearch } from './dist/services/search/search.js';
-import { db } from './dist/core/db.js';
 
 async function testTokenBudgetUtilization() {
   console.log('Testing token budget utilization...');
