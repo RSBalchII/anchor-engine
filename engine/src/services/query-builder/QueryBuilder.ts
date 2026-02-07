@@ -183,11 +183,17 @@ export class QueryBuilder {
     }
     
     if (this.options.orderByClause) {
-      sql += ` ORDER BY ${this.escapeIdentifier(this.options.orderByClause.field)} ${this.options.orderByClause.direction}`;
+      const rawDirection = String(this.options.orderByClause.direction || '').toUpperCase();
+      const safeDirection = rawDirection === 'ASC' || rawDirection === 'DESC' ? rawDirection : 'ASC';
+      sql += ` ORDER BY ${this.escapeIdentifier(this.options.orderByClause.field)} ${safeDirection}`;
     }
     
     if (this.options.limitValue !== null) {
-      sql += ` LIMIT ${this.options.limitValue}`;
+      const limit = Number(this.options.limitValue);
+      if (!Number.isSafeInteger(limit) || limit <= 0) {
+        throw new Error('Invalid limit value for query');
+      }
+      sql += ` LIMIT ${limit}`;
     }
 
     this.sqlCache = sql;
