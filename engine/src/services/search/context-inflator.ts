@@ -53,12 +53,12 @@ export class ContextInflator {
                 const compoundBody = result.rows[0][0] as string;
                 
                 // Extract the specific content based on byte coordinates
-                // Use Buffer to handle UTF-8 correctly (same as search.ts)
-                const contentBuffer = Buffer.from(compoundBody, 'utf8');
+                // Convert to Buffer to handle byte offsets correctly (not string indices)
+                const contentBuffer = Buffer.from(fileContent, 'utf-8');
                 const start = Math.max(0, res.start_byte);
-                const end = Math.min(res.end_byte || contentBuffer.length, contentBuffer.length);
+                const end = res.end_byte || contentBuffer.length;
                 const sliceBuffer = contentBuffer.subarray(start, end);
-                const extractedContent = sliceBuffer.toString('utf8');
+                const extractedContent = sliceBuffer.toString('utf-8');
 
                 // Create a new result with expanded content
                 const expandedResult: SearchResult = {
