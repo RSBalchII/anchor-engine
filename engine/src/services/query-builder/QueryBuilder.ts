@@ -135,10 +135,12 @@ export class QueryBuilder {
     
     if (this.options.selectFields.length > 0) {
       sql += this.options.selectFields
-        .map(field => field === '*' ? '*' : this.escapeIdentifier(field))
-        .join(', ');
-    } else {
+    if (this.options.selectFields.length === 0 ||
+      (this.options.selectFields.length === 1 && this.options.selectFields[0] === '*')
+    ) {
       sql += '*';
+    } else {
+      sql += this.options.selectFields.map(field => `"${field}"`).join(', ');
     }
     
     sql += ` FROM ${this.escapeIdentifier(this.options.tableName)}`;
