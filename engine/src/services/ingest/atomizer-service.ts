@@ -527,7 +527,7 @@ export class AtomizerService {
 
             // MARKDOWN FISSION: Split on code fences first to separate code from prose
             const codeFenceRegex = /```[\s\S]*?```/g;
-            const codeFences: { match: string, startByte: number, endByte: number }[] = [];
+            const codeFences: { match: string, stringIndex: number, startByte: number, endByte: number }[] = [];
             let fenceMatch;
 
             while ((fenceMatch = codeFenceRegex.exec(text)) !== null) {
@@ -535,6 +535,7 @@ export class AtomizerService {
                 const endByte = stringIndexToByteOffset(text, fenceMatch.index + fenceMatch[0].length);
                 codeFences.push({
                     match: fenceMatch[0],
+                    stringIndex: fenceMatch.index,
                     startByte: startByte,
                     endByte: endByte
                 });
@@ -547,7 +548,7 @@ export class AtomizerService {
 
                 for (const fence of codeFences) {
                     // Pre-fence prose
-                    const fenceStringStart = text.indexOf(fence.match, stringCursor);
+                    const fenceStringStart = fence.stringIndex;
                     if (fenceStringStart > stringCursor) {
                         const preProse = text.substring(stringCursor, fenceStringStart);
                         if (preProse.trim().length > 0) {
