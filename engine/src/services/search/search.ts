@@ -945,6 +945,7 @@ export async function executeSearch(
 
   // 3. CONTEXT INFLATION (Standard 085)
   // Inflate separate molecules into coherent windows
+  // ContextInflator.inflate() already handles budget-filling with additional related content
   const inflatedResults = await ContextInflator.inflate(finalResults, maxChars);
 
   console.log(`[Search] Inflated ${finalResults.length} atoms into ${inflatedResults.length} context windows.`);

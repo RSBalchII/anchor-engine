@@ -75,11 +75,11 @@ export class QueryBuilder {
   }
 
   /**
-   * Escape an identifier by wrapping it in double quotes.
-   * Since validateIdentifier ensures identifiers are safe, we can simply quote them.
+   * Escapes an identifier (table/field name) for use in SQL by wrapping it in double quotes
+   * and escaping any internal double quotes by doubling them
    */
   private escapeIdentifier(identifier: string): string {
-    return `"${identifier}"`;
+    return '"' + identifier.replace(/"/g, '""') + '"';
   }
 
   /**
@@ -87,12 +87,16 @@ export class QueryBuilder {
    */
   select(fields: string[]): QueryBuilder {
     // Validate all field names before storing them, but allow '*' as a wildcard
-    fields.forEach(field => {
-      if (field !== '*') {
+    const validatedFields: string[] = [];
+    for (const field of fields) {
+      if (field === '*') {
+        validatedFields.push(field);
+      } else {
         this.validateIdentifier(field, 'field name');
+        validatedFields.push(field);
       }
-    });
-    this.options.selectFields = fields;
+    }
+    this.options.selectFields = validatedFields;
     this.clearCache();
     return this;
   }
@@ -150,7 +154,9 @@ export class QueryBuilder {
     ) {
       sql += '*';
     } else {
-      sql += this.options.selectFields.map(field => field === '*' ? '*' : this.escapeIdentifier(field)).join(', ');
+      sql += this.options.selectFields
+        .map(field => field === '*' ? '*' : this.escapeIdentifier(field))
+        .join(', ');
     }
     
     sql += ` FROM ${this.escapeIdentifier(this.options.tableName)}`;
