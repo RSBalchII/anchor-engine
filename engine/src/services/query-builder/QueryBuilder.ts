@@ -78,9 +78,17 @@ export class QueryBuilder {
    * Select specific fields from the table
    */
   select(fields: string[]): QueryBuilder {
-    // Validate all field names before storing them
-    fields.forEach(field => this.validateIdentifier(field, 'field name'));
-    this.options.selectFields = fields;
+    // Validate all field names before storing them, but allow '*' as a wildcard
+    const validatedFields: string[] = [];
+    for (const field of fields) {
+      if (field === '*') {
+        validatedFields.push(field);
+      } else {
+        this.validateIdentifier(field, 'field name');
+        validatedFields.push(field);
+      }
+    }
+    this.options.selectFields = validatedFields;
     this.clearCache();
     return this;
   }
