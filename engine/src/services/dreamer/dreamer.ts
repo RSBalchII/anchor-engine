@@ -116,7 +116,7 @@ export async function dream(): Promise<{ status: string; analyzed?: number; upda
     // 1. Get all memories that might benefit from re-categorization (Paginated)
     let hasMore = true;
     let offset = 0;
-    const FETCH_LIMIT = 500; // Small page size for WASM safety
+    const FETCH_LIMIT = 50; // Reduced from 500 to 50 for PGlite stability
     const MAX_ANALYZE_LIMIT = 5000; // Cap total analysis per cycle to prevent OOM
     const memoriesToAnalyze: any[] = [];
 

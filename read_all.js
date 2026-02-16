@@ -15,7 +15,7 @@ import yaml from 'js-yaml';
 // Configuration options
 const CONFIG = {
     // Token limits
-    tokenLimit: 200000, // 200k tokens — fits in a single LLM context window
+    tokenLimit: 1000000, // 500k tokens — fits in a single LLM context window
     maxFileSize: 2 * 1024 * 1024, // 2MB max per file
     maxLinesPerFile: 3000, // Max 3000 lines per file
 
@@ -57,7 +57,8 @@ const CONFIG = {
         'venv', 'env', '.venv', '.env', 'Pods', 'Carthage', 'CocoaPods',
         '.next', '.nuxt', 'public', 'static', 'assets', 'images', 'img', 'codebase',
         'data', 'context_data', 'test_minimal_db', 'rbalchii', 'python_vision',
-        'desktop-overlay', 'grammar',
+        'desktop-overlay', 'grammar', '.gemini', 'coverage', 'test_results', 'reports',
+        'notebook', 'inbox', 'mirrored_brain' // Exclude user content
     ],
 
     excludeFiles: [
@@ -67,6 +68,7 @@ const CONFIG = {
         '*.db', '*.sqlite', '*.sqlite3', '*.fdb', '*.mdb', '*.accdb',
         '*~', '*.tmp', '*.temp', '*.cache', '*.swp', '*.swo',
         'validation-report.md', 'OPTIMIZATION_SUMMARY.md', 'INSTALL_OPTIMIZED.md',
+        'read_all.js' // Don't include self
     ],
 
     // =========================================================================
@@ -74,41 +76,38 @@ const CONFIG = {
     // Tier 1 (highest) always gets in. Tier 5 (lowest) only if budget remains.
     // =========================================================================
     priorityRules: [
-        // TIER 1: Core engine source — the brain
-        { pattern: /engine\/src\/services\/search\//, tier: 1 },
-        { pattern: /engine\/src\/core\//, tier: 1 },
-        { pattern: /engine\/src\/types\//, tier: 1 },
-        { pattern: /engine\/src\/config\//, tier: 1 },
-        { pattern: /engine\/src\/index\.ts$/, tier: 1 },
-        { pattern: /engine\/src\/server/, tier: 1 },
+        // TIER 1: Core Engine & Shared Infrastructure
+        { pattern: /packages\/anchor-engine\/engine\/src\/(core|services|types|config)/, tier: 1 },
+        { pattern: /packages\/anchor-engine\/engine\/src\/index\.ts$/, tier: 1 },
+        { pattern: /packages\/anchor-engine\/engine\/src\/server/, tier: 1 },
 
-        // TIER 2: Service layer — ingestion, tags, inference, LLM
-        { pattern: /engine\/src\/services\//, tier: 2 },
-        { pattern: /engine\/src\/utils\//, tier: 2 },
-        { pattern: /engine\/src\/middleware\//, tier: 2 },
-        { pattern: /engine\/src\/routes\//, tier: 2 },
-        { pattern: /engine\/src\/agent\//, tier: 2 },
+        // TIER 2: UI Components & Nanobot Core
+        { pattern: /packages\/anchor-ui\/src\/(components|services|hooks|context)/, tier: 2 },
+        { pattern: /packages\/anchor-ui\/src\/app/, tier: 2 },
+        { pattern: /packages\/anchor-ui\/src\/App/, tier: 2 },
+        { pattern: /packages\/nanobot-node\/core\//, tier: 2 },
+        { pattern: /packages\/nanobot-node\/index\.js$/, tier: 2 },
 
-        // TIER 3: Config, package manifests, key scripts
-        { pattern: /user_settings\.json$/, tier: 1 },
-        { pattern: /tsconfig\.json$/, tier: 3 },
+        // TIER 3: API Routes, Middleware, & Root Configs
+        { pattern: /packages\/anchor-engine\/engine\/src\/(routes|middleware|agent)/, tier: 3 },
         { pattern: /package\.json$/, tier: 3 },
-        { pattern: /sovereign\.yaml$/, tier: 2 },
-        { pattern: /start\.(bat|sh)$/, tier: 3 },
+        { pattern: /tsconfig\.json$/, tier: 3 },
+        { pattern: /vite\.config\.ts$/, tier: 3 },
+        { pattern: /user_settings\.json$/, tier: 3 },
 
-        // TIER 4: Docs, specs, readmes (useful but not critical)
+        // TIER 4: Docs, Specs, & Other Source
         { pattern: /README\.md$/i, tier: 4 },
-        { pattern: /ROADMAP\.md$/i, tier: 4 },
-        { pattern: /CHANGELOG\.md$/i, tier: 4 },
         { pattern: /specs\//, tier: 4 },
         { pattern: /docs\//, tier: 4 },
         { pattern: /\.md$/, tier: 4 },
+        { pattern: /\.sql$/, tier: 4 },
 
-        // TIER 5: Tests, benchmarks, tools, scripts
+        // TIER 5: Tests, Scripts, Benchmarks
         { pattern: /test/, tier: 5 },
         { pattern: /benchmark/, tier: 5 },
         { pattern: /tools\//, tier: 5 },
         { pattern: /scripts\//, tier: 5 },
+        { pattern: /dev-scripts\//, tier: 5 },
     ]
 };
 

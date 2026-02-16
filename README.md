@@ -10,38 +10,39 @@
 
 Anchor is fundamentally a **data atomization service** that packages data in ways that allow multiple data types to be semantically utilized. The system can be queried and parsed through the Anchor CLI into tables, CSV, or JSON structures for use by various agent harnesses.
 
-## System State: "HYBRID POWERPLANT ONLINE"
+## System State: "HYBRID MEMORY ARCHITECTURE"
 
-The ECE_Core system has successfully achieved **orbital velocity** with the deployment of the **Hybrid C++/Node.js Architecture**. The "Iron Lung" (Native Module Acceleration) is operational with exceptional performance metrics.
+The Anchor system has evolved into a **Client-Side Brain / Server-Side Memory** architecture.
+- **Brain**: In-Browser Inference via **WebLLM** (running on your GPU).
+- **Memory**: Anchor Engine providing semantic search and context injection (`tag-walker`).
+- **Alternative Brain**: `nanobot-node` (Node.js + Llama.cpp) for headless operation.
 
 ### Performance Achievements
 
 - **Distance Calculations**: 4.7M ops/sec (Batch/SIMD) - 8,000x improvement
 - **Ingestion Pipeline**: Full pipeline (Cleanse → Fingerprint) at ~9ms
 - **Memory Efficiency**: 30-50% reduction in memory usage
-- **Cross-Platform**: Consistent performance across Windows, macOS, Linux
+- **Client-Side Intelligence**: Zero-latency chat via WebLLM (Llama 3, DeepSeek, Qwen)
 - **Native Acceleration**: 2.3x faster code processing with C++ modules
-- **Tag-Walker Protocol**: Graph-based associative retrieval replacing vector search (70/30 keyword/associative split).
-- **Ingestion Resilience**: O(1) memory usage via atomic deduplication and sub-batching.
-- **Database Stability**: PGlite implementation successfully debugged and stable (Replacing CozoDB)
+- **Tag-Walker Protocol**: Graph-based associative retrieval replacing vector search.
+- **Database Stability**: PGlite implementation stable and performant.
 
 ## Key Features
 
 - **Autonomous Context Management**: Self-organizing memory with temporal awareness
-- **Multi-Modal Ingestion**: Supports text, code, documents, and structured data
+- **WebLLM Integration**: Runs entirely in your browser for maximum privacy and speed
 - **Semantic Search**: Advanced retrieval using graph-based associative search
 - **Privacy-First**: All data remains under your control, no cloud dependencies
 - **Extensible Architecture**: Plugin system for custom integrations
 - **Cross-Platform**: Runs on Windows, macOS, and Linux
-- **Agent Harness Agnostic**: Designed to work with multiple agent frameworks
 
 ## Architecture Highlights
 
 ### Core Components
-- **anchor-engine**: Knowledge database engine (runs on port 3160)
-- **Desktop Overlay**: Electron-based UI wrapper
-- **Frontend**: Modern web interface (React/Vanilla)
-- **Database**: PGlite-powered graph-relational store
+- **anchor-engine**: Semantic Memory & Search API (Port 3160)
+- **anchor-ui**: React-based "Brain" (WebLLM) + "Memory" Interface
+- **inference-server**: Static Model Host (Port 3000)
+- **nanobot-node**: Headless Agent Node (Port 3200)
 
 ### Data Model
 - **Atomic Architecture**: Compound → Molecule → Atom hierarchy
@@ -51,13 +52,7 @@ The ECE_Core system has successfully achieved **orbital velocity** with the depl
 
 ## Agent Harness Integration
 
-### Harness Agnosticism Goal
-Anchor is designed to be **agent harness agnostic**, meaning it can work with multiple agent frameworks and systems. While **OpenCLAW** is the primary harness we intend to use, the system is architected to support:
-
-- OpenCLAW (primary target)
-- Other custom agent frameworks
-- Third-party agent systems
-- Direct API integrations
+Anchor is designed to be **agent harness agnostic**. With the move to WebLLM, the Agent Loop now runs directly in the client, querying the Anchor Engine for context only when needed (RAG).
 
 ### Data Atomization Service
 Anchor's core function is as a **data atomization service** that:
@@ -66,46 +61,26 @@ Anchor's core function is as a **data atomization service** that:
 - Enables semantic utilization of multiple data types
 - Provides CLI access for querying and parsing data
 - Outputs data in standardized formats (tables, CSV, JSON)
-- Serves as a foundational layer for various agent systems
-
-The system can be queried through the Anchor CLI to parse data into structured formats that can be consumed by any agent harness.
 
 ## Updated Architecture Notes
 
-**Important**: The previously planned "Bright Node Protocol" and "Three Column UI" have been reverted to a simpler glass panel design for improved stability and maintainability. The UI now uses a consistent glass panel aesthetic throughout.
-
-The chat interface serves as a prototype for agent harness integration. The current chat system demonstrates how an external system can connect to Anchor to retrieve context and use it in AI interactions.
-
-The system implements a "stateless" approach where:
-1. Agent harness sends query to ECE
-2. Query is intercepted and processed by the search system
-3. Retrieved context (limited to configurable tokens) is returned
-4. Agent harness combines context with its own logic
-5. Final processing happens in the agent system
+The system now implements a **"Thick Client"** approach: `anchor-ui` handles the intelligence loop (Agent), while `anchor-engine` serves as the high-speed semantic memory store.
 
 **Data Flow:**
 ```
-Agent Query -> Anchor Context Retrieval -> Context + Agent Logic -> Response
+User Query -> WebLLM (Browser) -> Detects Intent -> Calls Anchor API (/search) -> Context Injection -> WebLLM Response
 ```
 
 ## Search Logic & Current Challenges
 
 ### Search Calibration (Priority 1)
-- **Status**: Transitioning from "Bright Node" complex UI to streamlined search.
-- **Issue**: Natural language query optimization still in progress.
-- **Goal**: Perfecting the stateless context injection for the OpenClaw prototype.
+- **Status**: Optimizing `tag-walker` parameters for natural language queries.
+- **Issue**: Tuning the balance between keyword exactness and semantic association.
+- **Goal**: Perfecting the stateless context injection for the WebLLM Agent.
 
 ### Guidance System Lag
 - The engine (performance) is hyper-scaled but search guidance needs calibration
-- System behaves like "Ferrari with stick-shift stuck in neutral"
 - Semantic Shift Architecture (Standard 084) requires tuning for natural language
-
-### Specific Challenge: Query Intent Mapping
-The Tag-Walker protocol shows brittleness in natural language query processing:
-- Query "What is the latest state of the ECE" returned 0 results
-- Fallback query "state ECE" returned 42 relevant results
-- NLP parser over-optimizes or filters are too strict
-- System relies on fallback strategies instead of primary semantic matching
 
 ## Installation
 
@@ -144,6 +119,7 @@ pnpm build
 - **API Ingestion**: Use `POST /v1/ingest` endpoint
 - **Batch Import**: Use corpus format for bulk ingestion
 - **Real-time Sync**: Watchdog monitors `context/` directory
+- **Path Management**: Dynamic `POST/DELETE /v1/system/paths` endpoints for aggregation
 
 ### Search Capabilities
 - **Natural Language**: Ask questions in plain English

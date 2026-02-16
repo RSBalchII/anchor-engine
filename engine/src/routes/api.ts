@@ -617,6 +617,29 @@ export function setupRoutes(app: Application) {
     }
   });
 
+  // DELETE /v1/system/paths - Remove a watched path
+  app.delete('/v1/system/paths', async (req: Request, res: Response) => {
+    try {
+      const { path } = req.body;
+      if (!path) {
+        res.status(400).json({ error: 'Path is required' });
+        return;
+      }
+
+      const { removeWatchPath } = await import('../services/ingest/watchdog.js');
+      const success = await removeWatchPath(path);
+
+      res.status(200).json({
+        status: success ? 'success' : 'failed',
+        message: success ? `Stopped watching: ${path}` : 'Failed to remove path',
+        path
+      });
+    } catch (e: any) {
+      console.error('[API] Failed to remove watch path:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Terminal Command Execution Endpoint
   app.post('/v1/terminal/exec', async (req: Request, res: Response) => {
     try {
@@ -825,18 +848,22 @@ export function setupRoutes(app: Application) {
       // We need to fetch from the inference server
       // Note: We use dynamic import for fetch if not available globally (Node 18+ has it)
 
-      const proxyResponse = await fetch(INFERENCE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Pass through auth headers if needed
-        },
-        body: JSON.stringify(req.body)
-      });
+      // Use Axios for better timeout control and streaming support
+      // Node's native fetch (Undici) has a hard 300s headers timeout which causes failures for long-running models
+      const { default: axios } = await import('axios'); // Dynamic import to ensure ESM compatibility if needed
 
-      if (!proxyResponse.ok) {
-        throw new Error(`Nanobot Server Error: ${proxyResponse.statusText}`);
-      }
+      const response = await axios({
+        method: 'post',
+        url: INFERENCE_URL,
+        data: req.body,
+        responseType: 'stream',
+        // Set an explicit large timeout (infinite/0 or specific high value)
+        // Axios timeout covers the whole request, but for streaming we depend on the stream flow
+        timeout: 0, // No timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
       // Stream the response back
       res.setHeader('Content-Type', 'text/event-stream');
@@ -844,14 +871,26 @@ export function setupRoutes(app: Application) {
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
 
-      if (proxyResponse.body) {
-        // @ts-ignore - ReadableStream/Node stream mismatch handling
-        for await (const chunk of proxyResponse.body) {
+      if (response.data) {
+        let bytesSent = 0;
+        // Pipe the stream directly
+        response.data.on('data', (chunk: Buffer) => {
+          bytesSent += chunk.length;
           res.write(chunk);
-        }
-      }
+        });
 
-      res.end();
+        response.data.on('end', () => {
+          console.log(`[API] Proxy Stream Completed. Sent ${bytesSent} bytes.`);
+          res.end();
+        });
+
+        response.data.on('error', (err: any) => {
+          console.error('[API] Stream Error:', err);
+          res.end();
+        });
+      } else {
+        res.end();
+      }
 
     } catch (e: any) {
       console.error('[API] Chat Proxy Error:', e);

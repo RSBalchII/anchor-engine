@@ -26,7 +26,7 @@ const TAGS_FILE = path.join(PROJECT_ROOT, 'context', 'internal_tags.json');
  * Lazily fetches atoms from the database in batches to prevent RAM spikes.
  * This replaces the need for recursion or massive array loading.
  */
-async function* atomStream(batchSize = 500) {
+async function* atomStream(batchSize = 50) {
     let lastId = '';
 
     while (true) {

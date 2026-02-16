@@ -176,6 +176,31 @@ export async function findAnchors(
       anchors = atomResults;
     }
 
+    // Intercept: Read content from Mirror
+    // We do this AFTER finding anchors but BEFORE returning them.
+    // This ensures we serve the "Live" content from the Mirror Brain.
+
+    const { getMirrorPath } = await import('../mirror/mirror.js');
+    const fs = await import('fs');
+
+    for (const anchor of anchors) {
+      try {
+        // Calculate Mirror Path
+        const mirrorPath = getMirrorPath(anchor.source, anchor.provenance);
+
+        // Check if exists and read
+        if (fs.existsSync(mirrorPath)) {
+          const liveContent = fs.readFileSync(mirrorPath, 'utf-8');
+          if (liveContent && liveContent.length > 0) {
+            anchor.content = liveContent;
+          }
+        }
+      } catch (e: any) {
+        // Fail silently -> Fallback to DB content
+        // console.warn(`[Search] Failed to hydrate from mirror: ${e.message}`);
+      }
+    }
+
     return anchors;
 
   } catch (e) {
@@ -363,7 +388,7 @@ export async function runTraditionalSearch(query: string, buckets: string[]): Pr
     const result = await db.run(querySql, buckets.length > 0 ? [sanitizedQuery, buckets] : [sanitizedQuery]);
     if (!result.rows) return [];
 
-    return result.rows.map((row: any) => ({
+    const mappedResults = result.rows.map((row: any) => ({
       id: row.id,
       score: row.score,
       content: row.content,
@@ -374,10 +399,33 @@ export async function runTraditionalSearch(query: string, buckets: string[]): Pr
       epochs: row.epochs,
       provenance: row.provenance
     }));
+
+    await hydrateFromMirror(mappedResults);
+    return mappedResults;
   } catch (e) {
     console.error('[Search] FTS failed', e);
     return [];
   }
+}
+
+/** 
+ * Helper to hydrate results from Mirror (Code Reuse)
+ */
+async function hydrateFromMirror(results: SearchResult[]) {
+  try {
+    const { getMirrorPath } = await import('../mirror/mirror.js');
+    const fs = await import('fs');
+
+    for (const res of results) {
+      try {
+        const mirrorPath = getMirrorPath(res.source, res.provenance);
+        if (fs.existsSync(mirrorPath)) {
+          const content = fs.readFileSync(mirrorPath, 'utf-8');
+          if (content) res.content = content;
+        }
+      } catch (e) { /* ignore */ }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 /**

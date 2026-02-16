@@ -143,6 +143,14 @@ function getRelativePath(absolutePath: string): string {
         return path.relative(externalDir, absolutePath);
     }
 
+    // Hande pre-relative paths (e.g. from DB)
+    if (absolutePath.startsWith('inbox/') || absolutePath.startsWith('inbox\\')) {
+        return absolutePath.substring(6); // remove 'inbox/'
+    }
+    if (absolutePath.startsWith('external-inbox/') || absolutePath.startsWith('external-inbox\\')) {
+        return absolutePath.substring(15); // remove 'external-inbox/'
+    }
+
     // Fallback: use filename only
     return path.basename(absolutePath);
 }

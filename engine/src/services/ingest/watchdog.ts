@@ -125,6 +125,41 @@ export async function addWatchPath(newPath: string): Promise<boolean> {
     return true;
 }
 
+export async function removeWatchPath(pathToRemove: string): Promise<boolean> {
+    if (!watcher) {
+        throw new Error("Watchdog not started");
+    }
+
+    // Remove from watcher
+    // chokidar.unwatch() accepts a file, dir, or array of them
+    watcher.unwatch(pathToRemove);
+    console.log(`[Watchdog] Removed watch path: ${pathToRemove}`);
+
+    // Update Config (In-Memory)
+    if (config.WATCHER_EXTRA_PATHS && config.WATCHER_EXTRA_PATHS.includes(pathToRemove)) {
+        config.WATCHER_EXTRA_PATHS = config.WATCHER_EXTRA_PATHS.filter((p: string) => p !== pathToRemove);
+
+        // Persist to user_settings.json
+        try {
+            const settingsPath = path.join(process.cwd(), 'user_settings.json');
+            if (fs.existsSync(settingsPath)) {
+                const settingsRequest = await fs.promises.readFile(settingsPath, 'utf8');
+                const settings = JSON.parse(settingsRequest);
+
+                if (settings.watcher && settings.watcher.extra_paths) {
+                    settings.watcher.extra_paths = settings.watcher.extra_paths.filter((p: string) => p !== pathToRemove);
+                    await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 4));
+                    console.log(`[Watchdog] Persisted path removal to user_settings.json`);
+                }
+            }
+        } catch (e: any) {
+            console.error(`[Watchdog] Failed to persist settings removal: ${e.message}`);
+        }
+    }
+
+    return true;
+}
+
 // Revert to AtomizerService for performance
 // import { SemanticIngestionService } from '../semantic/semantic-ingestion-service.js';
 import { AtomizerService } from './atomizer-service.js';
@@ -183,8 +218,16 @@ async function processFile(filePath: string, event: string) {
         // Determine buckets
         const parts = relativePath.split(path.sep);
         let bucket = 'notebook';
+
+        // logic: if inside a root folder (inbox/external-inbox) and has a subfolder, use subfolder as bucket
+        // otherwise use the root folder
         if (parts.length >= 2) {
-            bucket = parts[0] === 'inbox' && parts.length > 2 ? parts[1] : parts[0];
+            const root = parts[0];
+            if ((root === 'inbox' || root === 'external-inbox') && parts.length > 2) {
+                bucket = parts[1];
+            } else {
+                bucket = root;
+            }
         }
 
         // Determine type

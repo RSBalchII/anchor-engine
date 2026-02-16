@@ -12,24 +12,24 @@ export class AtomicIngestService {
     ) {
         const startTime = Date.now();
         const filename = compound.path.split(/[/\\]/).pop() || compound.path;
-        
+
         // Validate content lengths to prevent oversized atoms/molecules
         const MAX_CONTENT_LENGTH = 500 * 1024; // 500KB limit
-        
+
         for (const mol of molecules) {
             if (mol.content.length > MAX_CONTENT_LENGTH) {
                 console.warn(`[AtomicIngest] Warning: Molecule content exceeds maximum length (${mol.content.length} chars), truncating...`);
                 mol.content = mol.content.substring(0, MAX_CONTENT_LENGTH) + '... [TRUNCATED]';
             }
         }
-        
+
         for (const atom of atoms) {
             if (atom.label.length > MAX_CONTENT_LENGTH) {
                 console.warn(`[AtomicIngest] Warning: Atom content exceeds maximum length (${atom.label.length} chars), truncating...`);
                 atom.label = atom.label.substring(0, MAX_CONTENT_LENGTH) + '... [TRUNCATED]';
             }
         }
-        
+
         console.log(`[AtomicIngest] ⏱️ START Persisting: ${filename} (${molecules.length} molecules, ${atoms.length} atoms)`);
 
         // 1. Persist Atoms (Tags)
@@ -47,6 +47,15 @@ export class AtomicIngestService {
             await this.batchWriteAtoms(uniqueAtoms);
         }
         console.log(`[AtomicIngest] ⏱️ Atoms persisted: ${Date.now() - atomsStart}ms`);
+
+        // 1.5. Persist Tags Table (The Nervous System)
+        const tagsStart = Date.now();
+        if (uniqueAtoms.length > 0) {
+            await this.batchWriteTags(uniqueAtoms, buckets);
+        }
+        console.log(`[AtomicIngest] ⏱️ Tags persisted: ${Date.now() - tagsStart}ms`);
+
+
 
         // 2. Persist Molecules
         const moleculesStart = Date.now();
@@ -119,6 +128,41 @@ export class AtomicIngestService {
                 );
             }
         }
+    }
+
+    private async batchWriteTags(atoms: Atom[], buckets: string[]) {
+        const batchSize = 1000;
+        let batchValues: any[] = [];
+        let placeHolders: string[] = [];
+        const flush = async () => {
+            if (batchValues.length === 0) return;
+            const query = `
+                INSERT INTO tags (atom_id, tag, bucket) 
+                VALUES ${placeHolders.join(', ')} 
+                ON CONFLICT DO NOTHING
+            `;
+            await db.run(query, batchValues);
+            batchValues = [];
+            placeHolders = [];
+        };
+
+        for (const atom of atoms) {
+            if (!atom.label) continue;
+            // Ensure buckets are included
+            const allBuckets = new Set([...buckets, ...(atom as any).buckets || []]);
+
+            const tags = [atom.label]; // Atom IS the tag in this architecture
+
+            for (const bucket of allBuckets) {
+                for (const tag of tags) {
+                    batchValues.push(atom.id, tag, bucket);
+                    const offset = batchValues.length - 3;
+                    placeHolders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3})`);
+                    if (placeHolders.length >= batchSize) await flush();
+                }
+            }
+        }
+        await flush();
     }
 
     // O(n/b) bulk INSERT - b=50 rows per query instead of O(n) individual queries

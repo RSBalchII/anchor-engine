@@ -68,7 +68,7 @@ export class ContextInflator {
             try {
                 // 3. Try to inflate from DISK (mirrored file)
                 const diskContent = await this.inflateFromDisk(res, effectiveRadius, compoundPathCache);
-                
+
                 if (diskContent !== null) {
                     processedResults.push({
                         ...res,
@@ -81,7 +81,7 @@ export class ContextInflator {
 
                 // 4. Fallback: inflate from compound_body in DB (file may not exist yet)
                 const dbContent = await this.inflateFromCompoundBody(res, effectiveRadius);
-                
+
                 if (dbContent !== null) {
                     processedResults.push({
                         ...res,
@@ -356,7 +356,10 @@ export class ContextInflator {
 
             // Radially inflate from each position, MERGING overlapping windows
             // Read content from MIRRORED FILES on disk, not from database
-            for (const [compoundId, data] of compoundPositions) {
+            // Radially inflate from each position, MERGING overlapping windows
+            // Read content from MIRRORED FILES on disk, not from database
+            // [Optimization] Parallelize file I/O to reduce latency
+            const inflationPromises = Array.from(compoundPositions.entries()).map(async ([compoundId, data]) => {
                 // Resolve the file path - try mirrored file first, then original
                 const mirrorPath = getMirrorPath(data.filePath, data.provenance);
                 let absolutePath = mirrorPath;
@@ -370,18 +373,18 @@ export class ContextInflator {
 
                 // Skip if file doesn't exist
                 if (!fs.existsSync(absolutePath)) {
-                    console.warn(`[ContextInflator] File not found: ${absolutePath}`);
-                    continue;
+                    // console.warn(`[ContextInflator] File not found: ${absolutePath}`);
+                    return [];
                 }
 
                 // Read file stats to get size for window clamping
                 let fileSize = 0;
                 try {
-                    const stats = fs.statSync(absolutePath);
+                    const stats = await fs.promises.stat(absolutePath);
                     fileSize = stats.size;
                 } catch (e) {
                     console.warn(`[ContextInflator] Failed to stat file: ${absolutePath}`);
-                    continue;
+                    return [];
                 }
 
                 // Calculate raw windows for all positions using file size
@@ -394,52 +397,36 @@ export class ContextInflator {
                 // Sort by start position for merge algorithm
                 rawWindows.sort((a, b) => a.start - b.start);
 
-                // Merge overlapping windows (overlap = windows that touch or overlap)
+                // Merge overlapping windows
                 const mergedWindows: { start: number; end: number; offsets: number[] }[] = [];
                 for (const window of rawWindows) {
                     const last = mergedWindows[mergedWindows.length - 1];
                     if (last && window.start <= last.end) {
-                        // Check if merging would create a massive window based on scaling limit
-                        // If so, break the merge to keep results granular
                         const newEnd = Math.max(last.end, window.end);
                         if ((newEnd - last.start) <= maxWindowSize) {
-                            // Overlap or adjacent - merge by extending the end
                             last.end = newEnd;
                             last.offsets.push(window.offset);
                         } else {
-                            // Too big, start new window even if overlapping
-                            mergedWindows.push({
-                                start: window.start,
-                                end: window.end,
-                                offsets: [window.offset]
-                            });
+                            mergedWindows.push({ start: window.start, end: window.end, offsets: [window.offset] });
                         }
                     } else {
-                        // No overlap - start new window
-                        mergedWindows.push({
-                            start: window.start,
-                            end: window.end,
-                            offsets: [window.offset]
-                        });
+                        mergedWindows.push({ start: window.start, end: window.end, offsets: [window.offset] });
                     }
                 }
 
-                // Limit results if we already have enough
-                if (results.length >= maxResults) break;
+                const compoundResults: SearchResult[] = [];
+                let fd: fs.promises.FileHandle | null = null;
 
-                // Read only the necessary chunks from disk
-                let fd: number | null = null;
                 try {
-                    fd = fs.openSync(absolutePath, 'r');
+                    fd = await fs.promises.open(absolutePath, 'r');
 
                     for (const window of mergedWindows) {
-                        if (results.length >= maxResults) break;
-
                         const chunkLength = window.end - window.start;
                         if (chunkLength <= 0) continue;
 
                         const buffer = Buffer.alloc(chunkLength);
-                        fs.readSync(fd, buffer, 0, chunkLength, window.start);
+                        // fs.promises.read returns { bytesRead, buffer }
+                        await fd.read(buffer, 0, chunkLength, window.start);
 
                         let inflatedContent = buffer.toString('utf-8');
 
@@ -459,7 +446,7 @@ export class ContextInflator {
 
                         if (inflatedContent.trim().length === 0) continue;
 
-                        results.push({
+                        compoundResults.push({
                             id: `virtual_${compoundId}_${window.start}_${window.end}`,
                             content: `...${inflatedContent}...`,
                             source: data.filePath,
@@ -468,7 +455,7 @@ export class ContextInflator {
                             tags: [searchTerm],
                             epochs: '',
                             provenance: data.provenance,
-                            score: 500 - results.length,
+                            score: 500, // Partial score, sorted later
                             compound_id: compoundId,
                             start_byte: window.start,
                             end_byte: window.end,
@@ -478,10 +465,22 @@ export class ContextInflator {
                 } catch (err) {
                     console.warn(`[ContextInflator] Error reading file ${absolutePath}:`, err);
                 } finally {
-                    if (fd !== null) {
-                        fs.closeSync(fd);
-                    }
+                    if (fd) await fd.close();
                 }
+
+                return compoundResults;
+            });
+
+            const resultsArrays = await Promise.all(inflationPromises);
+            // Flatten results
+            resultsArrays.forEach(arr => results.push(...arr));
+
+            // Sort by score/relevance (simple approximation for now)
+            results.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+            // Slice to maxResults
+            if (results.length > maxResults) {
+                results.length = maxResults;
             }
 
             console.log(`[ContextInflator] Radially inflated ${results.length} merged virtual molecules for "${searchTerm}"`);
