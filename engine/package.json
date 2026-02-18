@@ -66,6 +66,7 @@
         "got-scraping": "^4.1.3",
         "js-yaml": "^4.1.1",
         "node-addon-api": "^8.5.0",
+        "node-llama-cpp": "^3.15.1",
         "sharp": "^0.34.5",
         "turndown": "^7.2.2",
         "uuid": "^13.0.0",

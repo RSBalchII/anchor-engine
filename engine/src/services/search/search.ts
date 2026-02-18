@@ -92,6 +92,7 @@ export async function findAnchors(
 
     console.log(`[Search] Dynamic Scaling: Budget=${tokenBudget}t -> Target=${targetAtomCount} atoms`);
 
+    console.log(`[Search] Constructing TS Query...`);
     // Construct Query String for FTS
     let tsQueryString = sanitizedQuery.trim();
     if (fuzzy) {
@@ -106,19 +107,26 @@ export async function findAnchors(
     const terms = sanitizedQuery.split(/\s+/).filter(t => t.length > 2);
     const atomResults: SearchResult[] = [];
 
+    /*
     if (terms.length > 0) {
-      const inflations = await Promise.all(
-        terms.map(term => ContextInflator.inflateFromAtomPositions(term, 150, 20, undefined, { buckets, provenance }))
-      );
-      let rawAtoms = inflations.flat();
-      atomResults.push(...rawAtoms);
+      try {
+        const inflations = await Promise.all(
+          terms.map(term => ContextInflator.inflateFromAtomPositions(term, 150, 20, undefined, { buckets, provenance }))
+        );
+        let rawAtoms = inflations.flat();
+        atomResults.push(...rawAtoms);
+      } catch (e) {
+        console.error(`[Search] Atom Search failed:`, e);
+      }
     }
+    */
 
-    // B. Molecule Search (Full-Text)
+    // B. Molecule Search (Full-Text with BM25-style ranking)
     let moleculeQuery = `
         SELECT m.id, m.content, c.path as source, m.timestamp,
                '{}'::text[] as buckets, '{}'::text[] as tags, 'epoch_placeholder' as epochs, c.provenance,
-               ts_rank(to_tsvector('simple', m.content), to_tsquery('simple', $1)) * 10 as score,
+               -- Use ts_rank_cd for cover-density ranking (closer to BM25)
+               ts_rank_cd(to_tsvector('simple', m.content), to_tsquery('simple', $1)) * 10 as score,
                m.sequence, m.molecular_signature,
                m.start_byte, m.end_byte, m.type, m.numeric_value, m.numeric_unit, m.compound_id
         FROM molecules m
@@ -129,8 +137,6 @@ export async function findAnchors(
     const moleculeParams: any[] = [tsQueryString];
 
     if (buckets.length > 0) {
-      // Use EXISTS subquery to check if any atom for this file has the bucket
-      // Since compounds don't store buckets directly, we look up via source_path
       moleculeQuery += ` AND EXISTS (
         SELECT 1 FROM atoms a 
         WHERE a.source_path = c.path 
@@ -148,15 +154,16 @@ export async function findAnchors(
 
     moleculeQuery += ` ORDER BY score DESC LIMIT 50`;
 
-    // console.log('[Search] Molecule Query:', moleculeQuery);
-    // console.log('[Search] Params:', moleculeParams);
-
     try {
-      const molResult = await db.run(moleculeQuery, moleculeParams);
-      if (molResult.rows.length === 0 && sanitizedQuery.includes('star')) {
-        console.log('[Search] DEBUG: Zero matches for star query.');
-        console.log('Query:', moleculeQuery);
-        console.log('Params:', moleculeParams);
+      let molResult = await db.run(moleculeQuery, moleculeParams);
+
+      // Strategy 1.1: If AND fails and query has multiple terms, retry with OR (Fuzzy Fallback)
+      if (molResult.rows.length === 0 && tsQueryString.includes('&')) {
+        console.log('[Search] Initial AND query yielded 0 results. Retrying with OR-fuzzy logic...');
+        const orQueryString = tsQueryString.split(' & ').join(' | ');
+        const orQuery = moleculeQuery.replace(/\$1/g, '$1'); // Keep same param index
+        const orParams = [orQueryString, ...moleculeParams.slice(1)];
+        molResult = await db.run(orQuery, orParams);
       }
       const molecules = (molResult.rows || []).map((row: any) => ({
         id: row.id,
@@ -480,14 +487,20 @@ export async function executeSearch(
   // Combine Anchors + Walker Results
   const combinedResults = [
     ...uniqueAnchors,
-    ...walkerResults.map(w => w.result)
+    ...walkerResults.map(w => ({
+      ...w.result,
+      physics: w.physics
+    })) as any[]
   ];
+
+  // Apply context provenance formatting (Standard 108)
+  const formatted = await formatResults(combinedResults, maxChars);
 
   return {
     context: serializedContext,
-    results: combinedResults,
+    results: formatted.results,
     toAgentString: () => serializedContext,
-    metadata: contextPackage.graphStats
+    metadata: { ...contextPackage.graphStats, ...formatted.metadata }
   };
 }
 

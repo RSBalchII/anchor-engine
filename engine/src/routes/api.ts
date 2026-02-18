@@ -9,12 +9,12 @@ import * as crypto from 'crypto';
 import { db } from '../core/db.js';
 import { config } from '../config/index.js';
 import { validate, schemas } from '../middleware/validate.js';
+import { StructuredLogger } from '../utils/structured-logger.js';
 
 // Import services and types
 import { executeSearch, smartChatSearch } from '../services/search/search.js';
 import { AtomizerService } from '../services/ingest/atomizer-service.js';
 import { AtomicIngestService } from '../services/ingest/ingest-atomic.js';
-import { dream } from '../services/dreamer/dreamer.js';
 import { getState, clearState } from '../services/scribe/scribe.js';
 import { createBackup, listBackups, restoreBackup } from '../services/backup/backup.js';
 import { fetchAndProcess, searchWeb } from '../services/research/researcher.js';
@@ -24,13 +24,21 @@ import { setupEnhancedRoutes } from './enhanced-api.js';
 export function setupRoutes(app: Application) {
   // Ingestion endpoint (Atomic Architecture)
   app.post('/v1/ingest', validate(schemas.ingest), async (req: Request, res: Response) => {
+    const startTime = Date.now();
     try {
       const { content, source, type, bucket, buckets = [], tags = [] } = req.body;
 
       if (!content) {
+        StructuredLogger.warn('INGEST_INVALID_REQUEST', { error: 'Content is required' });
         res.status(400).json({ error: 'Content is required' });
         return;
       }
+
+      StructuredLogger.info('INGEST_REQUEST', {
+        source: source || 'api_upload',
+        content_length: content.length,
+        buckets: buckets.length > 0 ? buckets : [bucket || 'notebook']
+      });
 
       // Use legacy Atomizer pipeline for performance
       const atomizer = new AtomizerService();
@@ -48,15 +56,30 @@ export function setupRoutes(app: Application) {
       const targetBuckets = buckets.length > 0 ? buckets : [bucket || 'notebook'];
       await atomicIngest.ingestResult(compound, molecules, atoms, targetBuckets);
 
+      const duration = Date.now() - startTime;
+      
+      StructuredLogger.ingestion('success', {
+        source: source || 'api_upload',
+        compound_id: compound.id,
+        atoms_count: atoms.length,
+        molecules_count: molecules.length,
+        buckets: targetBuckets,
+        duration_ms: duration
+      });
+
       const result = {
         status: 'success',
         message: `Ingested ${atoms.length} atoms and ${molecules.length} molecules`,
-        id: compound.id
+        id: compound.id,
+        duration_ms: duration
       };
 
       res.status(200).json(result);
     } catch (e: any) {
-      console.error('[API] Ingest Error:', e);
+      const duration = Date.now() - startTime;
+      StructuredLogger.error('INGEST_ERROR', e, {
+        duration_ms: duration
+      });
       res.status(500).json({ error: e.message });
     }
   });
@@ -206,17 +229,24 @@ export function setupRoutes(app: Application) {
 
   // POST Search endpoint (Standard UniversalRAG + Iterative Logic)
   app.post('/v1/memory/search', validate(schemas.memorySearch), async (req: Request, res: Response) => {
-    console.log('[API] Received search request at /v1/memory/search');
+    const startTime = Date.now();
+    StructuredLogger.info('SEARCH_REQUEST', { 
+      endpoint: '/v1/memory/search',
+      method: 'POST'
+    });
 
     try {
       const body = req.body as SearchRequest;
       if (!body.query) {
-        console.log('[API] Search request missing query parameter');
+        StructuredLogger.warn('SEARCH_INVALID_REQUEST', { error: 'Query is required' });
         res.status(400).json({ error: 'Query is required' });
         return;
       }
 
-      console.log(`[API] Processing search request for query: "${body.query.substring(0, 50)}..."`);
+      StructuredLogger.info('SEARCH_PROCESSING', { 
+        query: body.query.substring(0, 100),
+        query_length: body.query.length
+      });
 
       // Handle legacy params
       const bucketParam = (req.body as any).bucket;
@@ -233,7 +263,7 @@ export function setupRoutes(app: Application) {
       // 2. Tag-Walker Protocol (graph-based associative retrieval)
       // 3. Physics-based spreading activation with temporal decay
       // 4. Context Inflation (Radial Search)
-      console.log('[API] Using Enhanced Search Strategy for query');
+      StructuredLogger.info('SEARCH_STRATEGY', { strategy: 'enhanced_tag_walker' });
 
       const result = await smartChatSearch(
         body.query,
@@ -243,10 +273,24 @@ export function setupRoutes(app: Application) {
         (req.body as any).provenance || 'all'
       );
 
-      // Construct standard response
-      console.log(`[API] Enhanced Search "${body.query}" -> Found ${result.results.length} results (Strategy: ${result.strategy || 'enhanced_tag_walker'})`);
+      const duration = Date.now() - startTime;
+      const resultCount = result.results.length;
+      
+      // Log search completion with metrics
+      StructuredLogger.search(body.query, resultCount, duration, {
+        strategy: result.strategy || 'enhanced_tag_walker',
+        buckets: allBuckets,
+        budget
+      });
 
-      // Ensure response is sent even if there are issues with result formatting
+      StructuredLogger.info('SEARCH_RESPONSE', {
+        query: body.query.substring(0, 50),
+        results_count: resultCount,
+        duration_ms: duration,
+        strategy: result.strategy || 'enhanced_tag_walker'
+      });
+
+      // Construct standard response
       if (!res.headersSent) {
         res.status(200).json({
           status: 'success',
@@ -265,7 +309,10 @@ export function setupRoutes(app: Application) {
         });
       }
     } catch (error: any) {
-      console.error('[API] Search error:', error);
+      const duration = Date.now() - startTime;
+      StructuredLogger.error('SEARCH_ERROR', error, {
+        duration_ms: duration
+      });
 
       // Check if headers have already been sent to avoid duplicate responses
       if (!res.headersSent) {
@@ -435,14 +482,12 @@ export function setupRoutes(app: Application) {
     }
   });
 
-  // Trigger Dream Endpoint
+  // Trigger Dream Endpoint (Disabled - Optimized for STAR algorithm)
   app.post('/v1/dream', async (_req: Request, res: Response) => {
-    try {
-      const result = await dream();
-      res.status(200).json(result);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
+    res.status(501).json({ 
+      error: 'Dreamer service is disabled',
+      message: 'This endpoint has been disabled to optimize startup for the STAR algorithm'
+    });
   });
 
   // Research Plugin Endpoint

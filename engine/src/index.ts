@@ -11,6 +11,7 @@ import { config } from "./config/index.js";
 import { MODELS_DIR, PROJECT_ROOT } from "./config/paths.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { pathManager } from "./utils/path-manager.js";
+import { StructuredLogger } from "./utils/structured-logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,27 @@ const PORT = config.PORT;
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// HTTP Request Logging Middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    StructuredLogger.info('HTTP_REQUEST', {
+      method: req.method,
+      path: req.path,
+      status,
+      duration_ms: duration
+    });
+  });
+  next();
+});
+
+// Error handler with proper type handling
+
+// Global state tracker
+let databaseReady = false;
 
 // Global 503 Guard for API routes
 app.use('/v1', (req, res, next) => {
@@ -36,16 +58,19 @@ app.use('/v1', (req, res, next) => {
 // API Key Authentication for /v1 routes
 app.use('/v1', apiKeyAuth);
 if (config.API_KEY && config.API_KEY !== 'ece-secret-key') {
-  console.log('[Auth] API key authentication enabled for /v1 routes');
+  StructuredLogger.info('AUTH_CONFIG', { api_key_enabled: true });
 } else {
-  console.log('[Auth] No API key configured — /v1 routes are open');
+  StructuredLogger.info('AUTH_CONFIG', { api_key_enabled: false });
 }
 
-// Global state tracker
-let databaseReady = false;
-
 // Set up static file serving immediately so UI is accessible
-app.use("/static", express.static(path.join(__dirname, "../dist")));
+StructuredLogger.info('UI_SETUP', { static_path: '/static' });
+app.use("/static", express.static(path.join(__dirname, "../dist"), {
+  setHeaders: (res, path) => {
+    // Only log debug-level for static files to avoid spam
+    StructuredLogger.silly('STATIC_FILE', { path });
+  }
+}));
 
 // Try to serve the external UI first (when running in full system)
 const externalFrontendDist = path.join(__dirname, "../../../packages/anchor-ui/dist");
@@ -53,12 +78,26 @@ const internalFrontendDist = path.join(__dirname, "../public");
 
 // Check if external UI exists, otherwise use internal lightweight UI
 if (existsSync(externalFrontendDist)) {
-  console.log("Using external UI from packages/anchor-ui/dist");
-  app.use(express.static(externalFrontendDist));
+  StructuredLogger.info('UI_SOURCE', { source: 'external', path: externalFrontendDist });
+  app.use(express.static(externalFrontendDist, {
+    setHeaders: (res, path) => {
+      StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'external' });
+    }
+  }));
 } else {
-  console.log("Using internal lightweight UI from engine/public");
-  app.use(express.static(internalFrontendDist));
+  StructuredLogger.info('UI_SOURCE', { source: 'internal', path: internalFrontendDist });
+  app.use(express.static(internalFrontendDist, {
+    setHeaders: (res, path) => {
+      StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'internal' });
+    }
+  }));
 }
+
+// Add explicit /chat route logging
+app.get('/chat', (req, res, next) => {
+  StructuredLogger.info('CHAT_PAGE_REQUEST', { ip: req.ip });
+  next();
+});
 
 // Set up a health route that works in both initialized and uninitialized states
 app.get('/health', async (_req, res) => {
@@ -221,46 +260,28 @@ async function startServer() {
     console.timeEnd("⏱️ Startup Time");
 
     // Start other services after database is ready
+    console.log('[Services] Starting child services via ProcessManager...');
     const { ProcessManager } = await import("./utils/process-manager.js");
     const pm = ProcessManager.getInstance();
 
-    // Start Inference Server
-    pm.startService({
-      name: "InferenceServer",
-      cwd: "packages/inference-server",
-      script: "server.js",
-      env: { PORT: "3002" }
-    });
-
-    // Start Nanobot Node
+    // Start Nanobot Node (inference server consolidated into nanobot per v4.0)
+    console.log('[Services] Attempting to start NanobotNode...');
     pm.startService({
       name: "NanobotNode",
-      cwd: "packages/nanobot-node",
+      cwd: "../../nanobot-node",
       script: "server.js",
       env: { PORT: config.SERVICES.CHAT_SERVER_PORT.toString() }
-    });
-
-    // Start UI (Vite dev server)
-    pm.startService({
-      name: "AnchorUI",
-      cwd: "packages/anchor-ui",
-      command: "pnpm",
-      script: "dev"
+    }).then(() => {
+      console.log('[Services] NanobotNode start command completed');
+    }).catch((err: any) => {
+      console.error('[Services] Failed to queue NanobotNode start:', err);
     });
 
     const { startWatchdog } = await import("./services/ingest/watchdog.js");
     startWatchdog();
 
-    const { dream } = await import("./services/dreamer/dreamer.js");
-    try {
-      await dream();
-    } catch (e) { }
-
-    setInterval(async () => {
-      try {
-        await dream();
-      } catch (e) { }
-    }, config.DREAM_INTERVAL_MS);
+    // Dreamer service disabled - optimized for STAR algorithm startup (v4.0)
+    console.log('[Services] All service start commands queued');
 
 
   } catch (error) {

@@ -10,6 +10,12 @@ import path from 'path';
 import fs from 'fs';
 import { createHash } from 'crypto';
 import { format } from 'winston';
+import { fileURLToPath } from 'url';
+
+// Get absolute path to project root (anchor-os directory)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '../../../../..');
 
 // Define log levels with numerical values
 const logLevels = {
@@ -21,8 +27,8 @@ const logLevels = {
   silly: 5
 };
 
-// Create logs directory if it doesn't exist
-const LOGS_DIR = path.join(process.cwd(), 'logs');
+// Create logs directory at project root
+const LOGS_DIR = path.join(PROJECT_ROOT, 'logs');
 if (!fs.existsSync(LOGS_DIR)) {
   fs.mkdirSync(LOGS_DIR, { recursive: true });
 }
@@ -38,31 +44,34 @@ const structuredFormat = winston.format.combine(
 // Create logger instance
 const logger = winston.createLogger({
   levels: logLevels,
-  level: 'info',
+  level: 'silly', // Capture all log levels including debug
   format: structuredFormat,
   transports: [
-    // Daily rotating file transport for all logs
+    // Main anchor_engine.log file with size-based rotation (10KB)
     new DailyRotateFile({
-      filename: path.join(LOGS_DIR, 'application-%DATE%.log'),
+      filename: path.join(LOGS_DIR, 'anchor_engine.log'),
       datePattern: 'YYYY-MM-DD',
-      zippedArchive: true,
-      maxSize: '20m',
-      maxFiles: '14d',
+      zippedArchive: false,
+      maxSize: '10k',
+      maxFiles: '7d',
       format: format.combine(
-        format.timestamp(),
+        format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         format.errors({ stack: true }),
         format.splat(),
-        format.json()
+        format.printf(({ timestamp, level, message, ...metadata }) => {
+          const metaStr = Object.keys(metadata).length > 0 ? ` ${JSON.stringify(metadata)}` : '';
+          return `[${timestamp}] [${level.toUpperCase()}] ${message}${metaStr}`;
+        })
       )
     }),
     // Separate error file
     new DailyRotateFile({
       level: 'error',
-      filename: path.join(LOGS_DIR, 'error-%DATE%.log'),
+      filename: path.join(LOGS_DIR, 'anchor_engine_error-%DATE%.log'),
       datePattern: 'YYYY-MM-DD',
       zippedArchive: true,
-      maxSize: '20m',
-      maxFiles: '30d',
+      maxSize: '10k',
+      maxFiles: '14d',
       format: format.combine(
         format.timestamp(),
         format.errors({ stack: true }),
@@ -204,6 +213,17 @@ export const logWithContext = {
   },
 
   /**
+   * Log a silly/verbose message with context
+   */
+  silly: (message: string, context?: Record<string, any>) => {
+    logger.silly(message, {
+      context,
+      pid: process.pid,
+      module: 'structured-logger'
+    });
+  },
+
+  /**
    * Log a performance metric
    */
   performance: (operation: string, duration: number, context?: Record<string, any>) => {
@@ -294,3 +314,6 @@ export function getFormattedMetrics(): string {
   const metrics = metricsTracker.getAllMetrics();
   return JSON.stringify(metrics, null, 2);
 }
+
+// Export alias for backward compatibility
+export const StructuredLogger = logWithContext;
