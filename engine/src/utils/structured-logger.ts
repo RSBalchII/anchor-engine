@@ -154,6 +154,40 @@ class MetricsTracker {
   reset() {
     this.metrics.clear();
   }
+
+  /**
+   * Prune old metrics to free memory (called during idle cleanup)
+   * Removes metrics older than TTL and enforces maximum size limit
+   */
+  pruneOldMetrics(): void {
+    const METRIC_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL
+    const MAX_METRICS = 500; // Maximum number of metrics to keep
+    const now = Date.now();
+    
+    // Remove metrics that haven't been updated in TTL period
+    let prunedCount = 0;
+    for (const [key, metric] of this.metrics.entries()) {
+      // If last operation was more than TTL ago, remove it
+      if (metric.last && (now - metric.last) > METRIC_TTL_MS) {
+        this.metrics.delete(key);
+        prunedCount++;
+      }
+    }
+    
+    // Enforce hard limit if still too many metrics
+    if (this.metrics.size > MAX_METRICS) {
+      const keys = Array.from(this.metrics.keys());
+      const toDelete = keys.slice(0, keys.length - MAX_METRICS);
+      for (const key of toDelete) {
+        this.metrics.delete(key);
+        prunedCount++;
+      }
+    }
+    
+    if (prunedCount > 0) {
+      console.log(`[StructuredLogger] Pruned ${prunedCount} old metrics (${this.metrics.size} remaining)`);
+    }
+  }
 }
 
 // Initialize metrics tracker

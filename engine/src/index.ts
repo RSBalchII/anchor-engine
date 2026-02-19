@@ -35,6 +35,11 @@ app.use((req, res, next) => {
       status,
       duration_ms: duration
     });
+    
+    // Mark activity for idle manager (skip static files)
+    if (!req.path.startsWith('/static') && !req.path.startsWith('/chat')) {
+      idleManager.markActive(`${req.method} ${req.path}`);
+    }
   });
   next();
 });
@@ -261,27 +266,44 @@ async function startServer() {
 
     // Start other services after database is ready
     console.log('[Services] Starting child services via ProcessManager...');
-    const { ProcessManager } = await import("./utils/process-manager.js");
-    const pm = ProcessManager.getInstance();
-
-    // Start Nanobot Node (inference server consolidated into nanobot per v4.0)
-    console.log('[Services] Attempting to start NanobotNode...');
-    pm.startService({
-      name: "NanobotNode",
-      cwd: "../../nanobot-node",
-      script: "server.js",
-      env: { PORT: config.SERVICES.CHAT_SERVER_PORT.toString() }
-    }).then(() => {
-      console.log('[Services] NanobotNode start command completed');
-    }).catch((err: any) => {
-      console.error('[Services] Failed to queue NanobotNode start:', err);
-    });
+    
+    // Note: Nanobot is now started by the unified launcher (start.bat/start.sh)
+    // to prevent duplicate instances. ProcessManager is disabled for nanobot.
+    console.log('[Services] Nanobot skipped (started by launcher)');
 
     const { startWatchdog } = await import("./services/ingest/watchdog.js");
     startWatchdog();
 
     // Dreamer service disabled - optimized for STAR algorithm startup (v4.0)
     console.log('[Services] All service start commands queued');
+
+    // ============================================
+    // Standard 110: Regenerate Derived Data
+    // ============================================
+    // On startup: regenerate all derived data from inbox/ (source of truth)
+    
+    // 1. Create mirror from inbox/ files
+    console.log('[Startup] Regenerating mirrored_brain/ from inbox/ (Standard 110)...');
+    const { createMirror } = await import('./services/mirror/mirror.js');
+    await createMirror();
+    
+    // 2. Generate synonym rings automatically (Standard 111)
+    console.log('[Startup] Auto-generating synonym rings from data (Standard 111)...');
+    try {
+      const { AutoSynonymGenerator } = await import('./services/synonyms/auto-synonym-generator.js');
+      const generator = new AutoSynonymGenerator();
+      const synonyms = await generator.generateSynonymRings();
+      
+      // Save to auto-generated path (cleared on shutdown)
+      const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
+      await generator.saveSynonymRings(synonyms, synonymPath);
+      console.log(`[Startup] Generated ${Object.keys(synonyms).length} synonym rings.`);
+    } catch (error: any) {
+      console.warn('[Startup] Synonym generation failed:', error.message);
+      console.warn('[Startup] Search will work without synonym expansion.');
+    }
+
+    console.log('[Startup] All derived data regenerated. System ready.');
 
 
   } catch (error) {
@@ -297,16 +319,48 @@ process.on("SIGINT", async () => {
     ProcessManager.getInstance().stopAll();
     await db.close();
 
-    // Wipe Database on Shutdown
+    // Standard 110: Ephemeral Index Architecture
+    // Clear ALL derived data on shutdown - only inbox/ is source of truth
+    
+    // 1. Wipe PGlite Database (index/cache)
     const dbPath = process.env.PGLITE_DB_PATH || pathManager.getDatabasePath();
     if (existsSync(dbPath)) {
-      console.log(`[Shutdown] Wiping database at ${dbPath}...`);
+      console.log(`[Shutdown] Wiping PGlite database (rebuildable index)...`);
       rmSync(dbPath, { recursive: true, force: true });
-      console.log(`[Shutdown] Database wiped successfully.`);
+      console.log(`[Shutdown] Database wiped.`);
     }
+
+    // 2. Clear mirrored_brain/ (extracted from inbox/, regenerated on start)
+    const { MIRRORED_BRAIN_PATH } = await import('./services/mirror/mirror.js');
+    if (existsSync(MIRRORED_BRAIN_PATH)) {
+      console.log(`[Shutdown] Clearing mirrored_brain/ (regenerated from inbox/ on start)...`);
+      rmSync(MIRRORED_BRAIN_PATH, { recursive: true, force: true });
+      console.log(`[Shutdown] mirrored_brain/ cleared.`);
+    }
+
+    // 3. Clear Auto-Generated Synonym Rings (derived from data, regenerated on start)
+    const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
+    if (existsSync(synonymPath)) {
+      console.log(`[Shutdown] Clearing auto-generated synonym rings...`);
+      rmSync(synonymPath, { force: true });
+      console.log(`[Shutdown] Synonym rings cleared.`);
+    }
+
+    // 4. Clear Tag Audit Cache (derived from tags, regenerated on demand)
+    const tagAuditPath = path.join(pathManager.getNotebookDir(), 'tag-audit-cache.json');
+    if (existsSync(tagAuditPath)) {
+      console.log(`[Shutdown] Clearing tag audit cache...`);
+      rmSync(tagAuditPath, { force: true });
+      console.log(`[Shutdown] Tag audit cache cleared.`);
+    }
+
+    console.log(`[Shutdown] Cleanup complete.`);
+    console.log(`[Shutdown] Source of truth preserved: inbox/ + external-inbox/`);
+    console.log(`[Shutdown] On restart: mirror + index + synonyms regenerated from inbox/`);
 
     process.exit(0);
   } catch (e) {
+    console.error('[Shutdown] Error during cleanup:', e);
     process.exit(1);
   }
 });
@@ -320,6 +374,10 @@ process.on('warning', (warning) => {
     resourceManager.optimizeMemory();
   }
 });
+
+// Initialize Idle Manager for automatic memory cleanup during inactivity
+import { idleManager } from './services/idle-manager.js';
+console.log('[IdleManager] Service initialized');
 
 startServer();
 export { app };

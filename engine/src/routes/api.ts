@@ -378,6 +378,57 @@ export function setupRoutes(app: Application) {
     }
   });
 
+  // POST Maximum Recall Search - uses MAX_RECALL_CONFIG for comprehensive retrieval
+  app.post('/v1/memory/search-max-recall', async (req: Request, res: Response) => {
+    try {
+      const body = req.body;
+      if (!body.query) {
+        res.status(400).json({ error: 'Query is required' });
+        return;
+      }
+
+      // Handle legacy params
+      const bucketParam = body.bucket;
+      const buckets = body.buckets || [];
+      const allBuckets = bucketParam ? [...buckets, bucketParam] : buckets;
+      // Default to 256K chars for max recall
+      const budget = body.token_budget ? body.token_budget * 4 : (body.max_chars || 262144);
+      const tags = body.tags || [];
+
+      // Use max-recall configuration
+      const { smartChatSearch } = await import('../services/search/search.js');
+      const result = await smartChatSearch(
+        body.query,
+        allBuckets,
+        budget,
+        tags,
+        'all', // provenance
+        true   // useMaxRecall = true
+      );
+
+      console.log(`[API] Max Recall Search "${body.query}" -> Found ${result.results.length} results`);
+
+      res.status(200).json({
+        status: 'success',
+        context: result.context,
+        results: result.results,
+        strategy: 'max_recall',
+        split_queries: result.splitQueries,
+        metadata: {
+          ...result.metadata,
+          max_recall_enabled: true,
+          temporal_decay: 0.0,
+          max_hops: 3,
+          damping: 1.0,
+          min_relevance: 0.0
+        }
+      });
+    } catch (error: any) {
+      console.error('Max Recall Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get all buckets
   app.get('/v1/buckets', async (_req: Request, res: Response) => {
     try {
@@ -664,6 +715,37 @@ export function setupRoutes(app: Application) {
         timestamp: new Date().toISOString()
       }
     });
+  });
+
+  // Memory status endpoint
+  app.get('/v1/system/memory', async (_req: Request, res: Response) => {
+    try {
+      const { resourceManager } = await import('../utils/resource-manager.js');
+      const { idleManager } = await import('../services/idle-manager.js');
+      const { NlpService } = await import('../services/nlp/nlp-service.js');
+      const { isModelLoadedStatus: isNerModelLoaded } = await import('../services/tags/gliner.js');
+      
+      const memoryStats = resourceManager.getMemoryStats();
+      const idleStatus = idleManager.getStatus();
+      
+      res.status(200).json({
+        status: 'success',
+        memory: {
+          rss: Math.round(memoryStats.rss / 1024 / 1024),
+          heapUsed: Math.round(memoryStats.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(memoryStats.heapTotal / 1024 / 1024),
+          percentageUsed: Math.round(memoryStats.percentageUsed * 100) / 100
+        },
+        idle: idleStatus,
+        models: {
+          nlpLoaded: NlpService.isModelLoadedStatus(),
+          nerLoaded: isNerModelLoaded()
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Watcher Path Endpoints

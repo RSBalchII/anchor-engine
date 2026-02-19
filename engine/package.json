@@ -24,7 +24,9 @@
         "lint": "eslint src/ --ext .ts,.js",
         "chat": "ts-node tools/chat.ts",
         "chat-api": "node dist/server-8080.js",
-        "lint:fix": "eslint src/ --ext .ts,.js --fix"
+        "lint:fix": "eslint src/ --ext .ts,.js --fix",
+        "generate-synonyms": "node --loader ts-node/esm src/commands/generate-synonyms.ts",
+        "audit-tags": "node --loader ts-node/esm src/commands/audit-tags.ts"
     },
     "pkg": {
         "assets": [

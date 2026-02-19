@@ -76,8 +76,30 @@ export interface PhysicsResult {
 
 export class PhysicsTagWalker {
   // Hyperparameters (The "Laws of Physics" for your mind)
-  private DAMPING_FACTOR = 0.85; // Alpha: How far inflation spreads
-  private TIME_DECAY_LAMBDA = 0.00001; // How fast old memories fade
+  // Now configurable via constructor for max-recall mode
+  private DAMPING_FACTOR: number;
+  private TIME_DECAY_LAMBDA: number;
+  private MAX_PER_HOP: number;
+  private WALK_RADIUS: number;
+  private GRAVITY_THRESHOLD: number;
+  private TEMPERATURE: number;
+
+  constructor(config?: {
+    damping?: number;
+    temporalDecay?: number;
+    maxPerHop?: number;
+    walkRadius?: number;
+    gravityThreshold?: number;
+    temperature?: number;
+  }) {
+    // Default values (balanced production config)
+    this.DAMPING_FACTOR = config?.damping ?? 0.85;
+    this.TIME_DECAY_LAMBDA = config?.temporalDecay ?? 0.00001;
+    this.MAX_PER_HOP = config?.maxPerHop ?? 50;
+    this.WALK_RADIUS = config?.walkRadius ?? 1;
+    this.GRAVITY_THRESHOLD = config?.gravityThreshold ?? 0.01;
+    this.TEMPERATURE = config?.temperature ?? 0.2;
+  }
 
   /**
    * Safely parse a simhash string into a BigInt (hex with or without 0x).
@@ -96,17 +118,25 @@ export class PhysicsTagWalker {
   /**
    * Performs radial inflation using SQL matrix operations.
    * This executes the equivalent of: r = (M * M^T) * q
-   * 
+   *
    * Now includes the Unified Field Equation directly in the SQL query:
    * Weight = (SharedTags) * Exp(-Lambda * DeltaT) * (1 - SimHashDist/64)
+   * 
+   * Uses instance configuration from constructor for max-recall support.
    */
   async performRadialInflation(
     anchorIds: string[],
-    radius: number = 1,
-    maxPerHop: number = 50,
-    temperature: number = 0.2,
-    gravityThreshold: number = 0.1
+    radius?: number,        // Uses instance WALK_RADIUS if not provided
+    maxPerHop?: number,     // Uses instance MAX_PER_HOP if not provided
+    temperature?: number,   // Uses instance TEMPERATURE if not provided
+    gravityThreshold?: number // Uses instance GRAVITY_THRESHOLD if not provided
   ): Promise<PhysicsResult[]> {
+    // Use instance defaults if not overridden
+    const hopRadius = radius ?? this.WALK_RADIUS;
+    const hopMaxPerHop = maxPerHop ?? this.MAX_PER_HOP;
+    const hopTemperature = temperature ?? this.TEMPERATURE;
+    const hopGravityThreshold = gravityThreshold ?? this.GRAVITY_THRESHOLD;
+    
     let currentAnchors = anchorIds;
     let allPhysicsResults: PhysicsResult[] = [];
     const seenIds = new Set<string>(anchorIds); // Prevent revisiting anchors
@@ -118,8 +148,8 @@ export class PhysicsTagWalker {
     // Get connected nodes via shared tags with SQL weighting
     const connectedNodes = await this.getConnectedNodesWeighted(
       currentAnchors,
-      maxPerHop * 3, // Fetch more candidates, we filter by threshold later
-      gravityThreshold
+      hopMaxPerHop * 3, // Fetch more candidates, we filter by threshold later
+      hopGravityThreshold
     );
 
     for (const node of connectedNodes) {

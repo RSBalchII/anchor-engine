@@ -12,6 +12,7 @@
 import { db } from '../../core/db.js';
 import { createHash } from 'crypto';
 import { config } from '../../config/index.js';
+import { MAX_RECALL_CONFIG } from '../../config/max-recall-config.js';
 import { SemanticCategory } from '../../types/taxonomy.js';
 import { ContextInflator } from './context-inflator.js';
 import { Timer } from '../../utils/timer.js';
@@ -406,6 +407,16 @@ export async function findAnchors(
 
 /**
  * Execute search with Intelligent Expansion and Physics Tag-Walker Protocol (GCP)
+ * 
+ * @param query - Search query string
+ * @param _bucket - Legacy bucket parameter (deprecated)
+ * @param buckets - Array of buckets to search
+ * @param maxChars - Maximum characters to return
+ * @param _deep - Legacy deep search flag (deprecated)
+ * @param provenance - Provenance filter (internal/external/quarantine/all)
+ * @param explicitTags - Explicit tags to filter by
+ * @param filters - Additional filters
+ * @param useMaxRecall - If true, uses MAX_RECALL_CONFIG for comprehensive retrieval
  */
 export async function executeSearch(
   query: string,
@@ -415,7 +426,8 @@ export async function executeSearch(
   _deep: boolean = false,
   provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all',
   explicitTags: string[] = [],
-  filters?: { type?: string; minVal?: number; maxVal?: number; }
+  filters?: { type?: string; minVal?: number; maxVal?: number; },
+  useMaxRecall: boolean = false
 ): Promise<{ context: string; results: SearchResult[]; toAgentString: () => string; metadata?: any }> {
   console.log(`[Search] executeSearch (Physics Engine V2) called with provenance: ${provenance}`);
   const startTime = Date.now();
@@ -432,7 +444,7 @@ export async function executeSearch(
 
   // Clean up engram results if they are just IDs (lookupByEngram returns IDs? No, currently logic is missing hydration in my quick look, assuming compatible or empty)
   // Actually lookupByEngram returns string[] of IDs. We need to fetch them.
-  // For now, let's rely on primaryAnchors. 
+  // For now, let's rely on primaryAnchors.
   // If we had time, we'd hydrate engrams.
 
   const allAnchors = [...primaryAnchors];
@@ -446,11 +458,22 @@ export async function executeSearch(
   });
 
   // 3. physics-tag-Walker (Moons)
-  const physicsWalker = new PhysicsTagWalker();
+  // Use max-recall config if requested
+  const physicsWalker = useMaxRecall 
+    ? new PhysicsTagWalker({
+        damping: MAX_RECALL_CONFIG.walker.damping,
+        temporalDecay: MAX_RECALL_CONFIG.walker.temporal_decay,
+        maxPerHop: MAX_RECALL_CONFIG.walker.max_per_hop,
+        walkRadius: MAX_RECALL_CONFIG.walker.walk_radius,
+        gravityThreshold: MAX_RECALL_CONFIG.walker.gravity_threshold,
+        temperature: MAX_RECALL_CONFIG.walker.temperature
+      })
+    : new PhysicsTagWalker();
+    
   const walkerResults = await physicsWalker.applyPhysicsWeighting(uniqueAnchors, 0.005, {
-    temperature: 0.2,
-    max_per_hop: 50,
-    walk_radius: 1
+    temperature: useMaxRecall ? MAX_RECALL_CONFIG.walker.temperature : 0.2,
+    max_per_hop: useMaxRecall ? MAX_RECALL_CONFIG.walker.max_per_hop : 50,
+    walk_radius: useMaxRecall ? MAX_RECALL_CONFIG.walker.walk_radius : 1
   });
 
   console.log(`[Search] Physics Walker found ${walkerResults.length} associations.`);
@@ -632,13 +655,16 @@ async function hydrateFromMirror(results: SearchResult[]) {
 /**
  * Iterative Search with Back-off Strategy
  * Attempts to retrieve results by progressively simplifying the query.
+ * 
+ * @param useMaxRecall - If true, uses MAX_RECALL_CONFIG for comprehensive retrieval
  */
 export async function iterativeSearch(
   query: string,
   buckets: string[] = [],
   maxChars: number = 20000,
   tags: string[] = [],
-  provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all'
+  provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all',
+  useMaxRecall: boolean = false
 ): Promise<{ context: string; results: SearchResult[]; attempt: number; metadata?: any; toAgentString: () => string }> {
 
   // 0. Extract Scope Tags (Hashtags) to preserve them across strategies
@@ -652,7 +678,7 @@ export async function iterativeSearch(
 
   // Strategy 1: Standard Expanded Search (All Nouns, Verbs, Dates + Expansion)
   console.log(`[IterativeSearch] Strategy 1: Standard Execution`);
-  let results = await executeSearch(query, undefined, buckets, maxChars, false, provenance, tags);
+  let results = await executeSearch(query, undefined, buckets, maxChars, false, provenance, tags, undefined, useMaxRecall);
   if (results.results.length > 0) return { ...results, attempt: 1 };
 
   // Strategy 2: Strict "Subjects & Time" (Strip Verbs/Adjectives, keep Nouns + Dates)
@@ -698,16 +724,19 @@ export async function iterativeSearch(
  * 3. Split Query into Top Entities (Alice, Bob, etc.).
  * 4. Run Parallel Searches for each entity.
  * 5. Aggregate & Deduplicate.
+ * 
+ * @param useMaxRecall - If true, uses MAX_RECALL_CONFIG for comprehensive retrieval
  */
 export async function smartChatSearch(
   query: string,
   buckets: string[] = [],
   maxChars: number = 20000,
   tags: string[] = [],
-  provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all'
+  provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all',
+  useMaxRecall: boolean = false
 ): Promise<{ context: string; results: SearchResult[]; strategy: string; splitQueries?: string[]; metadata?: any; toAgentString: () => string }> {
   // 1. Initial Attempt
-  const initial = await iterativeSearch(query, buckets, maxChars, tags, provenance);
+  const initial = await iterativeSearch(query, buckets, maxChars, tags, provenance, useMaxRecall);
 
   // If we have enough results, returns immediately
   if (initial.results.length >= 10) {
