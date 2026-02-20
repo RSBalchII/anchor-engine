@@ -228,9 +228,10 @@ export function setupRoutes(app: Application) {
   });
 
   // POST Search endpoint (Standard UniversalRAG + Iterative Logic)
+  // Supports strategy parameter: 'standard' (default) or 'max-recall'
   app.post('/v1/memory/search', validate(schemas.memorySearch), async (req: Request, res: Response) => {
     const startTime = Date.now();
-    StructuredLogger.info('SEARCH_REQUEST', { 
+    StructuredLogger.info('SEARCH_REQUEST', {
       endpoint: '/v1/memory/search',
       method: 'POST'
     });
@@ -243,9 +244,12 @@ export function setupRoutes(app: Application) {
         return;
       }
 
-      StructuredLogger.info('SEARCH_PROCESSING', { 
+      const strategy = (req.body as any).strategy || 'standard';
+
+      StructuredLogger.info('SEARCH_PROCESSING', {
         query: body.query.substring(0, 100),
-        query_length: body.query.length
+        query_length: body.query.length,
+        strategy
       });
 
       // Handle legacy params
@@ -258,27 +262,38 @@ export function setupRoutes(app: Application) {
       const tags = (req.body as any).tags || [];
 
       // Enhanced Search Strategy (Standard 086)
-      // We now use our enhanced executeSearch for ALL queries to benefit from:
-      // 1. Multi-term splitting (e.g. "Rob and Coda" -> "Rob", "Coda")
-      // 2. Tag-Walker Protocol (graph-based associative retrieval)
-      // 3. Physics-based spreading activation with temporal decay
-      // 4. Context Inflation (Radial Search)
-      StructuredLogger.info('SEARCH_STRATEGY', { strategy: 'enhanced_tag_walker' });
+      // Support both standard and max-recall strategies
+      StructuredLogger.info('SEARCH_STRATEGY', { strategy });
 
-      const result = await smartChatSearch(
-        body.query,
-        allBuckets,
-        budget,
-        tags,
-        (req.body as any).provenance || 'all'
-      );
+      let result;
+      if (strategy === 'max-recall') {
+        // Max Recall Strategy: Zero temporal decay, 3 hops, no relevance filtering
+        result = await smartChatSearch(
+          body.query,
+          allBuckets,
+          budget,
+          tags,
+          (req.body as any).provenance || 'all',
+          true  // useMaxRecall = true
+        );
+      } else {
+        // Standard Strategy: Balanced 70/30 budget with temporal decay
+        result = await smartChatSearch(
+          body.query,
+          allBuckets,
+          budget,
+          tags,
+          (req.body as any).provenance || 'all',
+          false  // useMaxRecall = false
+        );
+      }
 
       const duration = Date.now() - startTime;
       const resultCount = result.results.length;
-      
+
       // Log search completion with metrics
       StructuredLogger.search(body.query, resultCount, duration, {
-        strategy: result.strategy || 'enhanced_tag_walker',
+        strategy: strategy || 'enhanced_tag_walker',
         buckets: allBuckets,
         budget
       });
@@ -287,7 +302,7 @@ export function setupRoutes(app: Application) {
         query: body.query.substring(0, 50),
         results_count: resultCount,
         duration_ms: duration,
-        strategy: result.strategy || 'enhanced_tag_walker'
+        strategy: strategy || 'enhanced_tag_walker'
       });
 
       // Construct standard response
@@ -296,14 +311,18 @@ export function setupRoutes(app: Application) {
           status: 'success',
           context: result.context,
           results: result.results,
-          strategy: result.strategy || 'enhanced_tag_walker',
+          strategy: strategy || 'enhanced_tag_walker',
           attempt: (result as any).attempt || 1,
           split_queries: result.splitQueries || [],
           metadata: {
             engram_hits: 0,
             vector_latency: 0,
             provenance_boost_active: true,
-            search_type: 'enhanced',
+            search_type: strategy === 'max-recall' ? 'max_recall' : 'enhanced',
+            temporal_decay: strategy === 'max-recall' ? 0.0 : 0.00001,
+            max_hops: strategy === 'max-recall' ? 3 : 1,
+            damping: strategy === 'max-recall' ? 1.0 : 0.85,
+            min_relevance: strategy === 'max-recall' ? 0.0 : 0.1,
             ...((result as any).metadata || {})
           }
         });
@@ -480,6 +499,34 @@ export function setupRoutes(app: Application) {
     } catch (error) {
       console.error('Tag retrieval error:', error);
       res.status(500).json({ error: 'Failed to retrieve tags' });
+    }
+  });
+
+  // GET /v1/stats - System statistics (anchor_stats tool)
+  app.get('/v1/stats', async (_req: Request, res: Response) => {
+    try {
+      const startTime = Date.now();
+      
+      // Get counts in parallel
+      const [atomsResult, sourcesResult, tagsResult, moleculesResult] = await Promise.all([
+        db.run('SELECT COUNT(*) as count FROM atoms'),
+        db.run('SELECT COUNT(*) as count FROM sources'),
+        db.run('SELECT COUNT(DISTINCT tag) as count FROM tags WHERE tag IS NOT NULL'),
+        db.run('SELECT COUNT(*) as count FROM molecules')
+      ]);
+
+      const stats = {
+        atoms: parseInt(atomsResult.rows?.[0]?.count || '0'),
+        sources: parseInt(sourcesResult.rows?.[0]?.count || '0'),
+        tags: parseInt(tagsResult.rows?.[0]?.count || '0'),
+        molecules: parseInt(moleculesResult.rows?.[0]?.count || '0'),
+        query_time_ms: Date.now() - startTime
+      };
+
+      res.status(200).json(stats);
+    } catch (error) {
+      console.error('Stats retrieval error:', error);
+      res.status(500).json({ error: 'Failed to retrieve stats' });
     }
   });
 
