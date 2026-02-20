@@ -64,20 +64,30 @@ export class AutoSynonymGenerator {
       const totalAtoms = countResult.rows?.[0]?.total || 0;
       console.log(`[SynonymGenerator] Processing ${totalAtoms} atoms...`);
 
-      // Extract terms from atom content and find co-occurrences
-      // This query finds term pairs appearing in the same atom
+      // OPTIMIZED: Use pre-filtered terms and limit results
+      // Only process atoms with tags (higher quality) and limit to top terms
       const query = `
-        WITH term_atoms AS (
+        WITH frequent_terms AS (
+          -- Get only terms that appear 10+ times (filter noise)
+          SELECT LOWER(term) as term, COUNT(*) as freq
+          FROM (
+            SELECT DISTINCT LOWER(trim(word)) as term
+            FROM atoms,
+            LATERAL unnest(regexp_matches(content, '\\b[a-z]{4,20}\\b', 'gi')) as word
+          ) t
+          WHERE length(term) > 3
+          GROUP BY LOWER(term)
+          HAVING COUNT(*) >= 10
+          LIMIT 500  -- Only top 500 most frequent terms
+        ),
+        term_atoms AS (
           SELECT
             a.id as atom_id,
-            LOWER(t.term) as term
-          FROM atoms a,
-          LATERAL (
-            SELECT DISTINCT LOWER(term) as term
-            FROM unnest(string_to_array(a.content, ' ')) as term
-            WHERE length(term) > 3
-          ) t
+            ft.term
+          FROM atoms a
+          JOIN frequent_terms ft ON a.content ILIKE '%' || ft.term || '%'
           WHERE length(a.content) > 50
+            AND a.id IN (SELECT id FROM atoms WHERE tags IS NOT NULL AND array_length(tags, 1) > 0 LIMIT 10000)
         ),
         term_pairs AS (
           SELECT
@@ -91,11 +101,11 @@ export class AutoSynonymGenerator {
         )
         SELECT term1, term2, co_occurrence_count as score
         FROM term_pairs
-        ORDER BY term1, score DESC
-        LIMIT 1000
+        ORDER BY score DESC
+        LIMIT 500  -- Hard limit to prevent explosion
       `;
 
-      console.log('[SynonymGenerator] Executing co-occurrence query...');
+      console.log('[SynonymGenerator] Executing optimized co-occurrence query (this may take 1-2 minutes)...');
       const result = await db.run(query, [this.MIN_CO_OCCURRENCE]);
 
       const cooccurrenceMap = new Map<string, TermPair[]>();
@@ -105,7 +115,7 @@ export class AutoSynonymGenerator {
         return cooccurrenceMap;
       }
 
-      console.log(`[SynonymGenerator] Found ${result.rows.length} term pairs`);
+      console.log(`[SynonymGenerator] Found ${result.rows.length} term pairs in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
       
       for (const row of result.rows as any[]) {
         const { term1, term2, score } = row;
