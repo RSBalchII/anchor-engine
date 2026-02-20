@@ -231,16 +231,15 @@ async function startServer() {
     app.use('/monitoring', monitoringRouter);
 
     // Reset static and wildcard routes after DB is ready
-    app.use("/static", express.static(path.join(__dirname, "../dist")));
-
     // Determine which UI to serve based on availability
     const externalFrontendDist = path.join(__dirname, "../../../packages/anchor-ui/dist");
     const internalFrontendDist = path.join(__dirname, "../public");
 
     if (existsSync(externalFrontendDist)) {
-      console.log("Using external UI from packages/anchor-ui/dist for catch-all route");
-      app.use(express.static(externalFrontendDist));
-      // Set up the catch-all route for UI again (should be LAST)
+      console.log("Using external UI from packages/anchor-ui/dist");
+      // Serve the external UI at /static route
+      app.use("/static", express.static(externalFrontendDist));
+      // Set up the catch-all route for UI (should be LAST)
       app.get("*", (req, res) => {
         if (req.path.startsWith("/v1") || req.path.startsWith("/health")) {
           res.status(404).json({ error: "Not Found" });
@@ -249,8 +248,9 @@ async function startServer() {
         res.sendFile(path.join(externalFrontendDist, "index.html"));
       });
     } else {
-      console.log("Using internal lightweight UI from engine/public for catch-all route");
-      app.use(express.static(internalFrontendDist));
+      console.log("Using internal lightweight UI from engine/public");
+      // Serve the internal UI at /static route
+      app.use("/static", express.static(internalFrontendDist));
       // Set up the catch-all route for UI again (should be LAST)
       app.get("*", (req, res) => {
         if (req.path.startsWith("/v1") || req.path.startsWith("/health")) {
