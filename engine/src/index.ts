@@ -293,12 +293,32 @@ async function startServer() {
     try {
       const { AutoSynonymGenerator } = await import('./services/synonyms/auto-synonym-generator.js');
       const generator = new AutoSynonymGenerator();
-      const synonyms = await generator.generateSynonymRings();
       
-      // Save to auto-generated path (cleared on shutdown)
-      const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
-      await generator.saveSynonymRings(synonyms, synonymPath);
-      console.log(`[Startup] Generated ${Object.keys(synonyms).length} synonym rings.`);
+      // Run synonym generation in background with timeout (don't block startup)
+      console.log('[Startup] Starting synonym generation in background (may take several minutes)...');
+      
+      // Set timeout for synonym generation (5 minutes max)
+      const SYNONYM_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+      
+      const synonymPromise = Promise.race([
+        generator.generateSynonymRings(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Synonym generation timeout after 5 minutes')), SYNONYM_TIMEOUT)
+        )
+      ]);
+      
+      synonymPromise.then(async (synonyms) => {
+        // Save to auto-generated path (cleared on shutdown)
+        const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
+        await generator.saveSynonymRings(synonyms, synonymPath);
+        console.log(`[Startup] ✅ Synonym rings generated and saved to ${synonymPath}`);
+      }).catch((error) => {
+        console.warn(`[Startup] ⚠️ Synonym generation failed or timed out: ${error.message}`);
+        console.warn('[Startup] Will retry on next startup or run manually with: pnpm run generate-synonyms');
+      });
+      
+      // Don't wait for synonym generation to complete - system is ready
+      console.log('[Startup] System ready. Synonym generation running in background...');
     } catch (error: any) {
       console.warn('[Startup] Synonym generation failed:', error.message);
       console.warn('[Startup] Search will work without synonym expansion.');

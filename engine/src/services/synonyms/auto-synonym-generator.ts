@@ -46,15 +46,24 @@ export class AutoSynonymGenerator {
   /**
    * Strategy 1: Co-occurrence Mining
    * Find terms that frequently appear together in the same atoms/documents.
-   * 
+   *
    * SQL: Finds pairs of terms appearing in same atom content
    * Groups by term pairs, counts co-occurrences
    * Returns top N pairs per term
    */
   async mineCooccurrenceSynonyms(windowSize: number = 100): Promise<Map<string, TermPair[]>> {
     console.log('[SynonymGenerator] Strategy 1: Mining co-occurrence patterns...');
-    
+    const startTime = Date.now();
+
     try {
+      // Get total count for progress tracking
+      const countQuery = `
+        SELECT COUNT(*) as total FROM atoms WHERE length(content) > 50
+      `;
+      const countResult = await db.run(countQuery);
+      const totalAtoms = countResult.rows?.[0]?.total || 0;
+      console.log(`[SynonymGenerator] Processing ${totalAtoms} atoms...`);
+
       // Extract terms from atom content and find co-occurrences
       // This query finds term pairs appearing in the same atom
       const query = `
@@ -71,7 +80,7 @@ export class AutoSynonymGenerator {
           WHERE length(a.content) > 50
         ),
         term_pairs AS (
-          SELECT 
+          SELECT
             t1.term as term1,
             t2.term as term2,
             COUNT(DISTINCT t1.atom_id) as co_occurrence_count
@@ -85,15 +94,18 @@ export class AutoSynonymGenerator {
         ORDER BY term1, score DESC
         LIMIT 1000
       `;
-      
+
+      console.log('[SynonymGenerator] Executing co-occurrence query...');
       const result = await db.run(query, [this.MIN_CO_OCCURRENCE]);
-      
+
       const cooccurrenceMap = new Map<string, TermPair[]>();
-      
+
       if (!result.rows) {
         console.log('[SynonymGenerator] No co-occurrence patterns found');
         return cooccurrenceMap;
       }
+
+      console.log(`[SynonymGenerator] Found ${result.rows.length} term pairs`);
       
       for (const row of result.rows as any[]) {
         const { term1, term2, score } = row;
