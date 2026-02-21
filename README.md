@@ -321,10 +321,6 @@ GET /monitoring/metrics  # Performance metrics
 
 Disclaimer
 
-OpenOmen is an independent open-source project and is not affiliated with, endorsed by, or sponsored by HP Inc. or the Omen brand.
-
-“Omen” is a trademark of HP Inc., and any references to it in this project are strictly for the purpose of device compatibility and identification.
-
 This software is provided "as is", without warranty of any kind, express or implied. By using this software, you acknowledge that:
 
     You are responsible for any potential damage to your device.
