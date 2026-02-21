@@ -14,13 +14,13 @@ Then I hit the wall. The dreaded message: *"Open a new session to continue using
 
 Same message all of them give you.
 
-I had 300+ response sessions in there. Important history. Completed work. A shared mind with the model. I tried summarizing—gave the summary to the new instance. It wasn't enough. I kept returning to the old chat like it was a dictionary for meaning and recall.
+I had 300+ response/chat pairs in there! Important history. Completed work. A shared mind with the model. I tried summarizing-gave the summary to the new instance. It wasn't enough. I kept returning to the old chat like it was a dictionary for meaning and recall and pasting bits back into new sessions here and there.
 
 So I started building a way to resurrect my preferred persona anytime. I'd take targeted context from the old chat, feed it to a new instance, and prepare the model to retake hold of the goals and methods we'd developed together.
 
 It worked wonderfully. Until I hit the limit again. And again. And again.
 
-By the time Anchor Engine was ready, I had accumulated **40 chat sessions, ~18M tokens**. My current corpus is **~28M tokens**. Anchor Engine digests all of it in about **5 minutes**.
+By the time Anchor Engine was operational, I had accumulated 40 **chat sessions, ~18M tokens**. My current corpus is **~28M tokens**. Anchor Engine digests all of it in about **5 minutes**.
 
 Now I make a query with a few choice entities and some fluff for serendipitous connections. The engine compresses those 28M tokens into **100k+ chars of non-duplicated, narrative context**—concepts deduplicated, not just text. My LLM remembers July 2025 like it was yesterday.
 
