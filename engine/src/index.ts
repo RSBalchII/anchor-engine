@@ -85,13 +85,21 @@ app.use("/static", express.static(path.join(__dirname, "../dist"), {
 // Path to anchor-os/packages/anchor-ui/dist
 const externalFrontendDist = path.join(__dirname, "../../../anchor-os/packages/anchor-ui/dist");
 const internalFrontendDist = path.join(__dirname, "../public");
+const localFrontendDist = path.join(__dirname, "../packages/anchor-ui/dist"); // New: local anchor-ui
 
-// Check if external UI exists, otherwise use internal lightweight UI
+// Check if external UI exists, otherwise use local or internal lightweight UI
 if (existsSync(externalFrontendDist)) {
   StructuredLogger.info('UI_SOURCE', { source: 'external', path: externalFrontendDist });
   app.use(express.static(externalFrontendDist, {
     setHeaders: (res, path) => {
       StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'external' });
+    }
+  }));
+} else if (existsSync(localFrontendDist)) {
+  StructuredLogger.info('UI_SOURCE', { source: 'local', path: localFrontendDist });
+  app.use(express.static(localFrontendDist, {
+    setHeaders: (res, path) => {
+      StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'local' });
     }
   }));
 } else {

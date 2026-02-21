@@ -1,0 +1,5 @@
+flowchart TB
+    A[Adversarial Scout] --> B[Poisoned Data]
+    B --> C{236B Verification}
+    C -->|Pass| D[+Robustness]
+    C -->|Fail| E[Retrain RAG Layer]

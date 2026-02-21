@@ -1,0 +1,30 @@
+flowchart LR
+    A[Architect] --> APIGW["API Gateway"]
+    D[Dory] --> APIGW
+    APIGW --> Auth[Auth Service]
+    APIGW --> Data[Data Service]
+    APIGW --> Dist[Distillation Service]
+    APIGW --> Agent[Agentic Service]
+    
+    Agent --> Data
+    Agent --> Cipher[Cipher Handler]
+    Cipher --> ChromaDB[(ChromaDB)]
+    
+    Agent --> CrewAI[CrewAI]
+    CrewAI --> LHA[Life History Agent]
+    CrewAI --> MA[Memory Agent]
+    CrewAI --> TPA[Thinking Process Agent]
+    CrewAI --> DA[Distillation Agent]
+    
+    classDef api fill:#C457B6,stroke:#6c5ce7;
+    classDef service fill:#E3AF3B,stroke:#ff9f43;
+    classDef storage fill:#cd84f1,stroke:#e95ed7;
+    classDef agent fill:#7bed9f,stroke:#2ed573;
+    classDef crew fill:#00d2d3,stroke:#01a3a4;
+    
+    class APIGW api;
+    class Auth,Data,Dist service;
+    class ChromaDB storage;
+    class Cipher,Agent service;
+    class LHA,MA,TPA,DA agent;
+    class CrewAI crew;

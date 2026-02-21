@@ -1,0 +1,103 @@
+{
+    "llm_instructions": "This file provides structured references to all professional materials. When a path is encountered, the LLM should read that file for complete context.",
+    "context_index": {
+        "project_root": "Notebook",
+        "documents": {
+            "$schema": {
+                "description": "Each document object should have: path, type, metadata, and processing_instructions",
+                "required_fields": ["path", "type"]
+            },
+            "certifications": [
+                {
+                    "type": "full_stack",
+                    "path": "Job-Context/PDF's/Balch II, Robert April 2023 Fullstack graduation certificates 6-22-23.pdf",
+                    "metadata": {
+                        "issuer": "Deep Dive Coding",
+                        "date": "2023-06-22",
+                        "skills": ["React", "Node.js", "PostgreSQL"],
+                        "verification_status": "verified"
+                    },
+                    "processing_instructions": "Extract text content and summarize key technologies mentioned"
+                },
+                {
+                    "type": "data_science",
+                    "path": "Job-Context/PDF's/Balch II, Robert Data Science September 2024 graduation certificate 1-8-2025.pdf",
+                    "metadata": {
+                        "issuer": "Deep Dive Coding", 
+                        "date": "2024-12-12",
+                        "skills": ["Python", "Machine Learning", "Pandas"],
+                        "verification_status": "verified"
+                    },
+                    "processing_instructions": "Extract text content and correlate with listed skills"
+                }
+            ],
+            "professional_materials": {
+                "schema": "All materials should include source organization and relevance indicators",
+                "resume": {
+                    "type": "professional_summary",
+                    "path": "Job-Context/PDF's/Robert Balch II-Resume.pdf",
+                    "processing_instructions": "Parse and extract work history, skills, and education"
+                },
+                "nda": {
+                    "type": "legal_agreement",
+                    "path": "Job-Context/PDF's/NDA - Robert Balch II.pdf",
+                    "counterparty": "Abrazo Technologies",
+                    "effective_date": "2025-06-26",
+                    "processing_instructions": "Check for active status and relevant restrictions"
+                }
+            },
+            "project_evidence": {
+                "schema": "Should include visual and textual evidence where available",
+                "database_migration": {
+                    "type": "technical_project",
+                    "path": "Job-Context/Images/DB-Modification.png",
+                    "description": "Tando Institute database optimization project",
+                    "completion_date": "2025-06-26",
+                    "processing_instructions": "Describe the visual content and its significance",
+                    "supporting_files": ["Job-Context/Email-History-Santiago-Delgado.md"]
+                }
+            },
+            "strategic_plans": {
+                "schema": "Strategic documents should link to related communications and materials",
+                "ai_architecture": {
+                    "type": "technical_plan",
+                    "path": "Job-Context/Warp-Ready-AI-Arch-Plan.md",
+                    "related_to": ["Job-Context/AI-Architect-Execution-Plan.md"],
+                    "processing_instructions": "Analyze technical requirements and implementation strategy"
+                },
+                "execution_roadmap": {
+                    "type": "project_timeline", 
+                    "path": "Job-Context/AI-Architect-Execution-Plan.md",
+                    "related_to": ["Job-Context/Warp-Ready-AI-Arch-Plan.md"],
+                    "processing_instructions": "Extract key milestones and deliverables"
+                }
+            },
+            "communications": {
+                "schema": "Should indicate parties and communication purpose",
+                "hiring": {
+                    "type": "email_thread",
+                    "path": "Job-Context/Email-History-RHowell.md",
+                    "parties": ["Robert Balch", "Recruiter"],
+                    "purpose": "job offer discussions",
+                    "processing_instructions": "Summarize key points and agreements"
+                },
+                "project_management": {
+                    "type": "email_thread",
+                    "path": "Job-Context/Email-History-Santiago-Delgado.md",
+                    "parties": ["Robert Balch", "Project Manager"],
+                    "purpose": "technical collaboration",
+                    "processing_instructions": "Extract action items and technical requirements"
+                } 
+            }
+        },
+        "context_summary": {
+            "path": "Job-Context/Job-Context.md",
+            "processing_instructions": "Use as primary reference for overall context before examining specific documents"
+        },
+        "version_history": {
+            "last_updated": "2025-07-02",
+            "version": "1.1",
+            "changes": "Added LLM processing instructions and standardized document schemas"
+        }
+    }
+}

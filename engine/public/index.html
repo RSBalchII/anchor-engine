@@ -3,20 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anchor Engine - Integrated Dashboard</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <title>Anchor Engine</title>
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0f;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --text-primary: #e2e8f0;
+            --border-subtle: rgba(148, 163, 184, 0.1);
+        }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #050507;
-            color: #e2e8f0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             margin: 0;
-            padding: 0;
+            min-height: 100vh;
         }
         .glass-panel {
             background: rgba(30, 41, 59, 0.4);
@@ -24,60 +32,39 @@
             border: 1px solid rgba(148, 163, 184, 0.1);
             border-radius: 12px;
         }
-        .glass-panel-dark {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 12px;
-        }
-        .search-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 1rem;
-        }
         .btn-primary {
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border: none;
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
+            font-weight: 500;
         }
         .btn-primary:hover {
-            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
         }
         .btn-secondary {
             background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
         .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.2);
         }
-        .btn-danger {
-            background: rgba(220, 38, 38, 0.2);
-            border: 1px solid rgba(220, 38, 38, 0.5);
-            color: #fca5a5;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
         }
-        .btn-danger:hover {
-            background: rgba(220, 38, 38, 0.3);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        
-        /* Markdown-ish formatting for Chat */
-        .prose p { margin-bottom: 0.5em; }
-        .prose ul { list-style-type: disc; margin-left: 1.5em; }
-        .prose pre { background: #1e293b; padding: 0.5em; border-radius: 4px; overflow-x: auto; }
-        .prose code { background: #1e293b; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; }
-        
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
@@ -87,220 +74,230 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="react" data-type="module">
-        const { useState, useEffect, useRef } = React;
-        const { Search, MessageSquare, Terminal, Database, Save, Trash2, RefreshCw, Power } = lucide;
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // Simple Router using History API
+        const useRouter = () => {
+            const [route, setRoute] = useState(window.location.pathname);
+            
+            useEffect(() => {
+                const onPopState = () => setRoute(window.location.pathname);
+                window.addEventListener('popstate', onPopState);
+                return () => window.removeEventListener('popstate', onPopState);
+            }, []);
+            
+            const navigate = (path) => {
+                window.history.pushState({}, '', path);
+                setRoute(path);
+                lucide.createIcons();
+            };
+            
+            return { route, navigate };
+        };
 
         // API Service
         const api = {
-            search: (params) => fetch('/v1/memory/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(params)
-            }).then(r => r.json()),
-            
+            search: async (params) => {
+                const res = await fetch('/v1/memory/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                return res.json();
+            },
             getBuckets: () => fetch('/v1/buckets').then(r => r.json()),
             getTags: (buckets) => {
                 const query = buckets && buckets.length > 0 ? `?buckets=${buckets.join(',')}` : '';
                 return fetch(`/v1/tags${query}`).then(r => r.json());
             },
-            
-            health: () => fetch('/health').then(r => r.json()),
-            backup: () => fetch('/v1/backup', { method: 'POST' }).then(r => r.json()),
-            
-            // Nanobot / Model Management
+            chat: async (messages, model = 'default') => {
+                const res = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages, model })
+                });
+                return res.json();
+            },
             getModels: () => fetch('/v1/models').then(r => r.json()),
-            getModelStatus: () => fetch('/v1/model/status').then(r => r.json()),
-            loadModel: (model) => fetch('/v1/model/load', {
+            getPaths: () => fetch('/v1/system/paths').then(r => r.json()),
+            addPath: (path) => fetch('/v1/system/paths', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model })
+                body: JSON.stringify({ path })
             }).then(r => r.json()),
-            unloadModel: () => fetch('/v1/model/unload', { method: 'POST' }).then(r => r.json()),
+            removePath: (path) => fetch(`/v1/system/paths`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            }).then(r => r.json()),
+            // Health and status endpoints
+            health: () => fetch('/health').then(r => r.json()),
+            getStats: () => fetch('/v1/stats').then(r => r.json()).catch(() => ({ atoms: 0, molecules: 0 }))
         };
 
-        // --- COMPONENTS ---
+        // Loading Screen Component
+        const LoadingScreen = ({ onComplete }) => {
+            const [status, setStatus] = useState('Initializing...');
+            const [stats, setStats] = useState({ atoms: 0, molecules: 0 });
+            const [progress, setProgress] = useState(0);
 
-        function SearchColumn({ id, availableBuckets, availableTags, onRemove }) {
-            const [query, setQuery] = useState('');
-            const [results, setResults] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [selectedBucket, setSelectedBucket] = useState('');
-            const [maxChars, setMaxChars] = useState(20000);
-            const [provenance, setProvenance] = useState('all');
+            useEffect(() => {
+                let checkCount = 0;
+                const maxChecks = 60;
+                let prevMolecules = 0;
+                let stableCount = 0;
 
-            const handleSearch = async () => {
-                if (!query.trim()) return;
-                setLoading(true);
-                try {
-                    const response = await api.search({
-                        query,
-                        bucket: selectedBucket || undefined,
-                        tags: [], // Could implement tag multiselect
-                        max_chars: maxChars,
-                        provenance
-                    });
-                    setResults(response.results || []);
-                } catch (error) {
-                    console.error('Search error:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
+                const checkStatus = async () => {
+                    try {
+                        const health = await api.health();
+                        const currentStats = await api.getStats();
+                        
+                        setStats(currentStats);
+                        
+                        const targetMolecules = 280000;
+                        const newProgress = Math.min(95, Math.round((currentStats.molecules / targetMolecules) * 100));
+                        setProgress(newProgress);
+
+                        if (currentStats.molecules > 0 && currentStats.molecules === prevMolecules) {
+                            stableCount++;
+                            if (stableCount >= 3 && health.status === 'healthy') {
+                                setStatus('✅ Ready!');
+                                setTimeout(() => onComplete(), 1000);
+                                return;
+                            }
+                        } else if (currentStats.molecules > prevMolecules) {
+                            stableCount = 0;
+                            setStatus('Digesting context...');
+                        }
+
+                        prevMolecules = currentStats.molecules;
+                        checkCount++;
+
+                        if (checkCount >= maxChecks && health.status === 'healthy') {
+                            setStatus('✅ Ready!');
+                            setTimeout(() => onComplete(), 1000);
+                        }
+                    } catch (error) {
+                        setStatus('Starting up...');
+                    }
+                };
+
+                checkStatus();
+                const interval = setInterval(checkStatus, 2000);
+                return () => clearInterval(interval);
+            }, [onComplete]);
 
             return (
-                <div className="glass-panel p-4 h-full flex flex-col min-h-[500px]">
-                    <div className="flex justify-between items-center mb-4 border-b border-gray-700/50 pb-2">
-                        <div className="flex items-center gap-2 text-cyan-400 font-semibold">
-                            <i data-lucide="search" width="18"></i>
-                            <span>Search #{id}</span>
+                <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" key="loading-screen">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-black to-black"></div>
+                    <div className="relative z-10 text-center px-4">
+                        <div className="mb-8">
+                            <div className="relative inline-block">
+                                <div className="w-20 h-20 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+                            </div>
                         </div>
-                        <button onClick={() => onRemove(id)} className="text-gray-500 hover:text-red-400">
-                           <i data-lucide="trash-2" width="16"></i>
-                        </button>
-                    </div>
-                    
-                    <div className="space-y-3 mb-4">
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                placeholder="Search memory..."
-                                className="flex-1 p-2 rounded bg-black/40 border border-gray-700 text-white placeholder-gray-500 focus:border-cyan-500 outline-none"
-                            />
-                            <button onClick={handleSearch} disabled={loading} className="btn-primary">
-                                {loading ? <i data-lucide="refresh-cw" className="animate-spin" width="18"/> : 'Go'}
-                            </button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                            <select
-                                value={selectedBucket}
-                                onChange={(e) => setSelectedBucket(e.target.value)}
-                                className="p-2 rounded bg-black/40 border border-gray-700 text-gray-300"
-                            >
-                                <option value="">All Buckets</option>
-                                {availableBuckets.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                            
-                            <select
-                                value={provenance}
-                                onChange={(e) => setProvenance(e.target.value)}
-                                className="p-2 rounded bg-black/40 border border-gray-700 text-gray-300"
-                            >
-                                <option value="all">All Sources</option>
-                                <option value="internal">Internal Only</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                        {results.length === 0 && !loading && (
-                            <div className="text-center text-gray-600 mt-10">No results found</div>
-                        )}
-                        {results.map((result, idx) => (
-                            <div key={idx} className="p-3 bg-black/20 rounded border border-gray-700/30 text-sm hover:bg-black/30 transition">
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="font-medium text-cyan-300 truncate w-2/3">{result.source}</span>
-                                    <span className="text-xs text-gray-500">{result.score?.toFixed(2)}</span>
-                                </div>
-                                <div className="text-gray-300 line-clamp-4 leading-relaxed font-light">
-                                    {result.content}
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500 flex flex-wrap gap-2">
-                                    <span>{new Date(result.timestamp).toLocaleDateString()}</span>
-                                    {result.buckets && result.buckets.map(b => (
-                                        <span key={`bucket-${b}`} className="px-1.5 py-0.5 bg-gray-900 rounded text-cyan-300">{b}</span>
-                                    ))}
-                                    {result.tags && result.tags.map(t => (
-                                        <span key={`tag-${t}`} className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">{t}</span>
-                                    ))}
+
+                        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                            Anchor Engine
+                        </h1>
+                        <p className="text-gray-400 mb-8">Sovereign Context Protocol</p>
+
+                        <div className="glass-panel p-6 mb-6 max-w-md mx-auto">
+                            <div className="flex items-center justify-center gap-3 mb-4">
+                                <div className="flex space-x-1">
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
                                 </div>
                             </div>
-                        ))}
+                            <p className="text-lg text-gray-300 mb-2">{status}</p>
+                            {stats.molecules > 0 && (
+                                <p className="text-sm text-gray-500">
+                                    {stats.molecules.toLocaleString()} molecules • {stats.atoms.toLocaleString()} atoms
+                                </p>
+                            )}
+                            
+                            <div className="mt-4 h-1 bg-gray-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-500"
+                                    style={{width: `${progress}%`}}
+                                ></div>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-gray-600">
+                            Preparing your context for optimal retrieval...
+                        </p>
                     </div>
                 </div>
             );
-        }
+        };
 
-        function ChatColumn({ availableModels, modelStatus, refreshStatus }) {
+        // Landing Page Component
+        const LandingPage = ({ navigate }) => (
+            <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-black to-black"></div>
+                <div className="relative z-10 text-center px-4 fade-in">
+                    <div className="mb-12">
+                        <div className="flex items-center justify-center gap-3 mb-4">
+                            <i data-lucide="anchor" className="text-cyan-400" width="48" height="48"></i>
+                        </div>
+                        <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                            Anchor Engine
+                        </h1>
+                        <p className="text-gray-400 text-lg">Sovereign Context Protocol</p>
+                        <div className="flex items-center justify-center gap-2 mt-3 text-sm text-gray-500">
+                            <span className="w-2 h-2 rounded-full bg-green-500" style={{animation: 'pulse 2s infinite'}}></span>
+                            <span>System Online</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-4 mb-12">
+                        <button onClick={() => navigate('/chat')} className="btn-primary text-lg px-8 py-4 flex items-center gap-3 mx-auto">
+                            <i data-lucide="message-square" width="24"></i>
+                            <span>Coda Chat</span>
+                        </button>
+                        <button onClick={() => navigate('/search')} className="btn-primary text-lg px-8 py-4 flex items-center gap-3 mx-auto">
+                            <i data-lucide="search" width="24"></i>
+                            <span>Memory Search</span>
+                        </button>
+                        <button onClick={() => navigate('/paths')} className="btn-primary text-lg px-8 py-4 flex items-center gap-3 mx-auto">
+                            <i data-lucide="git-branch" width="24"></i>
+                            <span>Knowledge Paths</span>
+                        </button>
+                    </div>
+                    <div className="text-gray-600 text-sm">
+                        <p>Local-First AI Memory & Context Engine</p>
+                        <p className="mt-1">v4.0.0 • Production Ready</p>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // Chat Component
+        const ChatPage = ({ navigate }) => {
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
             const [loading, setLoading] = useState(false);
+            const [models, setModels] = useState([]);
             const [selectedModel, setSelectedModel] = useState('');
-            const chatEndRef = useRef(null);
-            
-            useEffect(() => {
-                if (modelStatus?.current_model) {
-                    setSelectedModel(modelStatus.current_model);
-                }
-            }, [modelStatus]);
 
             useEffect(() => {
-                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, [messages]);
-
-            // Create Icon Elements after mount
-            useEffect(() => {
+                api.getModels().then(setModels).catch(() => setModels([]));
                 lucide.createIcons();
             }, []);
 
             const handleSend = async () => {
-                if (!input.trim()) return;
-                
+                if (!input.trim() || loading) return;
                 const userMsg = { role: 'user', content: input };
                 setMessages(prev => [...prev, userMsg]);
                 setInput('');
                 setLoading(true);
 
                 try {
-                    const response = await fetch('/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            messages: [...messages, userMsg],
-                            model: selectedModel || 'nanobot', // Pass selected model if available
-                            stream: true
-                        })
-                    });
-
-                    if (!response.ok) throw new Error(response.statusText);
-
-                    // Streaming handling
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let botMsg = { role: 'assistant', content: '' };
-                    
-                    setMessages(prev => [...prev, botMsg]);
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n');
-                        
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const data = line.slice(6);
-                                if (data === '[DONE]') break;
-                                try {
-                                    const json = JSON.parse(data);
-                                    const content = json.choices[0].delta.content;
-                                    if (content) {
-                                        botMsg.content += content;
-                                        setMessages(prev => {
-                                            const newMsgs = [...prev];
-                                            newMsgs[newMsgs.length - 1] = { ...botMsg };
-                                            return newMsgs;
-                                        });
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                    }
+                    const data = await api.chat([...messages, userMsg], selectedModel || 'default');
+                    const assistantMsg = { role: 'assistant', content: data.choices?.[0]?.message?.content || 'No response' };
+                    setMessages(prev => [...prev, assistantMsg]);
                 } catch (error) {
                     setMessages(prev => [...prev, { role: 'system', content: `Error: ${error.message}` }]);
                 } finally {
@@ -308,473 +305,517 @@
                 }
             };
 
-            const handleLoadModel = async () => {
-                if (!selectedModel) return;
-                await api.loadModel(selectedModel);
-                setTimeout(refreshStatus, 1000); // Poll shortly after
-            };
-
-            const handleUnloadModel = async () => {
-                await api.unloadModel();
-                setTimeout(refreshStatus, 1000);
-            };
-
             return (
-                <div className="glass-panel-dark p-4 h-full flex flex-col min-h-[600px] border-l border-cyan-500/20">
-                    {/* Header / Model Controls */}
-                    <div className="mb-4 space-y-3 border-b border-gray-700/50 pb-4">
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2 text-purple-400 font-semibold">
-                                <i data-lucide="message-square" width="18"></i>
-                                <span>Nanobot Agent</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                                <span className={`w-2 h-2 rounded-full ${modelStatus?.ready ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></span>
-                                <span className="text-gray-400">{modelStatus?.ready ? 'Active' : 'Idle'}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <select 
-                                value={selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
-                                className="flex-1 bg-black/40 border border-gray-700 rounded text-xs p-1.5 text-gray-300"
-                            >
-                                <option value="">Select Model...</option>
-                                {availableModels.map(m => (
-                                    <option key={m.id} value={m.id}>{m.id}</option>
-                                ))}
-                            </select>
-                            <button onClick={handleLoadModel} className="btn-secondary text-xs px-2 py-1" title="Load Model">
-                                <i data-lucide="power" width="14"></i>
+                <div className="h-screen flex flex-col">
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => navigate('/')} className="btn-secondary text-sm px-3 py-1.5">
+                                ← Back
                             </button>
-                            <button onClick={handleUnloadModel} className="btn-danger text-xs px-2 py-1" title="Unload Model">
-                                <i data-lucide="trash-2" width="14"></i>
-                            </button>
+                            <h1 className="text-xl font-bold text-purple-400">Coda Chat</h1>
                         </div>
+                        <select 
+                            value={selectedModel} 
+                            onChange={(e) => setSelectedModel(e.target.value)}
+                            className="bg-black/40 border border-gray-700 rounded px-3 py-1.5 text-sm"
+                        >
+                            <option value="">Select Model...</option>
+                            {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+                        </select>
                     </div>
-
-                    {/* Chat Area */}
-                    <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
-                        {messages.length === 0 && (
-                            <div className="text-center text-gray-600 mt-20 text-sm">
-                                <i data-lucide="terminal" className="mx-auto mb-2 opacity-20" width="32"></i>
-                                <p>Nanobot is ready.</p>
-                                <p className="text-xs mt-1">Select a model and start chatting.</p>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {messages.length === 0 ? (
+                            <div className="text-center text-gray-500 mt-20">
+                                <i data-lucide="message-square" className="mx-auto mb-4 opacity-20" width="48"></i>
+                                <p>Start a conversation...</p>
                             </div>
-                        )}
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                <div className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                                    msg.role === 'user' 
-                                        ? 'bg-purple-600/20 border border-purple-500/30 text-purple-100' 
-                                        : msg.role === 'system'
-                                            ? 'bg-red-900/20 border border-red-500/30 text-red-200 font-mono text-xs'
-                                            : 'bg-black/30 border border-gray-700/50 text-gray-200'
-                                }`}>
-                                    <div className="prose whitespace-pre-wrap">{msg.content}</div>
+                        ) : (
+                            messages.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] rounded-lg p-3 ${
+                                        msg.role === 'user' ? 'bg-purple-600/20 border border-purple-500/30' :
+                                        msg.role === 'system' ? 'bg-red-900/20 border border-red-500/30 text-red-200' :
+                                        'bg-black/30 border border-gray-700/50'
+                                    }`}>
+                                        {msg.content}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                        <div ref={chatEndRef}></div>
+                            ))
+                        )}
                     </div>
-
-                    {/* Input */}
-                    <div className="flex gap-2">
+                    <div className="p-4 border-t border-white/10 flex gap-2">
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                            placeholder="Message Nanobot..."
-                            className="flex-1 bg-black/40 border border-gray-700 rounded p-3 text-sm text-white resize-none h-[50px] focus:border-purple-500 outline-none"
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+                            placeholder="Type a message..."
+                            className="flex-1 bg-black/40 border border-gray-700 rounded-lg p-3 resize-none h-[60px] focus:border-purple-500 outline-none"
                         ></textarea>
-                        <button onClick={handleSend} disabled={loading} className="btn-primary h-[50px] w-[50px] flex items-center justify-center">
-                            {loading ? <i data-lucide="refresh-cw" className="animate-spin" width="18"/> : <i data-lucide="message-square" width="18"/>}
+                        <button onClick={handleSend} disabled={loading} className="btn-primary h-[60px] px-6">
+                            {loading ? '...' : 'Send'}
                         </button>
                     </div>
                 </div>
             );
-        }
+        };
 
-        // GitHub Repository Panel Component (Standard 115)
-        function GitHubPanel({ onClose }) {
-            const [repos, setRepos] = useState([]);
-            const [showAddModal, setShowAddModal] = useState(false);
-            const [newUrl, setNewUrl] = useState('');
-            const [newBucket, setNewBucket] = useState('github');
-            const [syncingRepos, setSyncingRepos] = useState(new Set());
-            const [rateLimit, setRateLimit] = useState(null);
+        // Search Component
+        const SearchPage = ({ navigate }) => {
+            const [query, setQuery] = useState('');
+            const [results, setResults] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [buckets, setBuckets] = useState([]);
+            const [selectedBuckets, setSelectedBuckets] = useState([]);
+            const [tokenBudget, setTokenBudget] = useState(4096);
+            const [showBucketSelector, setShowBucketSelector] = useState(false);
+            const [showTokenSlider, setShowTokenSlider] = useState(false);
 
-            // Load repos on mount
             useEffect(() => {
-                loadRepos();
-                loadRateLimit();
-                
-                // Poll for updates
-                const interval = setInterval(() => {
-                    loadRepos();
-                    loadRateLimit();
-                }, 3000);
-                
-                return () => clearInterval(interval);
+                api.getBuckets().then(setBuckets).catch(() => setBuckets([]));
+                lucide.createIcons();
             }, []);
 
-            const loadRepos = async () => {
-                try {
-                    const response = await fetch('/v1/github/repos');
-                    const data = await response.json();
-                    setRepos(data);
-                } catch (error) {
-                    console.error('Failed to load repos:', error);
+            useEffect(() => {
+                // Initialize icons when results change
+                if (results.length > 0 || loading) {
+                    setTimeout(() => lucide.createIcons(), 100);
                 }
-            };
+            }, [results, loading]);
 
-            const loadRateLimit = async () => {
+            const handleSearch = async () => {
+                if (!query.trim()) return;
+                setLoading(true);
+                setResults([]);
                 try {
-                    const response = await fetch('/v1/github/rate-limit');
-                    const data = await response.json();
-                    setRateLimit(data);
-                } catch (error) {
-                    console.error('Failed to load rate limit:', error);
-                }
-            };
-
-            const handleAddRepo = async () => {
-                if (!newUrl.trim()) return;
-                
-                try {
-                    const response = await fetch('/v1/github/repos', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: newUrl, bucket: newBucket })
+                    const data = await api.search({
+                        query,
+                        max_chars: tokenBudget * 4,
+                        token_budget: tokenBudget,
+                        provenance: 'all',
+                        buckets: selectedBuckets.length > 0 ? selectedBuckets : undefined
                     });
-                    
-                    if (response.ok) {
-                        setNewUrl('');
-                        setShowAddModal(false);
-                        loadRepos();
-                    } else {
-                        const error = await response.json();
-                        alert('Failed to add repo: ' + error.error);
-                    }
+                    setResults(data.results || []);
                 } catch (error) {
-                    alert('Failed to add repo: ' + error.message);
-                }
-            };
-
-            const handleSync = async (repoId) => {
-                if (syncingRepos.has(repoId)) return;
-                
-                setSyncingRepos(prev => new Set(prev).add(repoId));
-                
-                try {
-                    const response = await fetch(`/v1/github/repos/${repoId}/sync`, {
-                        method: 'POST'
-                    });
-                    
-                    if (!response.ok) {
-                        const error = await response.json();
-                        alert('Sync failed: ' + error.error);
-                    }
-                } catch (error) {
-                    console.error('Sync error:', error);
+                    console.error('Search error:', error);
+                    setResults([{ id: 'error', content: `Search failed: ${error.message}`, source: 'System', score: 0 }]);
                 } finally {
-                    setSyncingRepos(prev => {
-                        const next = new Set(prev);
-                        next.delete(repoId);
-                        return next;
-                    });
+                    setLoading(false);
                 }
             };
 
-            const handleRemove = async (repoId) => {
-                if (!confirm('Remove this repo? Atoms will be quarantined.')) return;
-                
-                try {
-                    const response = await fetch(`/v1/github/repos/${repoId}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    if (response.ok) {
-                        loadRepos();
+            const toggleBucket = (bucket) => {
+                setSelectedBuckets(prev => {
+                    if (prev.includes(bucket)) {
+                        const updated = prev.filter(b => b !== bucket);
+                        return updated;
                     } else {
-                        const error = await response.json();
-                        alert('Failed to remove: ' + error.error);
+                        return [...prev, bucket];
                     }
-                } catch (error) {
-                    alert('Failed to remove: ' + error.message);
-                }
+                });
             };
 
-            const formatLastSync = (timestamp) => {
-                if (!timestamp) return 'Never';
-                const date = new Date(timestamp);
-                const now = new Date();
-                const diff = Math.floor((now - date) / 60000); // minutes
-                
-                if (diff < 1) return 'Just now';
-                if (diff < 60) return `${diff}m ago`;
-                if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-                return date.toLocaleDateString();
+            const clearBucketSelection = () => {
+                setSelectedBuckets([]);
             };
 
-            const getStatusIcon = (status) => {
-                switch (status) {
-                    case 'success': return '✅';
-                    case 'in_progress': return '⏳';
-                    case 'failed': return '❌';
-                    default: return '⏸️';
-                }
+            const formatTokenCount = (num) => {
+                if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+                if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+                return num.toString();
+            };
+
+            const formatSource = (source) => {
+                if (!source) return 'Unknown';
+                const parts = source.split(/[\\/]/);
+                return parts.slice(-2).join('/');
             };
 
             return (
-                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
-                    <div className="glass-panel w-[600px] max-h-[80vh] flex flex-col m-4">
-                        <div className="flex justify-between items-center mb-4 border-b border-gray-700/50 pb-3">
-                            <div className="flex items-center gap-2 text-green-400 font-semibold">
-                                <i data-lucide="github" width="18"></i>
-                                <span>GitHub Repositories</span>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-1">
-                                    <i data-lucide="plus" width="14"></i> Add Repo
+                <div className="h-screen flex flex-col">
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => navigate('/')} className="btn-secondary text-sm px-3 py-1.5">
+                                ← Back
+                            </button>
+                            <h1 className="text-xl font-bold text-cyan-400">Memory Search</h1>
+                        </div>
+                    </div>
+                    <div className="p-4 border-b border-white/10 space-y-4">
+                        <div className="flex gap-2">
+                            <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex-1 flex gap-2">
+                                <input
+                                    type="text"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSearch();
+                                        }
+                                    }}
+                                    placeholder="Search your memory..."
+                                    className="flex-1 bg-black/40 border border-gray-700 rounded-lg p-3 focus:border-cyan-500 outline-none"
+                                />
+                                <button type="submit" disabled={loading} className="btn-primary px-6 min-w-[100px]">
+                                    {loading ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                            Searching
+                                        </span>
+                                    ) : 'Search'}
                                 </button>
-                                <button onClick={onClose} className="text-gray-500 hover:text-white">
-                                    <i data-lucide="x" width="20"></i>
-                                </button>
-                            </div>
+                            </form>
+                        </div>
+                        
+                        {/* Controls Row */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowTokenSlider(!showTokenSlider)}
+                                className={`flex-1 text-sm px-4 py-2 rounded-lg border transition-all flex items-center justify-center gap-2 ${
+                                    showTokenSlider 
+                                        ? 'bg-cyan-600/30 border-cyan-500 text-cyan-400' 
+                                        : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <i data-lucide="coins" width="16"></i>
+                                <span>Token Budget: {formatTokenCount(tokenBudget)}</span>
+                            </button>
+                            <button
+                                onClick={() => setShowBucketSelector(!showBucketSelector)}
+                                className={`flex-1 text-sm px-4 py-2 rounded-lg border transition-all flex items-center justify-center gap-2 ${
+                                    showBucketSelector 
+                                        ? 'bg-cyan-600/30 border-cyan-500 text-cyan-400' 
+                                        : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <i data-lucide="folder" width="16"></i>
+                                <span>Buckets {selectedBuckets.length > 0 ? `(${selectedBuckets.length})` : ''}</span>
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pr-2">
-                            {/* Rate Limit Status */}
-                            {rateLimit && (
-                                <div className="mb-3 text-xs text-gray-400">
-                                    API: {rateLimit.remaining}/{rateLimit.limit} remaining
-                                    {rateLimit.remaining < 10 && (
-                                        <span className="text-yellow-400 ml-2">⚠️ Low</span>
-                                    )}
+                        {/* Token Budget Drawer */}
+                        {showTokenSlider && (
+                            <div className="glass-panel p-4 fade-in">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                                        <i data-lucide="coins" width="16"></i>
+                                        <span>Context Token Limit</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            value={tokenBudget}
+                                            onChange={(e) => setTokenBudget(Math.max(256, Math.min(1000000, parseInt(e.target.value) || 256)))}
+                                            className="w-28 bg-black/40 border border-gray-700 rounded px-2 py-1 text-sm text-right focus:border-cyan-500 outline-none"
+                                            min="256"
+                                            max="1000000"
+                                            step="256"
+                                        />
+                                        <span className="text-xs text-gray-500">tokens</span>
+                                    </div>
                                 </div>
-                            )}
-
-                            {/* Repo List */}
-                            <div className="space-y-2">
-                        {repos.length === 0 && (
-                            <div className="text-center text-gray-600 mt-10 text-sm">
-                                No repos added yet
+                                <input
+                                    type="range"
+                                    min="256"
+                                    max="1000000"
+                                    step="256"
+                                    value={tokenBudget}
+                                    onChange={(e) => setTokenBudget(parseInt(e.target.value))}
+                                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>256</span>
+                                    <span className="text-cyan-400 font-semibold">{formatTokenCount(tokenBudget)}</span>
+                                    <span>1M</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Higher token limits return more context per result. Each result includes surrounding atoms from the same document.
+                                </p>
                             </div>
                         )}
-                        
-                        {repos.map(repo => (
-                            <div key={repo.id} className="p-3 bg-black/20 rounded border border-gray-700/30 text-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div className="font-medium text-green-300">
-                                            {repo.owner}/{repo.repo}
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            {repo.branch} • {repo.bucket}
-                                        </div>
+
+                        {/* Bucket Selector Drawer */}
+                        {showBucketSelector && (
+                            <div className="glass-panel p-4 fade-in">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                                        <i data-lucide="folder" width="16"></i>
+                                        <span>Search Buckets</span>
+                                        {selectedBuckets.length > 0 && (
+                                            <span className="text-xs text-cyan-400">({selectedBuckets.length} selected)</span>
+                                        )}
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-lg">{getStatusIcon(repo.last_sync_status)}</div>
-                                        <div className="text-xs text-gray-500">
-                                            {formatLastSync(repo.last_synced_at)}
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
-                                    <span>{repo.total_files} files • {repo.total_atoms} atoms</span>
-                                    {repo.last_error && (
-                                        <span className="text-red-400" title={repo.last_error}>⚠️ Error</span>
+                                    {selectedBuckets.length > 0 && (
+                                        <button
+                                            onClick={clearBucketSelection}
+                                            className="text-xs px-3 py-1 bg-cyan-600/30 border border-cyan-500 rounded text-cyan-400 hover:bg-cyan-600/50 transition-colors"
+                                        >
+                                            Clear Selection
+                                        </button>
                                     )}
                                 </div>
                                 
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleSync(repo.id)}
-                                        disabled={syncingRepos.has(repo.id)}
-                                        className="flex-1 btn-secondary text-xs py-1 flex items-center justify-center gap-1"
-                                    >
-                                        {syncingRepos.has(repo.id) ? (
-                                            <><i data-lucide="refresh-cw" className="animate-spin" width="12"></i> Syncing...</>
-                                        ) : (
-                                            <><i data-lucide="refresh-cw" width="12"></i> Sync Now</>
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => handleRemove(repo.id)}
-                                        className="btn-danger text-xs py-1 px-3"
-                                    >
-                                        <i data-lucide="trash-2" width="12"></i>
-                                    </button>
+                                <div className="flex gap-2 flex-wrap">
+                                    {buckets.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No buckets available</p>
+                                    ) : (
+                                        buckets.map(bucket => (
+                                            <button
+                                                key={bucket}
+                                                onClick={() => toggleBucket(bucket)}
+                                                className={`text-xs px-3 py-1.5 rounded border transition-all ${
+                                                    selectedBuckets.includes(bucket)
+                                                        ? 'bg-cyan-600/30 border-cyan-500 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                                                        : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'
+                                                }`}
+                                            >
+                                                {bucket}
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Add Repo Modal */}
-                    {showAddModal && (
-                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-                            <div className="glass-panel p-6 w-[400px]">
-                                <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
-                                    <i data-lucide="github" width="18"></i>
-                                    Add GitHub Repository
-                                </h3>
                                 
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">GitHub URL</label>
-                                        <input
-                                            type="text"
-                                            value={newUrl}
-                                            onChange={(e) => setNewUrl(e.target.value)}
-                                            placeholder="https://github.com/owner/repo"
-                                            className="w-full p-2 rounded bg-black/40 border border-gray-700 text-white focus:border-green-500 outline-none"
-                                        />
+                                {selectedBuckets.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-gray-800">
+                                        <p className="text-xs text-gray-500">
+                                            Searching in: <span className="text-cyan-400">{selectedBuckets.join(', ')}</span>
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            Untoggle all to search all buckets
+                                        </p>
                                     </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Bucket</label>
-                                        <input
-                                            type="text"
-                                            value={newBucket}
-                                            onChange={(e) => setNewBucket(e.target.value)}
-                                            placeholder="github"
-                                            className="w-full p-2 rounded bg-black/40 border border-gray-700 text-white focus:border-green-500 outline-none"
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex gap-2 pt-2">
-                                        <button onClick={handleAddRepo} className="flex-1 btn-primary">
-                                            Add & Ingest
-                                        </button>
-                                        <button
-                                            onClick={() => setShowAddModal(false)}
-                                            className="btn-secondary"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {loading ? (
+                            <div className="text-center text-gray-500 mt-20">
+                                <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                <p>Searching your memory...</p>
+                                <p className="text-xs text-gray-600 mt-2">This may take a moment for large contexts</p>
+                            </div>
+                        ) : results.length === 0 ? (
+                            <div className="text-center text-gray-500 mt-20">
+                                <i data-lucide="search" className="mx-auto mb-4 opacity-20" width="48"></i>
+                                <p>Enter a query to search your memory</p>
+                                <p className="text-xs text-gray-600 mt-2">Results will show context-aware atoms with surrounding content</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 pb-4">
+                                <div className="flex justify-between items-center text-sm text-gray-500">
+                                    <span>Found {results.length} result{results.length !== 1 ? 's' : ''}</span>
+                                    <span className="text-xs">Results include surrounding atoms from each document</span>
+                                </div>
+                                {results.map((result, i) => (
+                                    <div key={result.id || i} className="glass-panel p-5 hover:border-cyan-500/50 transition-colors">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-cyan-400 font-mono">{formatSource(result.source)}</span>
+                                                {result.buckets && result.buckets.length > 0 && (
+                                                    <div className="flex gap-1">
+                                                        {result.buckets.slice(0, 3).map((bucket, j) => (
+                                                            <span key={j} className="text-xs px-2 py-0.5 bg-gray-800 rounded text-gray-400">
+                                                                {bucket}
+                                                            </span>
+                                                        ))}
+                                                        {result.buckets.length > 3 && (
+                                                            <span className="text-xs px-2 py-0.5 bg-gray-800 rounded text-gray-400">
+                                                                +{result.buckets.length - 3}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs">
+                                                <span className="text-gray-500">Score: <span className="text-cyan-400 font-semibold">{result.score?.toFixed(3)}</span></span>
+                                                {result.provenance && (
+                                                    <span className={`px-2 py-0.5 rounded ${
+                                                        result.provenance === 'sovereign' ? 'bg-green-600/30 text-green-400' :
+                                                        result.provenance === 'external' ? 'bg-blue-600/30 text-blue-400' :
+                                                        'bg-gray-600/30 text-gray-400'
+                                                    }`}>
+                                                        {result.provenance}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="prose prose-invert prose-sm max-w-none">
+                                            <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{result.content}</p>
+                                        </div>
+                                        {result.metadata && (
+                                            <div className="mt-3 pt-3 border-t border-gray-800 flex gap-4 text-xs text-gray-500">
+                                                {result.metadata.tokens && (
+                                                    <span>~{formatTokenCount(result.metadata.tokens)} tokens</span>
+                                                )}
+                                                {result.metadata.atoms && (
+                                                    <span>{result.metadata.atoms} atom{result.metadata.atoms !== 1 ? 's' : ''}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
-        }
+        };
 
-        function App() {
-            const [columns, setColumns] = useState([
-                { id: 1, type: 'search' },
-                { id: 2, type: 'chat' }
-            ]);
-            const [availableBuckets, setAvailableBuckets] = useState([]);
-            const [availableModels, setAvailableModels] = useState([]);
-            const [modelStatus, setModelStatus] = useState(null);
-            const [showGitHubModal, setShowGitHubModal] = useState(false);
-            
-            // Initialization
-            useEffect(() => {
-                // Initialize Lucide icons
-                lucide.createIcons();
+        // Paths Component
+        const PathsPage = ({ navigate }) => {
+            const [paths, setPaths] = useState([]);
+            const [newPath, setNewPath] = useState('');
+            const [loading, setLoading] = useState(false);
 
-                const initData = async () => {
-                    const [buckets, models] = await Promise.all([
-                        api.getBuckets(),
-                        api.getModels().then(res => res.data || [])
-                            .catch(() => [{id: 'Connection Error', object: 'error'}]) // Fallback if nanobot down
-                    ]);
-                    setAvailableBuckets(buckets || []);
-                    setAvailableModels(models || []);
-                };
-                initData();
-
-                // Poll model status
-                const interval = setInterval(async () => {
-                    try {
-                        const status = await api.getModelStatus();
-                        setModelStatus(status);
-                    } catch (e) {}
-                }, 2000);
-                return () => clearInterval(interval);
+            const loadPaths = useCallback(async () => {
+                try {
+                    const data = await api.getPaths();
+                    setPaths(data.paths || []);
+                } catch (error) {
+                    console.error('Failed to load paths:', error);
+                }
             }, []);
 
-            // Re-run createIcons when columns change
             useEffect(() => {
-                setTimeout(() => lucide.createIcons(), 100);
-            }, [columns]);
+                loadPaths();
+                lucide.createIcons();
+            }, [loadPaths]);
 
-            const addSearchColumn = () => {
-                setColumns(prev => [...prev, { id: Date.now(), type: 'search' }]);
+            const handleAddPath = async () => {
+                if (!newPath.trim()) return;
+                setLoading(true);
+                try {
+                    await api.addPath(newPath);
+                    setNewPath('');
+                    loadPaths();
+                } catch (error) {
+                    alert('Failed to add path: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
             };
 
-            const removeColumn = (id) => {
-                if (columns.length <= 1) return;
-                setColumns(prev => prev.filter(col => col.id !== id));
+            const handleRemovePath = async (pathToRemove) => {
+                if (!confirm(`Remove this path?\n\n${pathToRemove}`)) return;
+                setLoading(true);
+                try {
+                    await api.removePath(pathToRemove);
+                    loadPaths();
+                } catch (error) {
+                    alert('Failed to remove path: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
             };
 
             return (
-                <div className="h-screen flex flex-col overflow-hidden bg-[url('https://res.cloudinary.com/djp21wtxm/image/upload/v1611231600/anchor-bg.png')] bg-cover bg-center">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-                    
-                    {/* Header */}
-                    <div className="relative z-10 p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+                <div className="h-screen flex flex-col">
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
                         <div className="flex items-center gap-3">
-                            <i data-lucide="database" className="text-cyan-400"></i>
-                            <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-                                Anchor OS <span className="text-gray-500 font-normal text-sm ml-2">v3.0.0</span>
-                            </h1>
+                            <button onClick={() => navigate('/')} className="btn-secondary text-sm px-3 py-1.5">
+                                ← Back
+                            </button>
+                            <h1 className="text-xl font-bold text-green-400">Knowledge Paths</h1>
                         </div>
+                    </div>
+                    <div className="p-4 border-b border-white/10">
                         <div className="flex gap-2">
-                            <button onClick={() => setShowGitHubModal(true)} className="btn-secondary text-sm flex items-center gap-2">
-                                <i data-lucide="github" width="16"></i> GitHub
-                            </button>
-                            <button onClick={() => api.backup()} className="btn-secondary text-sm flex items-center gap-2">
-                                <i data-lucide="save" width="16"></i> Backup
-                            </button>
-                            <button onClick={addSearchColumn} className="btn-primary text-sm flex items-center gap-2">
-                                <i data-lucide="search" width="16"></i> Add Search
+                            <input
+                                type="text"
+                                value={newPath}
+                                onChange={(e) => setNewPath(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddPath()}
+                                placeholder="Path to watch (e.g., C:\\Users\\Docs)"
+                                className="flex-1 bg-black/40 border border-gray-700 rounded-lg p-3 focus:border-green-500 outline-none"
+                            />
+                            <button onClick={handleAddPath} disabled={loading} className="btn-primary px-6">
+                                {loading ? 'Adding...' : 'Add Path'}
                             </button>
                         </div>
                     </div>
-
-                    {/* Main Grid */}
-                    <div className="relative z-10 flex-1 overflow-x-auto p-4">
-                        <div className="flex gap-4 h-full min-w-max">
-                            {/* Dynamic Columns */}
-                            {columns.map(col => (
-                                <div key={col.id} className="w-[450px] h-full">
-                                    {col.type === 'search' ? (
-                                        <SearchColumn
-                                            id={col.id}
-                                            availableBuckets={availableBuckets}
-                                            onRemove={removeColumn}
-                                        />
-                                    ) : (
-                                        <ChatColumn
-                                            availableModels={availableModels}
-                                            modelStatus={modelStatus}
-                                            refreshStatus={() => api.getModelStatus().then(setModelStatus)}
-                                        />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {paths.length === 0 ? (
+                            <div className="text-center text-gray-500 mt-20">
+                                <i data-lucide="folder-open" className="mx-auto mb-4 opacity-20" width="48"></i>
+                                <p>No paths configured. Add a path to start watching for files.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {paths.map((path, i) => (
+                                    <div key={i} className="glass-panel p-4 flex justify-between items-center">
+                                        <span className="text-sm">{path}</span>
+                                        <button 
+                                            onClick={() => handleRemovePath(path)}
+                                            className="text-red-400 hover:text-red-300 p-2"
+                                        >
+                                            <i data-lucide="trash-2" width="18"></i>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
-
-                    {/* GitHub Modal Overlay */}
-                    {showGitHubModal && <GitHubPanel onClose={() => setShowGitHubModal(false)} />}
                 </div>
             );
-        }
+        };
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // Main App Component
+        const App = () => {
+            const { route, navigate } = useRouter();
+            const [isLoading, setIsLoading] = useState(true);
+            const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+            useEffect(() => {
+                // Only initialize icons when not loading
+                if (!isLoading) {
+                    setTimeout(() => lucide.createIcons(), 100);
+                }
+            }, [route, isLoading]);
+
+            useEffect(() => {
+                const checkReady = async () => {
+                    try {
+                        const health = await api.health();
+                        if (health.status === 'healthy' && !hasLoadedOnce) {
+                            setHasLoadedOnce(true);
+                            setIsLoading(false);
+                        }
+                    } catch (error) {
+                        console.log('Waiting for system...');
+                    }
+                };
+                
+                if (isLoading) {
+                    checkReady();
+                    const interval = setInterval(checkReady, 1000);
+                    return () => clearInterval(interval);
+                }
+            }, [isLoading, hasLoadedOnce]);
+
+            if (isLoading) {
+                return <LoadingScreen key="loading" onComplete={() => { setHasLoadedOnce(true); setIsLoading(false); }} />;
+            }
+
+            if (route === '/' || route === '') return <LandingPage key="landing" navigate={navigate} />;
+            if (route === '/chat') return <ChatPage key="chat" navigate={navigate} />;
+            if (route === '/search') return <SearchPage key="search" navigate={navigate} />;
+            if (route === '/paths') return <PathsPage key="paths" navigate={navigate} />;
+            
+            return (
+                <div className="min-h-screen flex items-center justify-center" key="notfound">
+                    <div className="text-center">
+                        <h1 className="text-4xl font-bold mb-4">404</h1>
+                        <p className="text-gray-400 mb-4">Page not found</p>
+                        <button onClick={() => navigate('/')} className="btn-primary">
+                            Go Home
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App key="app" />);
     </script>
 </body>
 </html>

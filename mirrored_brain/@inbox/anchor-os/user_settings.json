@@ -1,0 +1,108 @@
+{
+    "server": {
+        "host": "0.0.0.0",
+        "port": 3160,
+        "api_key": ""
+    },
+    "llm": {
+        "provider": "remote",
+        "remote_url": "http://localhost:3160/v1/memory/search",
+        "remote_model": "gemma-2-27b-it",
+        "inference_engine": "llama",
+        "model_dir": "C:/Users/rsbiiw/Projects/anchor-os/models",
+        "chat_model": "Nanbeige4-3B-Thinking-2511.i1-Q5_K_S.gguf",
+        "task_model": "Qwen3-4B-Function-Calling-Pro.gguf",
+        "gpu_layers": 0,
+        "ctx_size": 2048,
+        "max_tokens": 512,
+        "orchestrator_ctx_size": 2048,
+        "orchestrator_gpu_layers": 0,
+        "orchestrator_max_tokens": 512,
+        "vision_model": "",
+        "vision_projector": "",
+        "vision_ctx_size": 1024,
+        "vision_gpu_layers": 0,
+        "vision_max_tokens": 512
+    },
+    "nanobot": {
+        "model_dir": "../../models",
+        "chat_model": "Nanbeige4-3B-Thinking-2511.i1-Q5_K_S.gguf",
+        "gpu_layers": 0,
+        "ctx_size": 2048
+    },
+    "vector_processing": {
+        "enabled": false,
+        "skip_vector_processing": true
+    },
+    "search": {
+        "strategy": "tag-walker",
+        "hide_years_in_tags": true,
+        "whitelist": [
+            "burnout",
+            "career",
+            "decision",
+            "pattern",
+            "impact",
+            "context",
+            "memory"
+        ],
+        "max_chars_default": 262144,
+        "max_chars_limit": 10000,
+        "fts_window_size": 1000,
+        "fts_padding": 500
+    },
+    "resource_management": {
+        "gc_cooldown_ms": 60000,
+        "max_atoms_in_memory": 5000,
+        "monitoring_interval_ms": 60000
+    },
+    "watcher": {
+        "debounce_ms": 5000,
+        "stability_threshold_ms": 5000
+    },
+    "context": {
+        "relevance_weight": 0.7,
+        "recency_weight": 0.3,
+        "clustering_gap_ms": 1800000
+    },
+    "services": {
+        "vision_server_port": 8081,
+        "chat_server_port": 8080,
+        "tag_infector_unload_timeout": 600000,
+        "tag_gliner_check_interval": 120000
+    },
+    "limits": {
+        "max_file_size_bytes": 5242880,
+        "max_content_length_chars": 2500,
+        "max_chunk_size_chars": 1500,
+        "max_summary_length_chars": 1000,
+        "date_extractor_scan_limit": 1000
+    },
+    "logging": {
+        "enabled": true,
+        "log_directory": "./logs",
+        "max_lines_per_file": 10000,
+        "services": {
+            "anchor_engine": {
+                "enabled": true,
+                "log_file": "anchor_engine.log"
+            },
+            "inference_server": {
+                "enabled": true,
+                "log_file": "inference_server.log"
+            },
+            "anchor_ui": {
+                "enabled": false,
+                "log_file": "anchor_ui.log"
+            },
+            "nanobot_node": {
+                "enabled": false,
+                "log_file": "nanobot_node.log"
+            }
+        }
+    },
+    "telegram": {
+        "bot_token": "",
+        "allowed_users": []
+    }
+}

@@ -1,0 +1,4 @@
+graph LR
+     A[Query] --> B{Complexity < 0.7?}
+     B -->|Yes| C[16B-Lite]
+     B -->|No| D[236B FP16]
