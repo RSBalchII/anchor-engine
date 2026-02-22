@@ -43,6 +43,8 @@ Thumbs.db
 # Temporary/User Specific
 codebase
 codebase/*
+external-inbox/*
+inbox/*
 
 # Generated documentation
 QWEN.md
