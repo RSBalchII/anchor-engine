@@ -27,7 +27,7 @@ async function triggerPostIngestionSynonyms() {
     if (ingestionTimeout) {
         clearTimeout(ingestionTimeout);
     }
-    
+
     // Set new timeout to generate synonyms after ingestion stops
     ingestionTimeout = setTimeout(async () => {
         console.log('[Watchdog] Post-ingestion synonym generation starting...');
@@ -35,8 +35,11 @@ async function triggerPostIngestionSynonyms() {
             const { AutoSynonymGenerator } = await import('../synonyms/auto-synonym-generator.js');
             const generator = new AutoSynonymGenerator();
             const synonyms = await generator.generateSynonymRings();
-            
-            const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
+            const synonymDir = path.join(pathManager.getDatabasePath(), 'synonyms');
+            if (!fs.existsSync(synonymDir)) {
+                fs.mkdirSync(synonymDir, { recursive: true });
+            }
+            const synonymPath = path.join(synonymDir, 'synonym-ring-auto.json');
             await generator.saveSynonymRings(synonyms, synonymPath);
             console.log(`[Watchdog] ✅ Post-ingestion synonym rings saved to ${synonymPath}`);
         } catch (error: any) {

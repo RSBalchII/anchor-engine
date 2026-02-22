@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import './App.css';
 import PerformanceMonitor from './components/PerformanceMonitor';
 import { api } from './services/api';
@@ -11,20 +12,10 @@ import { ChatInterface } from './components/Chat/ChatInterface';
 import { ModelSelector } from './components/Chat/ModelSelector';
 import { PathManager } from './components/features/PathManager';
 
-// ...
-
-
-
-// ... (existing imports)
-
-// ... (existing imports)
-
-// ... (imports)
-
 // Simple Router
 const Dashboard = () => (
   <div className="flex-col-center" style={{ height: '100%', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
-    <h1 style={{ fontSize: '3rem', background: 'linear-gradient(to right, #fff, #646cff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+    <h1 style={{ fontSize: '3rem', background: 'linear-gradient(to right, #fff, var(--accent-primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
       Sovereign Context Engine
     </h1>
     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -49,7 +40,7 @@ const Dashboard = () => (
 );
 
 // --- SEARCH PAGE CONTAINER ---
-const SearchPage = () => {
+const SearchPage = ({ isInitializing }: { isInitializing?: boolean }) => {
   const [columns, setColumns] = useState<{ id: number; query?: string }[]>([{ id: 1 }]);
 
   // Global State
@@ -59,6 +50,7 @@ const SearchPage = () => {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   useEffect(() => {
+    if (isInitializing) return; // Wait for backend
     Promise.all([
       api.getBuckets().catch(() => []),
       api.getTags().catch(() => [])
@@ -66,7 +58,7 @@ const SearchPage = () => {
       setAvailableBuckets(Array.isArray(buckets) ? buckets : []);
       setAvailableTags(Array.isArray(tags) ? tags : []);
     });
-  }, []);
+  }, [isInitializing]);
 
   const addColumn = useCallback((initialQuery?: string) => {
     setColumns(prev => {
@@ -99,13 +91,13 @@ const SearchPage = () => {
   };
 
   return (
-    <GlassPanel className="search-page-container" style={{ margin: '1rem', padding: '0.5rem 0.5rem 0.5rem 0.5rem', height: 'calc(100% - 2rem)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+    <GlassPanel className="search-page-container" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 
       {/* GLOBAL HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>Memory Command</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem', width: '100%' }}>
+        <h2 style={{ margin: 0, minWidth: 'min-content' }}>Memory Command</h2>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 0%', minWidth: 0 }}>
           <Button onClick={() => window.location.hash = '#dashboard'} style={{ fontSize: '0.8rem', padding: '0.4rem', border: '1px solid var(--border-subtle)' }}>
             🏠 Home
           </Button>
@@ -129,8 +121,6 @@ const SearchPage = () => {
           </Button>
 
           <div style={{ width: '1px', height: '20px', background: 'var(--border-subtle)', margin: '0 0.5rem' }} />
-
-          {/* Removed redundant copy buttons: Copy Limit and Copy All */}
 
           <Button onClick={() => addColumn()} disabled={columns.length >= 8} style={{ fontSize: '1rem', padding: '0.2rem 0.8rem', background: 'var(--accent-primary)', color: 'white' }}>
             +
@@ -164,11 +154,37 @@ const SearchPage = () => {
 
 function App() {
   const [hash, setHash] = useState(window.location.hash);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initMessage, setInitMessage] = useState('Connecting to Engine...');
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Poll backend health during startup
+  useEffect(() => {
+    let pollingInterval: number;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/health');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'starting') {
+          setIsInitializing(true);
+          setInitMessage(data.message || 'Initializing database...');
+        } else {
+          setIsInitializing(false);
+          clearInterval(pollingInterval);
+        }
+      } catch (err) {
+        setInitMessage('Waiting for connection...');
+      }
+    };
+    checkHealth();
+    pollingInterval = window.setInterval(checkHealth, 2000);
+    return () => clearInterval(pollingInterval);
   }, []);
 
   // Persist model and backend choice in localStorage
@@ -195,6 +211,30 @@ function App() {
     <div className="h-screen w-screen flex flex-col bg-[#050507] overflow-hidden text-gray-300">
       <PerformanceMonitor />
 
+      {isInitializing && (
+        <div style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          right: '1.5rem',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          background: 'rgba(5, 5, 7, 0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid var(--border-subtle)',
+          padding: '0.8rem 1.2rem',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+        }}>
+          <div className="animate-spin text-cyan-400" style={{ fontSize: '1.5rem', animationDuration: '3s' }}>⏳</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontWeight: 600, color: 'white', fontSize: '0.9rem' }}>Server Starting</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{initMessage}</span>
+          </div>
+        </div>
+      )}
+
       <div style={{ position: 'fixed', top: '1rem', left: '1rem', zIndex: 1000 }}>
         <Button onClick={() => window.location.hash = '#dashboard'} style={{ fontSize: '1.2rem', padding: '0.4rem 0.8rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
           ←
@@ -202,9 +242,9 @@ function App() {
       </div>
 
       {hash === '#chat' ? (
-        <GlassPanel className="chat-page-container" style={{ margin: '1rem', padding: '1rem', height: 'calc(100% - 2rem)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0 }}>Sovereign Agent Chat</h2>
+        <GlassPanel className="chat-page-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem', width: '100%' }}>
+            <h2 style={{ margin: 0, minWidth: 'min-content' }}>Sovereign Agent Chat</h2>
             <div style={{ width: '300px' }}>
               <ModelSelector
                 onModelChange={setSelectedModel}
@@ -223,7 +263,7 @@ function App() {
         </GlassPanel>
       ) : (
         <>
-          {hash === '#search' ? <SearchPage /> :
+          {hash === '#search' ? <SearchPage isInitializing={isInitializing} /> :
             hash === '#quarantine' ? <QuarantinePage /> :
               hash === '#paths' ? <PathManager /> :
                 <div style={{ padding: '4rem 2rem' }}>🚧 Module "{hash}" Under Construction</div>}
@@ -234,3 +274,10 @@ function App() {
 }
 
 export default App;
+
+// Mount the App since index.html points directly to this file
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);

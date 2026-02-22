@@ -29,7 +29,7 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     const status = res.statusCode;
-    
+
     // Skip logging 304 (Not Modified) responses - these are just cache hits from frontend polling
     if (status !== 304) {
       StructuredLogger.info('HTTP_REQUEST', {
@@ -85,7 +85,7 @@ app.use("/static", express.static(path.join(__dirname, "../dist"), {
 // Path to anchor-os/packages/anchor-ui/dist
 const externalFrontendDist = path.join(__dirname, "../../../anchor-os/packages/anchor-ui/dist");
 const internalFrontendDist = path.join(__dirname, "../public");
-const localFrontendDist = path.join(__dirname, "../packages/anchor-ui/dist"); // New: local anchor-ui
+const localFrontendDist = path.join(__dirname, "../../packages/anchor-ui/dist"); // New: local anchor-ui
 
 // Check if external UI exists, otherwise use local or internal lightweight UI
 if (existsSync(externalFrontendDist)) {
@@ -95,6 +95,10 @@ if (existsSync(externalFrontendDist)) {
       StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'external' });
     }
   }));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/v1") || req.path.startsWith("/health") || req.path.startsWith("/monitoring") || req.path.startsWith("/chat")) return next();
+    res.sendFile(path.join(externalFrontendDist, "index.html"));
+  });
 } else if (existsSync(localFrontendDist)) {
   StructuredLogger.info('UI_SOURCE', { source: 'local', path: localFrontendDist });
   app.use(express.static(localFrontendDist, {
@@ -102,6 +106,10 @@ if (existsSync(externalFrontendDist)) {
       StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'local' });
     }
   }));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/v1") || req.path.startsWith("/health") || req.path.startsWith("/monitoring") || req.path.startsWith("/chat")) return next();
+    res.sendFile(path.join(localFrontendDist, "index.html"));
+  });
 } else {
   StructuredLogger.info('UI_SOURCE', { source: 'internal', path: internalFrontendDist });
   app.use(express.static(internalFrontendDist, {
@@ -109,6 +117,10 @@ if (existsSync(externalFrontendDist)) {
       StructuredLogger.silly('UI_FILE_SERVED', { path, source: 'internal' });
     }
   }));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/v1") || req.path.startsWith("/health") || req.path.startsWith("/monitoring") || req.path.startsWith("/chat")) return next();
+    res.sendFile(path.join(internalFrontendDist, "index.html"));
+  });
 }
 
 // Add explicit /chat route logging
@@ -242,44 +254,14 @@ async function startServer() {
     // Set up monitoring routes
     app.use('/monitoring', monitoringRouter);
 
-    // Reset static and wildcard routes after DB is ready
-    // Determine which UI to serve based on availability
-    const externalFrontendDist = path.join(__dirname, "../../../packages/anchor-ui/dist");
-    const internalFrontendDist = path.join(__dirname, "../public");
-
-    if (existsSync(externalFrontendDist)) {
-      console.log("Using external UI from packages/anchor-ui/dist");
-      // Serve the external UI at /static route
-      app.use("/static", express.static(externalFrontendDist));
-      // Set up the catch-all route for UI (should be LAST)
-      app.get("*", (req, res) => {
-        if (req.path.startsWith("/v1") || req.path.startsWith("/health")) {
-          res.status(404).json({ error: "Not Found" });
-          return;
-        }
-        res.sendFile(path.join(externalFrontendDist, "index.html"));
-      });
-    } else {
-      console.log("Using internal lightweight UI from engine/public");
-      // Serve the internal UI at /static route
-      app.use("/static", express.static(internalFrontendDist));
-      // Set up the catch-all route for UI again (should be LAST)
-      app.get("*", (req, res) => {
-        if (req.path.startsWith("/v1") || req.path.startsWith("/health")) {
-          res.status(404).json({ error: "Not Found" });
-          return;
-        }
-        res.sendFile(path.join(internalFrontendDist, "index.html"));
-      });
-    }
-
+    // Reset static and wildcard routes logic has been moved to top-level so UI functions during init
 
     console.log("Full routes set up, server is ready for all requests");
     console.timeEnd("⏱️ Startup Time");
 
     // Start other services after database is ready
     console.log('[Services] Starting child services via ProcessManager...');
-    
+
     // Note: Nanobot is now started by the unified launcher (start.bat/start.sh)
     // to prevent duplicate instances. ProcessManager is disabled for nanobot.
     console.log('[Services] Nanobot skipped (started by launcher)');
@@ -294,31 +276,31 @@ async function startServer() {
     // Standard 110: Regenerate Derived Data
     // ============================================
     // On startup: regenerate all derived data from inbox/ (source of truth)
-    
+
     // 1. Create mirror from inbox/ files
     console.log('[Startup] Regenerating mirrored_brain/ from inbox/ (Standard 110)...');
     const { createMirror } = await import('./services/mirror/mirror.js');
     await createMirror();
-    
+
     // 2. Generate synonym rings automatically (Standard 111)
     console.log('[Startup] Auto-generating synonym rings from data (Standard 111)...');
     try {
       const { AutoSynonymGenerator } = await import('./services/synonyms/auto-synonym-generator.js');
       const generator = new AutoSynonymGenerator();
-      
+
       // Run synonym generation in background with timeout (don't block startup)
       console.log('[Startup] Starting synonym generation in background (may take several minutes)...');
-      
+
       // Set timeout for synonym generation (5 minutes max)
       const SYNONYM_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-      
+
       const synonymPromise = Promise.race([
         generator.generateSynonymRings(),
-        new Promise<never>((_, reject) => 
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Synonym generation timeout after 5 minutes')), SYNONYM_TIMEOUT)
         )
       ]);
-      
+
       synonymPromise.then(async (synonyms) => {
         // Save to auto-generated path (cleared on shutdown)
         const synonymPath = path.join(pathManager.getNotebookDir(), 'synonym-ring-auto.json');
@@ -328,7 +310,7 @@ async function startServer() {
         console.warn(`[Startup] ⚠️ Synonym generation failed or timed out: ${error.message}`);
         console.warn('[Startup] Will retry on next startup or run manually with: pnpm run generate-synonyms');
       });
-      
+
       // Don't wait for synonym generation to complete - system is ready
       console.log('[Startup] System ready. Synonym generation running in background...');
     } catch (error: any) {
@@ -354,7 +336,7 @@ process.on("SIGINT", async () => {
 
     // Standard 110: Ephemeral Index Architecture
     // Clear ALL derived data on shutdown - only inbox/ is source of truth
-    
+
     // 1. Wipe PGlite Database (index/cache)
     const dbPath = process.env.PGLITE_DB_PATH || pathManager.getDatabasePath();
     if (existsSync(dbPath)) {

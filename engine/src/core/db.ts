@@ -83,6 +83,21 @@ export class Database {
       console.warn("[DB] Could not enable 'pg_trgm' extension:", e.message);
     }
 
+    // Create Synonyms table for automatic query expansion
+    try {
+      await this.run(`
+        CREATE TABLE IF NOT EXISTS synonyms (
+          term TEXT PRIMARY KEY,
+          synonyms TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      console.log("[DB] 'synonyms' table initialized.");
+    } catch (e: any) {
+      console.error("[DB] Error creating synonyms table:", e);
+      throw e;
+    }
+
     // Create atoms table schema - simplified for PGlite compatibility
     try {
       // Create sequence for vector_ids
@@ -330,7 +345,7 @@ export class Database {
         );
       `);
       console.log("[DB] 'github_repos' table initialized.");
-      
+
       // Create index for owner/repo lookup
       await this.run(`
         CREATE INDEX IF NOT EXISTS idx_github_repos_owner_repo 

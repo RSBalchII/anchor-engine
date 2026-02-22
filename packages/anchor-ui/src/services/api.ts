@@ -1,4 +1,3 @@
-
 interface SearchParams {
     query: string;
     max_chars: number;
@@ -7,6 +6,7 @@ interface SearchParams {
     buckets?: string[];
     tags?: string[];
     include_code?: boolean;
+    strategy?: 'standard' | 'max-recall';
 }
 
 interface SearchResult {

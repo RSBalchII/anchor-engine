@@ -68,7 +68,7 @@ export class AutoSynonymGenerator {
       // The tag neighborhood and simhash strategies are working well
       console.log('[SynonymGenerator] Skipping co-occurrence mining (using tag neighborhood + simhash only)');
       console.log(`[SynonymGenerator] Co-occurrence skipped in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
-      
+
       return new Map<string, TermPair[]>();
     } catch (error: any) {
       console.error('[SynonymGenerator] Co-occurrence mining failed:', error.message);
@@ -86,7 +86,7 @@ export class AutoSynonymGenerator {
    */
   async mineTagNeighborhoodSynonyms(): Promise<Map<string, TermPair[]>> {
     console.log('[SynonymGenerator] Strategy 2: Mining tag neighborhood similarity...');
-    
+
     try {
       // Get all terms and their associated tags
       const termTagsQuery = `
@@ -110,54 +110,54 @@ export class AutoSynonymGenerator {
         ORDER BY array_length(atom_ids, 1) DESC
         LIMIT 500
       `;
-      
+
       const result = await db.run(termTagsQuery);
-      
+
       if (!result.rows || result.rows.length < 2) {
         console.log('[SynonymGenerator] Insufficient tag data for neighborhood analysis');
         return new Map<string, TermPair[]>();
       }
-      
+
       const termTagSets = new Map<string, Set<string>>();
-      
+
       for (const row of result.rows as any[]) {
         const { tag, atom_ids } = row;
         termTagSets.set(tag, new Set(atom_ids));
       }
-      
+
       // Compute Jaccard similarity between all pairs
       const pairs = new Map<string, TermPair[]>();
       const terms = Array.from(termTagSets.keys());
-      
+
       for (let i = 0; i < terms.length; i++) {
         for (let j = i + 1; j < terms.length; j++) {
           const term1 = terms[i];
           const term2 = terms[j];
-          
+
           const set1 = termTagSets.get(term1)!;
           const set2 = termTagSets.get(term2)!;
-          
+
           const intersection = new Set([...set1].filter(x => set2.has(x)));
           const union = new Set([...set1, ...set2]);
-          
+
           const jaccard = intersection.size / union.size;
-          
+
           if (jaccard >= this.MIN_JACCARD_SIMILARITY) {
             if (!pairs.has(term1)) {
               pairs.set(term1, []);
             }
-            
+
             pairs.get(term1)!.push({
               term1,
               term2,
               score: jaccard,
               strategy: 'tag_neighborhood'
             });
-            
+
             if (!pairs.has(term2)) {
               pairs.set(term2, []);
             }
-            
+
             pairs.get(term2)!.push({
               term1: term2,
               term2: term1,
@@ -167,7 +167,7 @@ export class AutoSynonymGenerator {
           }
         }
       }
-      
+
       console.log(`[SynonymGenerator] Found ${pairs.size} terms with tag neighborhood synonyms`);
       return pairs;
     } catch (error: any) {
@@ -186,7 +186,7 @@ export class AutoSynonymGenerator {
    */
   async mineSimHashSynonyms(): Promise<Map<string, TermPair[]>> {
     console.log('[SynonymGenerator] Strategy 3: Mining simhash proximity...');
-    
+
     try {
       // Get atoms with their simhashes and extract key terms
       const query = `
@@ -199,14 +199,14 @@ export class AutoSynonymGenerator {
         WHERE simhash IS NOT NULL AND simhash != '0'
         LIMIT 1000
       `;
-      
+
       const result = await db.run(query);
-      
+
       if (!result.rows) {
         console.log('[SynonymGenerator] No simhash data available');
         return new Map<string, TermPair[]>();
       }
-      
+
       // Helper to compute Hamming distance
       const hammingDistance = (hash1: string, hash2: string): number => {
         try {
@@ -223,7 +223,7 @@ export class AutoSynonymGenerator {
           return 64; // Max distance on error
         }
       };
-      
+
       // Helper to extract terms from content
       const extractTerms = (content: string): string[] => {
         return content.toLowerCase()
@@ -231,23 +231,23 @@ export class AutoSynonymGenerator {
           .filter(term => term.length > 3 && term.length < 30)
           .slice(0, 50); // Limit terms per atom
       };
-      
+
       // Group atoms by simhash proximity
       const atoms = result.rows as any[];
       const termClusters = new Map<string, Set<string>>();
-      
+
       for (let i = 0; i < atoms.length; i++) {
         for (let j = i + 1; j < atoms.length; j++) {
           const atom1 = atoms[i];
           const atom2 = atoms[j];
-          
+
           const distance = hammingDistance(atom1.simhash, atom2.simhash);
-          
+
           if (distance <= this.MAX_SIMHASH_DISTANCE) {
             // These atoms are similar - extract and cluster their terms
             const terms1 = extractTerms(atom1.content);
             const terms2 = extractTerms(atom2.content);
-            
+
             // Add cross-cluster term pairs
             for (const t1 of terms1) {
               for (const t2 of terms2) {
@@ -262,15 +262,15 @@ export class AutoSynonymGenerator {
           }
         }
       }
-      
+
       // Convert clusters to pairs
       const pairs = new Map<string, TermPair[]>();
-      
+
       for (const [term1, relatedTerms] of termClusters.entries()) {
         if (!pairs.has(term1)) {
           pairs.set(term1, []);
         }
-        
+
         for (const term2 of relatedTerms) {
           pairs.get(term1)!.push({
             term1,
@@ -280,7 +280,7 @@ export class AutoSynonymGenerator {
           });
         }
       }
-      
+
       console.log(`[SynonymGenerator] Found ${pairs.size} terms with simhash synonyms`);
       return pairs;
     } catch (error: any) {
@@ -295,17 +295,17 @@ export class AutoSynonymGenerator {
    */
   async generateSynonymRings(): Promise<Record<string, string[]>> {
     console.log('[SynonymGenerator] Generating synonym rings from all strategies...');
-    
+
     // Run all strategies in parallel
     const [cooccurrence, neighborhood, simhash] = await Promise.all([
       this.mineCooccurrenceSynonyms(),
       this.mineTagNeighborhoodSynonyms(),
       this.mineSimHashSynonyms()
     ]);
-    
+
     // Merge with voting
     const pairVotes = new Map<string, { score: number; strategies: Set<string> }>();
-    
+
     for (const [term, pairs] of cooccurrence.entries()) {
       for (const pair of pairs) {
         const key = `${pair.term1}<->${pair.term2}`;
@@ -317,7 +317,7 @@ export class AutoSynonymGenerator {
         vote.strategies.add(pair.strategy);
       }
     }
-    
+
     for (const [term, pairs] of neighborhood.entries()) {
       for (const pair of pairs) {
         const key = `${pair.term1}<->${pair.term2}`;
@@ -329,7 +329,7 @@ export class AutoSynonymGenerator {
         vote.strategies.add(pair.strategy);
       }
     }
-    
+
     for (const [term, pairs] of simhash.entries()) {
       for (const pair of pairs) {
         const key = `${pair.term1}<->${pair.term2}`;
@@ -341,19 +341,19 @@ export class AutoSynonymGenerator {
         vote.strategies.add(pair.strategy);
       }
     }
-    
+
     // Build final synonym rings
     const synonymRings: Record<string, string[]> = {};
     const processedPairs = new Set<string>();
-    
+
     for (const [key, vote] of pairVotes.entries()) {
       // Require at least 2 strategies or very high score
       if (vote.strategies.size < 2 && vote.score < 3.0) {
         continue;
       }
-      
+
       const [term1, term2] = key.split('<->>');
-      
+
       // Add to both directions
       if (!synonymRings[term1]) {
         synonymRings[term1] = [];
@@ -361,7 +361,7 @@ export class AutoSynonymGenerator {
       if (!synonymRings[term2]) {
         synonymRings[term2] = [];
       }
-      
+
       if (!synonymRings[term1].includes(term2) && synonymRings[term1].length < this.TOP_SYNONYMS_PER_TERM) {
         synonymRings[term1].push(term2);
       }
@@ -369,7 +369,7 @@ export class AutoSynonymGenerator {
         synonymRings[term2].push(term1);
       }
     }
-    
+
     console.log(`[SynonymGenerator] Generated ${Object.keys(synonymRings).length} synonym rings`);
     return synonymRings;
   }
@@ -379,24 +379,37 @@ export class AutoSynonymGenerator {
    */
   async saveSynonymRings(synonyms: Record<string, string[]>, outputPath: string): Promise<void> {
     console.log(`[SynonymGenerator] Saving synonym rings to ${outputPath}...`);
-    
+
     try {
+      // Save directly to database
+      console.log(`[SynonymGenerator] Upserting synonyms to database table...`);
+      for (const [term, syns] of Object.entries(synonyms)) {
+        if (!syns || syns.length === 0) continue;
+        const synList = JSON.stringify(syns);
+        const query = `
+          INSERT INTO synonyms (term, synonyms) 
+          VALUES ($1, $2) 
+          ON CONFLICT (term) DO UPDATE SET synonyms = EXCLUDED.synonyms, created_at = CURRENT_TIMESTAMP;
+        `;
+        await db.run(query, [term, synList]);
+      }
+
       // Ensure directory exists
       const dir = path.dirname(outputPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      
+
       // Save as JSON
       const jsonContent = JSON.stringify(synonyms, null, 2);
       fs.writeFileSync(outputPath, jsonContent, 'utf-8');
-      
+
       console.log(`[SynonymGenerator] Saved ${Object.keys(synonyms).length} synonym rings`);
-      
+
       // Also generate a human-readable summary
       const summaryPath = outputPath.replace('.json', '-summary.md');
       this.generateSummary(synonyms, summaryPath);
-      
+
     } catch (error: any) {
       console.error('[SynonymGenerator] Failed to save synonym rings:', error.message);
       throw error;
@@ -411,17 +424,17 @@ export class AutoSynonymGenerator {
     markdown += `Generated: ${new Date().toISOString()}\n\n`;
     markdown += `Total terms: ${Object.keys(synonyms).length}\n\n`;
     markdown += '## Synonym Clusters\n\n';
-    
+
     // Sort by number of synonyms
     const sorted = Object.entries(synonyms)
       .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 100); // Top 100
-    
+
     for (const [term, synonymList] of sorted) {
       markdown += `### ${term}\n`;
       markdown += `**Synonyms:** ${synonymList.join(', ')}\n\n`;
     }
-    
+
     fs.writeFileSync(outputPath, markdown, 'utf-8');
     console.log(`[SynonymGenerator] Generated summary at ${outputPath}`);
   }
@@ -434,7 +447,7 @@ export class AutoSynonymGenerator {
       if (!fs.existsSync(inputPath)) {
         return {};
       }
-      
+
       const content = fs.readFileSync(inputPath, 'utf-8');
       return JSON.parse(content);
     } catch (error: any) {

@@ -33,18 +33,16 @@ export const SearchColumn = memo(({
     const [context, setContext] = useState('');
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState<'cards' | 'raw'>('cards');
-    const [error, setError] = useState<string | null>(null); // New error state
 
     // Feature State
     const [tokenBudget, setTokenBudget] = useState(2048);
     const [activeMode, setActiveMode] = useState(false);
     const [sovereignBias, setSovereignBias] = useState(true);
+    const [useMaxRecall, setUseMaxRecall] = useState(false);
     const [metadata, setMetadata] = useState<any>(null);
     const [activeBuckets, setActiveBuckets] = useState<string[]>([]);
     const [activeTags, setActiveTags] = useState<string[]>([]);
     const [autoSplit, setAutoSplit] = useState(false);
-    const [includeCode, setIncludeCode] = useState(true);
-    const [showTags, setShowTags] = useState(false); // Tag Drawer Toggle
 
     // Local Faceted Tags State
     const [localTags, setLocalTags] = useState<string[]>(availableTags);
@@ -86,7 +84,7 @@ export const SearchColumn = memo(({
             }
         }, 500);
         return () => clearTimeout(timer);
-    }, [query, activeMode, tokenBudget, sovereignBias, activeBuckets, activeTags, includeCode]);
+    }, [query, activeMode, tokenBudget, sovereignBias, activeBuckets, activeTags]);
 
     const handleQuarantine = async (atomId: string) => {
         if (!confirm('Quarantine this atom? It will be tagged #manually_quarantined.')) return;
@@ -107,7 +105,6 @@ export const SearchColumn = memo(({
         if (!query.trim()) return;
 
         setLoading(true);
-        setError(null); // Clear previous errors
         // Force clear results with a new array reference to ensure UI update
         setResults([]);
         console.log(`[SearchColumn-${id}] Searching: "${query}" | Budget: ${tokenBudget}`);
@@ -120,7 +117,7 @@ export const SearchColumn = memo(({
                 provenance: sovereignBias ? 'internal' : 'all',
                 buckets: activeBuckets,
                 tags: activeTags,
-                include_code: includeCode
+                strategy: useMaxRecall ? 'max-recall' : 'standard'
             });
 
             if (data.results) {
@@ -129,24 +126,24 @@ export const SearchColumn = memo(({
                     return (a.timestamp || 0) - (b.timestamp || 0);
                 });
 
-                // [Consistency] Re-generate Context String to match Agent's view (~500 chars/item, ~8000 chars total)
-                let currentLength = 0;
-                // Dynamic Context Limit based on user slider (approx 4-6 chars per token)
-                // Reduced from *8 to *4.5 to align closer with actual token expectations
-                const MAX_CONTEXT_CHARS = Math.max(8192, tokenBudget * 4.5);
-                const formattedContextEntries = sortedResults.map((r: any) => {
-                    if (currentLength >= MAX_CONTEXT_CHARS) return null;
-                    // Dynamic snippet size: Allow up to 40% of the budget per item to fill the space
-                    const maxSnippetChars = Math.max(2000, Math.floor(MAX_CONTEXT_CHARS * 0.4));
-                    const contentSnippet = (r.content || '').substring(0, maxSnippetChars);
-                    const dateStr = r.timestamp ? new Date(r.timestamp).toISOString() : 'unknown';
-                    const entry = `- [${dateStr}] ${contentSnippet}...`;
-                    if (currentLength + entry.length > MAX_CONTEXT_CHARS) return null;
-                    currentLength += entry.length;
-                    return entry;
-                }).filter(Boolean);
+                // Use the backend's perfectly formatted, budget-respecting context if provided.
+                // The backend handles max-recall context construction natively to maximize token usage.
+                let newContextString = data.context || "";
 
-                const newContextString = formattedContextEntries.join('\n');
+                if (!newContextString && sortedResults.length > 0) {
+                    let currentLength = 0;
+                    const MAX_CONTEXT_CHARS = Math.max(8192, tokenBudget * 4.5);
+                    const formattedContextEntries = sortedResults.map((r: any) => {
+                        if (currentLength >= MAX_CONTEXT_CHARS) return null;
+                        const contentSnippet = r.content; // Use full text, let the loop break catch overflow
+                        const dateStr = r.timestamp ? new Date(r.timestamp).toISOString() : 'unknown';
+                        const entry = `- [${dateStr}] ${contentSnippet}\n`;
+                        if (currentLength + entry.length > MAX_CONTEXT_CHARS) return null;
+                        currentLength += entry.length;
+                        return entry;
+                    }).filter(Boolean);
+                    newContextString = formattedContextEntries.join('\n');
+                }
 
                 // Create a new array with unique identifiers to force re-render
                 const updatedResults = sortedResults.map((result: any, index: number) => ({
@@ -172,26 +169,21 @@ export const SearchColumn = memo(({
                         setTimeout(() => onAddColumn(q), 100);
                     });
                 }
-
-                if (updatedResults.length === 0) {
-                    setContext('No results found.');
-                }
             } else {
                 // Create a new empty array to force update
                 setResults([]);
                 setContext('No results found.');
                 setMetadata(null);
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error(e);
             setResults([]);
-            setError(e.message || 'Unknown error occurred');
-            setContext(`Error searching memories: ${e.message}`);
+            setContext('Error searching memories.');
             setMetadata(null);
         } finally {
             setLoading(false);
         }
-    }, [query, tokenBudget, sovereignBias, activeBuckets, activeTags, autoSplit, includeCode, onAddColumn, onFullUpdate, id]);
+    }, [query, tokenBudget, sovereignBias, activeBuckets, activeTags, autoSplit, onAddColumn, onFullUpdate, id]);
 
     const copyContext = async () => {
         try {
@@ -204,11 +196,38 @@ export const SearchColumn = memo(({
     };
 
     return (
-        <GlassPanel key={`search-column-${id}`} style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-secondary)', minWidth: '300px', overflow: 'hidden' }}>
+        <GlassPanel key={`search-column-${id}`} style={{ flex: isOnly ? '1 1 100%' : '1 1 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-secondary)', minWidth: isOnly ? '100%' : 'min(100%, 400px)', maxWidth: isOnly ? 'none' : '700px', width: isOnly ? '100%' : '100%', overflow: 'hidden' }}>
 
-            {/* Header */}
+            {/* Header: Filters & Buckets */}
             <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Search</span>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', maxWidth: '85%' }}>
+                    {/* Dynamic Buckets (All available buckets) */}
+                    {availableBuckets.filter(b => !/^\d{4}$/.test(b)).map(bucket => {
+                        const isActive = activeBuckets.includes(bucket);
+                        return (
+                            <Button
+                                key={`bucket-${id}-${bucket}`}
+                                variant="primary"
+                                style={{
+                                    fontSize: '0.7rem', padding: '0.2rem 0.5rem',
+                                    background: isActive ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                                    border: isActive ? 'none' : '1px solid var(--border-subtle)',
+                                    opacity: isActive ? 1 : 0.6
+                                }}
+                                onClick={() => {
+                                    setActiveBuckets(prev =>
+                                        prev.includes(bucket)
+                                            ? prev.filter(b => b !== bucket)
+                                            : [...prev, bucket]
+                                    );
+                                }}
+                            >
+                                {(bucket || '').toUpperCase()}
+                            </Button>
+                        );
+                    })}
+                </div>
+
                 {!isOnly && (
                     <Button key={`remove-btn-${id}`} variant="icon" onClick={() => onRemove(id)}>✕</Button>
                 )}
@@ -232,20 +251,20 @@ export const SearchColumn = memo(({
                     label="Sov"
                 />
                 <Input
+                    key={`recall-toggle-${id}`}
+                    variant="checkbox"
+                    checked={useMaxRecall}
+                    onChange={(e) => setUseMaxRecall(e.target.checked)}
+                    label="Max Recall"
+                    title="Bypass standard thresholds to retrieve maximum context"
+                />
+                <Input
                     key={`split-toggle-${id}`}
                     variant="checkbox"
                     checked={autoSplit}
                     onChange={(e) => setAutoSplit(e.target.checked)}
                     label="Split"
                     title="Automatically split complex queries into multiple columns"
-                />
-                <Input
-                    key={`code-toggle-${id}`}
-                    variant="checkbox"
-                    checked={includeCode}
-                    onChange={(e) => setIncludeCode(e.target.checked)}
-                    label="Code"
-                    title="Include code snippets in results (Toggle off to focus on docs/chat)"
                 />
 
                 <div style={{ flex: 1, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -275,91 +294,31 @@ export const SearchColumn = memo(({
                 </div>
             )}
 
-            {/* Semantic Tags (Drawer) */}
-            <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
-                <Button
-                    onClick={() => setShowTags(!showTags)}
-                    style={{
-                        width: '100%',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-subtle)'
-                    }}
-                >
-                    <span>Tags ({activeTags.length} active)</span>
-                    <span>{showTags ? '▲' : '▼'}</span>
-                </Button>
-
-                {showTags && (
-                    <div className="tag-drawer" style={{
-                        marginTop: '0.5rem',
-                        padding: '0.5rem',
-                        background: 'rgba(0,0,0,0.3)',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border-subtle)',
-                        maxHeight: '200px',
-                        overflowY: 'auto',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.3rem'
-                    }}>
-                        {displayTags.length === 0 && <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>No tags available for current buckets</span>}
-
-                        {displayTags.filter(t => !/^\d{4}$/.test(t) && t !== 'semantic_tag_placeholder').map(t => {
-                            const isActive = activeTags.includes(t);
-                            return (
-                                <Button
-                                    key={`tag-${id}-${t}`}
-                                    variant="primary"
-                                    style={{
-                                        fontSize: '0.7rem', padding: '0.1rem 0.4rem',
-                                        borderRadius: '12px',
-                                        background: isActive ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.03)',
-                                        border: isActive ? 'none' : '1px solid var(--border-subtle)',
-                                        color: isActive ? '#fff' : 'var(--text-dim)',
-                                        opacity: isActive ? 1 : 0.7
-                                    }}
-                                    onClick={() => {
-                                        setActiveTags(prev =>
-                                            prev.includes(t)
-                                                ? prev.filter(tag => tag !== t)
-                                                : [...prev, t]
-                                        );
-                                    }}
-                                >
-                                    #{t}
-                                </Button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {/* Buckets */}
-            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                {availableBuckets.filter(b => !/^\d{4}$/.test(b)).map(bucket => {
-                    const isActive = activeBuckets.includes(bucket);
+            {/* Semantic Tags (Toggleable) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', maxHeight: '60px', overflowY: 'auto' }}>
+                {displayTags.filter(t => !/^\d{4}$/.test(t) && t !== 'semantic_tag_placeholder').map(t => {
+                    const isActive = activeTags.includes(t);
                     return (
                         <Button
-                            key={`bucket-${id}-${bucket}`}
+                            key={`tag-${id}-${t}`}
                             variant="primary"
                             style={{
-                                fontSize: '0.7rem', padding: '0.2rem 0.5rem',
-                                background: isActive ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                                fontSize: '0.7rem', padding: '0.1rem 0.4rem',
+                                borderRadius: '12px', // Pill shape for tags
+                                background: isActive ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.03)',
                                 border: isActive ? 'none' : '1px solid var(--border-subtle)',
-                                opacity: isActive ? 1 : 0.6
+                                color: isActive ? '#fff' : 'var(--text-dim)',
+                                opacity: isActive ? 1 : 0.7
                             }}
                             onClick={() => {
-                                setActiveBuckets(prev =>
-                                    prev.includes(bucket)
-                                        ? prev.filter(b => b !== bucket)
-                                        : [...prev, bucket]
+                                setActiveTags(prev =>
+                                    prev.includes(t)
+                                        ? prev.filter(tag => tag !== t)
+                                        : [...prev, t]
                                 );
                             }}
                         >
-                            {(bucket || '').toUpperCase()}
+                            #{t}
                         </Button>
                     );
                 })}
@@ -430,14 +389,7 @@ export const SearchColumn = memo(({
                         );
                     })
                 )}
-                {/* Error State */}
-                {error && (
-                    <div key={`error-${id}`} style={{ padding: '1rem', color: '#ff6b6b', fontSize: '0.8rem', border: '1px solid #ff6b6b', borderRadius: '4px', background: 'rgba(255, 0, 0, 0.1)' }}>
-                        <strong>Error:</strong> {error}
-                    </div>
-                )}
-                {/* No Results (Only if no error) */}
-                {results.length === 0 && !loading && !error && (
+                {results.length === 0 && !loading && (
                     <div key={`no-results-${id}`} style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-dim)', fontSize: '0.8rem' }}>No results</div>
                 )}
                 {loading && (

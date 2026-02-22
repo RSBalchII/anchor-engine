@@ -153,7 +153,8 @@ export async function findAnchors(
       moleculeQuery += ` AND c.provenance != 'quarantine'`;
     }
 
-    moleculeQuery += ` ORDER BY score DESC LIMIT 50`;
+    // Replace hardcoded LIMIT 50 with the intended dynamic token budget scalar
+    moleculeQuery += ` ORDER BY score DESC LIMIT ${targetAtomCount}`;
 
     try {
       let molResult = await db.run(moleculeQuery, moleculeParams);
@@ -161,14 +162,14 @@ export async function findAnchors(
       // Strategy 1.1: If AND fails and query has multiple terms, retry with OR (Fuzzy Fallback)
       if (molResult.rows.length === 0 && tsQueryString.includes('&')) {
         console.log('[Search] Initial AND query yielded 0 results. Retrying with OR-fuzzy logic...');
-        
+
         // To prevent massive Cartesian product explosions in SQL, we limit the OR fallback
         // to the top 8 longest words (which are statistically more likely to be unique/important).
         const allTerms = sanitizedQuery.split(/\s+/).filter(t => t.length > 3);
         const uniqueTerms = Array.from(new Set(allTerms));
         uniqueTerms.sort((a, b) => b.length - a.length);
         const topTerms = uniqueTerms.slice(0, 8);
-        
+
         if (topTerms.length > 0) {
           const orQueryString = topTerms.join(' | ');
           console.log(`[Search] OR-fuzzy fallback using terms: ${orQueryString}`);
@@ -470,17 +471,17 @@ export async function executeSearch(
 
   // 3. physics-tag-Walker (Moons)
   // Use max-recall config if requested
-  const physicsWalker = useMaxRecall 
+  const physicsWalker = useMaxRecall
     ? new PhysicsTagWalker({
-        damping: MAX_RECALL_CONFIG.walker.damping,
-        temporalDecay: MAX_RECALL_CONFIG.walker.temporal_decay,
-        maxPerHop: MAX_RECALL_CONFIG.walker.max_per_hop,
-        walkRadius: MAX_RECALL_CONFIG.walker.walk_radius,
-        gravityThreshold: MAX_RECALL_CONFIG.walker.gravity_threshold,
-        temperature: MAX_RECALL_CONFIG.walker.temperature
-      })
+      damping: MAX_RECALL_CONFIG.walker.damping,
+      temporalDecay: MAX_RECALL_CONFIG.walker.temporal_decay,
+      maxPerHop: MAX_RECALL_CONFIG.walker.max_per_hop,
+      walkRadius: MAX_RECALL_CONFIG.walker.walk_radius,
+      gravityThreshold: MAX_RECALL_CONFIG.walker.gravity_threshold,
+      temperature: MAX_RECALL_CONFIG.walker.temperature
+    })
     : new PhysicsTagWalker();
-    
+
   const walkerResults = await physicsWalker.applyPhysicsWeighting(uniqueAnchors, 0.005, {
     temperature: useMaxRecall ? MAX_RECALL_CONFIG.walker.temperature : 0.2,
     max_per_hop: useMaxRecall ? MAX_RECALL_CONFIG.walker.max_per_hop : 50,
@@ -746,7 +747,7 @@ export async function smartChatSearch(
   provenance: 'internal' | 'external' | 'quarantine' | 'all' = 'all',
   useMaxRecall: boolean = false
 ): Promise<{ context: string; results: SearchResult[]; strategy: string; splitQueries?: string[]; metadata?: any; toAgentString: () => string }> {
-  
+
   const isLongQuery = query.length > 100;
   let initial = { results: [] as SearchResult[], context: '', toAgentString: () => '' };
 
@@ -839,17 +840,17 @@ export async function smartChatSearch(
     // Calculate per-atom budget to fill ~90% of total budget
     const budgetPerAtom = Math.floor(maxChars * 0.9 / mergedResults.length);
     console.log(`[SmartSearch] Inflating ${mergedResults.length} atoms with ${budgetPerAtom} chars each (total budget: ${maxChars})...`);
-    
+
     const inflatedResults = await ContextInflator.inflate(
       mergedResults,
       maxChars,
       budgetPerAtom  // Dynamic radius based on available budget
     );
-    
+
     // Replace merged results with inflated versions
     mergedResults.length = 0;
     mergedResults.push(...inflatedResults);
-    
+
     const avgChars = Math.round(inflatedResults.reduce((sum, a) => sum + a.content.length, 0) / inflatedResults.length);
     console.log(`[SmartSearch] Inflation complete: ${inflatedResults.length} atoms with avg ${avgChars} chars each`);
   }
